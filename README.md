@@ -24,4 +24,4 @@ pyClamd ： clamAVのclamdを使うため
 
 scikit-learn ： 機械学習ライブラリ
 
-numpy(mklつき?) : 機械学習ライブラリ
+numpy(mklつき?) : 機械学習ライブラリで使う
