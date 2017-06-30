@@ -31,6 +31,9 @@ www.ritsumeihuman.com
 www.ritsumeirugby.com
 www.ritsumei-fubo.com
 www.ritsumei-rdiri.org
+
+上は学部時には回っていたドメイン。
+これより下が、今クローリングしているドメイン。
 #
 www.apu.ac.jp
 koudai.ac.jp

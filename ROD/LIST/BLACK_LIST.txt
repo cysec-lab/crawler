@@ -12,6 +12,7 @@
 //www2.fkc.ritsumei.ac.jp/lib/modules/piCal/
 //mmrweb.ritsumei.ac.jp/clv/
 //www.ritsco-op.jp/re/hitokoto/
+//www.ritsco-op.jp/hitokoto/
 //www.hpc.se.ritsumei.ac.jp/wiki/index.php?plugin=calendar2
 //www.ps.ritsumei.ac.jp/earthquake/doku.php?
 .apu.ac.jp/gradinfo/modules/event/
