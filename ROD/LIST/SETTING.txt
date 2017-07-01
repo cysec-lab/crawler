@@ -9,12 +9,12 @@ MAX_page=100000
 # 最大実行時間。この時間内に終わらなければセーブして終了する。
 # 単位は秒。0は無制限(回りきるまで)。
 # 数値か*(掛け算)のみ
-MAX_time=3600*2
+MAX_time=3600*1
 
 # SAVE_time
 # セーブのための区切り時間。この時間経つと途中経過を保存し、再スタートする。MAX_time以内ならば何度でもセーブする。
 # MAX_time=24時間、SAVE_time=5時間なら、5時間ごとの途中経過を保存。24時間で終わらなければ最後は4時間分を保存。
-# 単位は秒。0は無制限。
+# 単位は秒。0は途中セーブなし。
 # 数値か掛け算のみ
 SAVE_time=3600*0
 
@@ -25,7 +25,7 @@ SAVE_time=3600*0
 run_count=0
 
 # MAX_process
-# 各サーバを担当する子プロセスの最大作成数。多すぎると重くなり、結果が安定しない(てかフリーズする)。
+# 各サーバを担当する子プロセスの最大作成数。多すぎると重くなって結果が安定しない(てかフリーズする)。
 # 0は論理プロセッサ数を使用。
 # 数値のみ
 MAX_process=0
@@ -43,12 +43,17 @@ clamd_scan=True
 # machine_learning
 # 機械学習による分類を使うか。
 # TrueかFalseのみ
-machine_learning=False
+machine_learning=True
 
 # phantomjs
 # ヘッドレスブラウザであるPhantomJSを使うかどうか。
 # TrueかFalseのみ
 phantomjs=True
+
+# mecab
+# MeCabで形態素解析をして重要度の高い単語を抽出や文字列検索をするかどうか
+# TrueかFalseのみ
+mecab=True
 
 # assignOrAchievement
 # MAX_pageで指定した数を達成したか、割り当てたかのどちらの判断基準を使うかどうか。
