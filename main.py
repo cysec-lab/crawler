@@ -234,7 +234,7 @@ def init(first_time, clamd_scan, machine_learning_):    # 実行ディレクト�
         sendq = Queue()
         machine_learning_q['recv'] = recvq
         machine_learning_q['send'] = sendq
-        p = Process(target=machine_learning_main, args=(recvq, sendq))
+        p = Process(target=machine_learning_main, args=(recvq, sendq, '../../ROD/tag_data'))
         p.daemon = True
         p.start()
         print('main : wait for machine learning...')

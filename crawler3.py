@@ -327,7 +327,7 @@ def parser(parse_args_dic):
         send_list = get_meta_refresh_url(meta_refresh_result, page)   # refreshタグからURLを抽出
         # 親にURLを送信する。リダイレクトと同じ扱いをするため、複数あっても(そんなページ怪しすぎるが)１つずつ送る
         while send_list:
-            send_to_parent(q_send, {'type': 'redirect', 'url_tuple_list': send_list.pop()})
+            send_to_parent(q_send, {'type': 'redirect', 'url_tuple_list': [send_list.pop()]})
 
     """
     # scriptに関して

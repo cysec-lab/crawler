@@ -5,10 +5,11 @@ from file_rw import wa_file
 from decision_tree_tag import main, prediction, preparation
 from random import randint
 from copy import deepcopy
+import os
+from pandas import DataFrame
 
 end = False          # メインプロセスから'end'が送られてくると終了
 data_list = deque()   # 子プロセスから送られてきたデータのリスト[{url, url_src, タグリスト, host名},{辞書}, {辞書}...]
-write_file = list()
 kaizan_list = list()
 
 
@@ -26,7 +27,7 @@ def receive(recvq):
 
 def check_tags(host, url, src,  tags, server_without_iframe_set, cannot_make_vec_server_set, tree_dict, sample):
     # iframeタグがない場合
-    if ('iframe' not in tags) or ('invisible_iframe' not in tags):
+    if ('iframe' not in tags) and ('invisible_iframe' not in tags):
         return False
     # 前回クローリング時にiframeが確認されていないserverの場合
     if host in server_without_iframe_set:
@@ -66,8 +67,8 @@ def check_tags(host, url, src,  tags, server_without_iframe_set, cannot_make_vec
     return classifier
 
 
-def machine_learning_main(recvq, sendq):
-    path = '../../ROD/tag_data'
+def machine_learning_main(recvq, sendq, path):
+    result_data_frames = DataFrame()
     sample = 10          # 前後いくつをベクトルにするか
     sample2 = 0
     classify_count = 0   # いくつのページを分類器にかけたか
@@ -80,7 +81,6 @@ def machine_learning_main(recvq, sendq):
     print('machine learning : start learning...')
     tree_dict, tag_label_dict, server_without_iframe_set, cannot_make_vec_server_set = main.main(path, sample, sample2)
     sendq.put('main : learning ended.')
-
     while True:
         if len(data_list) == 0:
             if end:
@@ -123,38 +123,33 @@ def machine_learning_main(recvq, sendq):
 
         # 予測
         classify_count += 1   # 検査したURL数
-        result_dict = prediction.prediction_main(classifier, test_data, test_label)
+        result_df = prediction.prediction_main(classifier, test_data, test_label, url, src)
 
         # 変な位置にiframeタグがあれば出力
-        if result_dict:
-            write_file.append(url + ',' + src + ',' + str(result_dict['0->1']) + ',' +
-                              str(result_dict['1->0']) + ',' + str(result_dict['2->0']) +
-                              str(result_dict['0->1']) + ',' + str(result_dict['2->1']) +
-                              str(result_dict['0->2']) + ',' + str(result_dict['1->2']) + '\n')
+        if result_df is not False:
+            result_data_frames = result_data_frames.append(result_df)    # 多くなる可能性あるので最後にまとめてファイル出力
             # iframeをそれ以外だと判断したものがあれば特にあやしい
-            if result_dict['1->0'] or result_dict['2->0']:
+            if result_df['1->0'][0] or result_df['2->0'][0]:
                 if '!kaizan!' in url:
-                    wa_file('../alert/kaizan_test.csv', url + ',' + src + ',' +
-                            str(result_dict['1->0']) + ',' + str(result_dict['2->0']) +
-                            str(result_dict['0->1']) + ',' + str(result_dict['2->1']) +
-                            str(result_dict['0->2']) + ',' + str(result_dict['1->2']) + '\n')
+                    file_name = '../alert/kaizan_test.csv'
+                    if os.path.exists(file_name):
+                        result_df.to_csv(file_name, mode='a', header=False, index=False)
+                    else:
+                        result_df.to_csv(file_name, mode='a', header=True, index=False)
                 else:
-                    wa_file('../alert/doubtful_iframe_ByMachineLearning.csv', url + ',' + src + ',' +
-                            str(result_dict['1->0']) + ',' + str(result_dict['2->0']) +
-                            str(result_dict['0->1']) + ',' + str(result_dict['2->1']) +
-                            str(result_dict['0->2']) + ',' + str(result_dict['1->2']) + '\n')
-        if len(write_file) > 100:
-            text = ''
-            for i in write_file:
-                text += i
-            wa_file('../alert/iframe_inspection_ByMachineLearning.csv', text)
-            write_file.clear()
+                    file_name = '../alert/doubtful_iframe_ByMachineLearning.csv'
+                    if os.path.exists(file_name):
+                        result_df.to_csv(file_name, mode='a', header=False, index=False)
+                    else:
+                        result_df.to_csv(file_name, mode='a', header=True, index=False)
 
-    # ファイル書き出しの残りを書き込む
-    text = ''
-    for i in write_file:
-        text += i
-    wa_file('../alert/iframe_inspection_ByMachineLearning.csv', text)
+    # ファイル書き込み
+    if not result_data_frames.empty:
+        file_name = '../alert/iframe_inspection_ByMachineLearning.csv'
+        if os.path.exists(file_name):
+            result_data_frames.to_csv(file_name, mode='a', header=False, index=False)
+        else:
+            result_data_frames.to_csv(file_name, mode='a', header=True, index=False)
     wa_file('num_of_checked_url_ByMachineLearning.txt', str(classify_count) + '\n')
     text = ''
     for i in kaizan_list:

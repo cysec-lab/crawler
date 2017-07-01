@@ -1,15 +1,9 @@
-﻿import os
+import os
 import json
 from math import log
 import pickle
 
-"""
-クローリング後にサーバごとの
-tf-idf値
-ページのロードに行ったリクエストのURL集合
-iframeのsrc先URLの集合
-を保存する
-"""
+
 def make_and_save_host_idf_dict():
     try:
         os.mkdir('ROD/idf_dict')
@@ -59,14 +53,14 @@ def make_request_url_iframeSrc_set():
         with open('RAD/temp/' + file, 'rb') as f:
             pick = pickle.load(f)
 
-        if pick[2]:
+        if 'request' in pick and pick['request']:
             file = file[file.find('_')+1:file.find('.')] + '.json'
             f = open('ROD/request_url/' + file, 'w')
-            json.dump(list(pick[2]), f)
+            json.dump(list(pick['request']), f)
             f.close()
-        if pick[3]:
+        if 'iframe' in pick and pick['iframe']:
             f = open('ROD/iframe_src/' + file, 'w')
-            json.dump(list(pick[3]), f)
+            json.dump(list(pick['iframe']), f)
             f.close()
 
 if __name__ == '__main__':
