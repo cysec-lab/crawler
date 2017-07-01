@@ -64,5 +64,5 @@ def make_request_url_iframeSrc_set():
             f.close()
 
 if __name__ == '__main__':
-    make_and_save_host_idf_dict()
-    make_request_url_iframeSrc_set()
+    make_and_save_host_idf_dict()     # 次回クローリングのためのidf値を計算する
+    make_request_url_iframeSrc_set()  # 次回クローリングのための...

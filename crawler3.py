@@ -246,6 +246,7 @@ def parser(parse_args_dic):
     q_send = parse_args_dic['q_send']
     file_type = parse_args_dic['file_type']
     machine_learning_q = parse_args_dic['machine_learning_q']
+    use_mecab = parse_args_dic['use_mecab']
 
     # スクレイピングするためのsoup
     try:
@@ -272,34 +273,35 @@ def parser(parse_args_dic):
     elif num_of_days is False:
         update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ',' + page.src])
 
-    # このページの各単語のtf値を計算、df辞書を更新
-    hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と辞書を獲得
-    if hack_level:    # hackの文字が入っていると0以外が返ってくる
-        if hack_level == 1:
-            update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
-        else:
-            update_write_file_dict('alert', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
-    if word_tf_dict is not False:
-        with word_df_lock:
-            word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
-        if word_idf_dict:
-            tfidf_dict = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
-            top10 = get_top10_tfidf(tfidf_dict=tfidf_dict)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
-            # ハッシュ値が異なるため、重要単語を比較
-            #if num_of_days is not True:
-            if True:  # 実験のため毎回比較
-                pre_top10 = urlDict.get_top10_from_url_dict(url=page.url)    # 前回のtop10を取得
-                if pre_top10 is not None:
-                    symmetric_difference = set(top10) ^ set(pre_top10)         # 排他的論理和
-                    if len(symmetric_difference) > 16:
-                        update_write_file_dict('alert', 'change_important_word.csv',
-                                               content=['URL,top10,pre', page.url + ',' + str(top10) + ','
-                                                        + str(pre_top10)])
-                    update_write_file_dict('result', 'symmetric_diff_of_word.csv',
-                                           content=['URL,length,top10,pre top10', page.url + ',' +
-                                                    str(len(symmetric_difference)) + ',' + str(top10) + ',' +
-                                                    str(pre_top10) + ',' + str(num_of_days)])
-            urlDict.add_top10_to_url_dict(url=page.url, top10=top10)          # top10を更新
+    if use_mecab:
+        # このページの各単語のtf値を計算、df辞書を更新
+        hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と辞書を獲得
+        if hack_level:    # hackの文字が入っていると0以外が返ってくる
+            if hack_level == 1:
+                update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
+            else:
+                update_write_file_dict('alert', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
+        if word_tf_dict is not False:
+            with word_df_lock:
+                word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
+            if word_idf_dict:
+                tfidf_dict = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
+                top10 = get_top10_tfidf(tfidf_dict=tfidf_dict)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
+                # ハッシュ値が異なるため、重要単語を比較
+                #if num_of_days is not True:
+                if True:  # 実験のため毎回比較
+                    pre_top10 = urlDict.get_top10_from_url_dict(url=page.url)    # 前回のtop10を取得
+                    if pre_top10 is not None:
+                        symmetric_difference = set(top10) ^ set(pre_top10)         # 排他的論理和
+                        if len(symmetric_difference) > 16:
+                            update_write_file_dict('alert', 'change_important_word.csv',
+                                                   content=['URL,top10,pre', page.url + ',' + str(top10) + ','
+                                                            + str(pre_top10)])
+                        update_write_file_dict('result', 'symmetric_diff_of_word.csv',
+                                               content=['URL,length,top10,pre top10', page.url + ',' +
+                                                        str(len(symmetric_difference)) + ',' + str(top10) + ',' +
+                                                        str(pre_top10) + ',' + str(num_of_days)])
+                urlDict.add_top10_to_url_dict(url=page.url, top10=top10)          # top10を更新
 
     # iframeの検査
     iframe_result = iframe_inspection(soup)     # iframeがなければFalse
@@ -430,6 +432,7 @@ def crawler_main(args_dic):
     screenshots = args_dic['screenshots']
     machine_learning_q = args_dic['machine_learning_q']
     phantomjs = args_dic['phantomjs']
+    use_mecab = args_dic['mecab']
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
@@ -573,7 +576,7 @@ def crawler_main(args_dic):
 
             # スレッドを作成してパース開始(phantomJSで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-                                      'machine_learning_q': machine_learning_q}
+                                      'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             threadId_set.add(t.ident)  # スレッド集合に追加

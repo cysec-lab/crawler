@@ -41,10 +41,10 @@ class Page:
             return ['Error_urlopen', self.url + '\n' + str(e)]
         else:
             try:
+                self.encoding = content.info().get_content_charset(failobj='utf-8')
                 self.html_urlopen = content.read()
                 self.url_urlopen = content.geturl()
                 self.content_type = content.getheader('Content-Type')
-                self.encoding = content.info().get_content_charset(failobj='utf-8')
                 self.content_length = content.getheader('Content-Length')
             except Exception as e:
                 return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + str(e)]
