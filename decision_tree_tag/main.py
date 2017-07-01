@@ -49,10 +49,10 @@ def main(path, sample, sample2):
         # target_serverのデータ作成
         training_data, label_identifier, kaizan_length = preparation.preparation_main(target_server, path, tag_label,
                                                                                       sample, sample2)
-        if training_data is None:
+        if training_data is None:   # ページのタグがsample*2個なかったサーバ
             cannot_make_vec_server_set.add(target_server[0:target_server.find('.')])
             continue
-        elif training_data is False:
+        elif training_data is False:   # iframeタグが使われていなかったサーバ
             server_without_iframe_set.add(target_server[0:target_server.find('.')])
             continue
 
