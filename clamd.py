@@ -39,7 +39,9 @@ def clamd_main(recvq, sendq):
             pin = False
             print(e)
             break
-    sendq.put(pin)
+    sendq.put(pin)   # 親プロセスにclamdに接続できたかどうかの結果を送る
+    if pin is False:
+        return 0    # 接続できなければ終わる
 
     # EICARテスト
     eicar = cd.EICAR()
