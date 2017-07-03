@@ -31,7 +31,7 @@
 * lxml  
  BeatuifulSoupで使う。  
  lxmlを入れていない場合は、html.parserが使われるので入れなくてもいい。(処理がhtml.parserより速いらしい)  
-* scikit-learn  
+* scikit-learn  
  機械学習ライブラリ  
 * numpy(mklつき？)  
  機械学習ライブラリで使う
