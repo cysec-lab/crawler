@@ -32,9 +32,11 @@
  BeatuifulSoupで使う。  
  lxmlを入れていない場合は、html.parserが使われるので入れなくてもいい。(処理がhtml.parserより速いらしい)  
 * scikit-learn  
- 機械学習ライブラリ  
+ 機械学習ライブラリ。  
 * numpy(mklつき？)  
- 機械学習ライブラリで使う
+ 機械学習ライブラリで使う。  
+* pandas  
+ csvの操作。今は機械学習の結果を格納するところだけで使っている。
 
 ### main.py
 crawler/main.pyを実行。  
