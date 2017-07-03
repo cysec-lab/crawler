@@ -75,16 +75,20 @@ def make_data(tags, tag_label, url, sample, sample2, crawling=False):
         elif 'www.ritsumei.ac.jp' in url:  # このサーバは量が多すぎるので削る
             if (-1 in vec) or (-2 in vec) or (tag_label_list[i] < 0):  # iframeのタグは負数が割り当てられている
                 vec_list.append(vec)
-                if tag_label_list[i] == iframe:
+                if tag_label_list[i] == -1:  # iframe
                     label_list.append([1, url])
+                elif tag_label_list[i] == -2:  # invisible_iframe
+                    label_list.append([2, url])
                 else:
                     label_list.append([0, url])
             else:
                 rand = randint(0, 2)
                 if rand == 1:
                     vec_list.append(vec)
-                    if tag_label_list[i] == iframe:
+                    if tag_label_list[i] == -1:  # iframe
                         label_list.append([1, url])
+                    elif tag_label_list[i] == -2:  # invisible_iframe
+                        label_list.append([2, url])
                     else:
                         label_list.append([0, url])
         else:
