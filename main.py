@@ -242,7 +242,8 @@ def init(first_time, clamd_scan, machine_learning_):    # 実行ディレクト�
     return True
 
 
-# クローリング子プロセスの中で生きている数を返す
+# 各子プロセスの達成数を足し合わせて返す
+# 達成数 = ページ数(リンク集が返ってきた数) + ファイル数(ファイルの達成通知の数)
 def get_achievement_amount():
     achievement = 0
     for achievement_num in hostName_achievement.values():
@@ -446,6 +447,7 @@ def choice_process(url_tuple, max_process, setting_dict):
     return host_name
 
 
+# クローリング子プロセスの中で生きている数を返す
 def get_alive_child_num():
     count = 0
     for temp in hostName_process.values():
@@ -763,7 +765,6 @@ def main():
         run_time = int(time()) - current_start_time
         print('run time = ' + str(run_time))
         print('remaining = ' + str(remaining))
-
         wa_file('result.txt', 'assignment_url = ' + str(len(assignment_url)) + '\n' +
                 'current achievement = ' + str(current_achievement) + '\n' +
                 'all achievement = ' + str(all_achievement) + '\n' +
@@ -772,7 +773,7 @@ def main():
                 'remaining = ' + str(remaining) + '\n' +
                 'date = ' + str(date.today()) + '\n')
 
-        print('main : save...')
+        print('main : save...')   # 途中結果を保存する
         os.mkdir('TEMP')
         copytree('../../RAD/df_dict', 'TEMP/df_dict')
         copytree('../../RAD/tag_data', 'TEMP/tag_data')
@@ -784,12 +785,12 @@ def main():
 
         if machine_learning_:
             print('wait for machine learning process')
-            machine_learning_q['recv'].put('end')
-            machine_learning_q['send'].get(block=True)
+            machine_learning_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
+            machine_learning_q['send'].get(block=True)  # 機械学習プロセスが終わるのを待つ
         if clamd_scan:
             print('wait for clamd process')
-            clamd_q['recv'].put('end')
-            clamd_q['send'].get(block=True)
+            clamd_q['recv'].put('end')        # clamdプロセスに終わりを知らせる
+            clamd_q['send'].get(block=True)   # clamdプロセスが終わるのを待つ
 
         # メインループをもう一度回すかどうか
         if save:
