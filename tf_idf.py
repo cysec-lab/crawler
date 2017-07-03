@@ -3,6 +3,14 @@ import json
 from math import log
 import pickle
 
+"""
+クローリング後にサーバごとの
+tf-idf値
+ページのロードに行ったリクエストのURL集合
+iframeのsrc先URLの集合
+をまとめて保存する
+"""
+
 
 def make_and_save_host_idf_dict():
     try:

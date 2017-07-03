@@ -621,6 +621,9 @@ def main():
             print('RAD directory exists.')
             print('If this running is at first time, please delete this dire.')
             print('Else, you should compile the run_count in SETTING.txt.')
+            print('When crawling is finished, you should overwrite the ROD/...')
+            print('tag_data/, url_hash_json/, url_hash_json2/')
+            print("... by this directory's ones for next crawling by yourself.")
             return False
         os.mkdir('RAD')
         make_dir(screenshots)
