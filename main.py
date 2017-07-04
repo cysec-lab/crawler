@@ -638,12 +638,16 @@ def main():
         copytree('ROD/url_hash_json', 'RAD/url_hash_json')
         copytree('ROD/url_hash_json2', 'RAD/url_hash_json2')
         copytree('ROD/tag_data', 'RAD/tag_data')
-        with open('RAD/README.txt', 'w') as f:
+        with open('RAD/READ.txt', 'w') as f:
             f.writelines("This directory's files are read and written.\n")
-            f.writelines("On the other hand, ROD directory's files are not written, Read only.\n")
+            f.writelines("On the other hand, ROD directory's files are not written, Read only.\n\n")
+            f.writelines('------------------------------------\n')
             f.writelines('When crawling is finished, you should overwrite the ROD/...\n')
             f.writelines('tag_data/, url_hash_json/, url_hash_json2/\n')
             f.writelines("... by this directory's ones for next crawling by yourself.\n")
+            f.writelines('Then, you move df_dict in this directory to ROD/df_dicts/ to calculate idf_dict.\n')
+            f.writelines('After you done these, you may delete this(RAD) directory.\n')
+            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.")
 
     # 必要なリストを読み込む
     import_file(path='ROD/LIST')
