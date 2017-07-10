@@ -285,8 +285,8 @@ def parser(parse_args_dic):
             with word_df_lock:
                 word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
             if word_idf_dict:
-                tfidf_dict = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
-                top10 = get_top10_tfidf(tfidf_dict=tfidf_dict)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
+                word_tfidf = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
+                top10 = get_top10_tfidf(word_tfidf=word_tfidf)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
                 # ハッシュ値が異なるため、重要単語を比較
                 #if num_of_days is not True:
                 if True:  # 実験のため毎回比較
@@ -349,7 +349,8 @@ def parser(parse_args_dic):
     if page.request_url:
         diff = urlDict.compare_request_url(page)
         if diff:
-            update_write_file_dict('alert', 'in_same_server.csv', content=['URL,diff', page.url + ',' + str(diff)])
+            pass
+            # update_write_file_dict('alert', 'in_same_server.csv', content=['URL,diff', page.url + ',' + str(diff)])
     # requestURL と requestURLで同じサーバのURL を url_dictに追加
     if page.request_url:
         urlDict.add_request_url_to_url_dict(page)
@@ -549,7 +550,7 @@ def crawler_main(args_dic):
                     if request_url_host_set_pre:
                         diff = set(page.request_url_host).difference(request_url_host_set_pre)
                         if diff:
-                            update_write_file_dict('alert', 'new_method_url.txt', content=page.url + ',' + str(diff))
+                            update_write_file_dict('alert', 'new_request_url.txt', content=page.url + ',' + str(diff))
                 if test:
                     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
 

@@ -101,8 +101,8 @@ def get_tf_dict_by_mecab(soup):
         return hack_level, False
 
 
-def get_top10_tfidf(tfidf_dict):
-    tfidf_list = sorted(tfidf_dict.items(), key=lambda x: x[0], reverse=False)   # 文字でソートする
+def get_top10_tfidf(word_tfidf):
+    tfidf_list = sorted(word_tfidf.items(), key=lambda x: x[0], reverse=False)   # 文字でソートする
     tfidf_list = sorted(tfidf_list, key=lambda x: x[1], reverse=True)            # tfidf値でソートし直す
     # 以上の処理で、tfidf値が高いもの順で、値が同じの場合は文字でソートされたリストが出来る
     top10 = list()

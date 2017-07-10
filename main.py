@@ -644,10 +644,10 @@ def main():
             f.writelines('------------------------------------\n')
             f.writelines('When crawling is finished, you should overwrite the ROD/...\n')
             f.writelines('tag_data/, url_hash_json/, url_hash_json2/\n')
-            f.writelines("... by this directory's ones for next crawling by yourself.\n")
+            f.writelines("... by this directory's ones for next crawling, by yourself.\n")
             f.writelines('Then, you move df_dict in this directory to ROD/df_dicts/ to calculate idf_dict.\n')
-            f.writelines('After you done these, you may delete this(RAD) directory.\n')
-            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.")
+            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.\n")
+            f.writelines('After you done these, you may delete this(RAD) directory.')
 
     # 必要なリストを読み込む
     import_file(path='ROD/LIST')
