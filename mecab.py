@@ -1,7 +1,7 @@
 import MeCab
 import json
 import os
-from bs4 import NavigableString, Comment, Declaration
+from bs4 import NavigableString, Comment, Declaration, Doctype
 import unicodedata
 import time
 
@@ -17,7 +17,7 @@ def nonEmptyLines(text_target):
 
 def getNavigableStrings(soup):
     if isinstance(soup, NavigableString):
-        if type(soup) not in (Comment, Declaration) and soup.strip():
+        if type(soup) not in (Comment, Declaration, Doctype) and soup.strip():
             yield soup
     elif soup.name not in ('script', 'style'):
         for c in soup.contents:
@@ -84,12 +84,17 @@ def get_tf_dict_by_mecab(soup):
         kind = node.feature.split(',')[0]
         if kind == '名詞':
             word = node.surface
-            if not word.isdigit():    # 数値は無視
-                if word in tf_dict:
-                    tf_dict[word] += 1
-                else:
-                    tf_dict[word] = 1
-                word_counter += 1
+            if word.isdigit():    # 数値は無視
+                node = node.next
+                continue
+            if (len(word) == 0) and word.isalpha():   # 英字一文字は無視
+                node = node.next
+                continue
+            if word in tf_dict:
+                tf_dict[word] += 1
+            else:
+                tf_dict[word] = 1
+            word_counter += 1
         node = node.next
     if word_counter:
         # tf値計算
@@ -101,8 +106,8 @@ def get_tf_dict_by_mecab(soup):
         return hack_level, False
 
 
-def get_top10_tfidf(word_tfidf):
-    tfidf_list = sorted(word_tfidf.items(), key=lambda x: x[0], reverse=False)   # 文字でソートする
+def get_top10_tfidf(tfidf_dict):
+    tfidf_list = sorted(tfidf_dict.items(), key=lambda x: x[0], reverse=False)   # 文字でソートする
     tfidf_list = sorted(tfidf_list, key=lambda x: x[1], reverse=True)            # tfidf値でソートし直す
     # 以上の処理で、tfidf値が高いもの順で、値が同じの場合は文字でソートされたリストが出来る
     top10 = list()

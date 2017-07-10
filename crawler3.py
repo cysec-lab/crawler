@@ -286,7 +286,7 @@ def parser(parse_args_dic):
                 word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
             if word_idf_dict:
                 word_tfidf = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
-                top10 = get_top10_tfidf(word_tfidf=word_tfidf)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
+                top10 = get_top10_tfidf(tfidf_dict=word_tfidf)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
                 # ハッシュ値が異なるため、重要単語を比較
                 #if num_of_days is not True:
                 if True:  # 実験のため毎回比較

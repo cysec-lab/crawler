@@ -345,7 +345,7 @@ def end():
         if not (q_e['parent_send'].empty()):
             return False
     if get_alive_child_num():
-        print('main : exist child process.')
+        # print('main : exist child process.')
         return False
     else:
         return True
@@ -644,10 +644,10 @@ def main():
             f.writelines('------------------------------------\n')
             f.writelines('When crawling is finished, you should overwrite the ROD/...\n')
             f.writelines('tag_data/, url_hash_json/, url_hash_json2/\n')
-            f.writelines("... by this directory's ones for next crawling, by yourself.\n")
+            f.writelines("... by this directory's ones for next crawling by yourself.\n")
             f.writelines('Then, you move df_dict in this directory to ROD/df_dicts/ to calculate idf_dict.\n')
-            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.\n")
-            f.writelines('After you done these, you may delete this(RAD) directory.')
+            f.writelines('After you done these, you may delete this(RAD) directory.\n')
+            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.")
 
     # 必要なリストを読み込む
     import_file(path='ROD/LIST')
@@ -753,6 +753,7 @@ def main():
             if url_tuple[0] in assignment_url:    # 滅多にないが同じものが送られていることがある気がする
                 wa_file('assign.txt', url_tuple[0] + '\n')
                 continue
+            url_tuple = ('http://www.spice.ci.ritsumei.ac.jp/top/index-j.html', 'start')
 
             # URLのホスト名から、それを担当しているプロセスがなければ(死んでいれば)生成。
             host_name = choice_process(url_tuple, max_process, setting_dict)
