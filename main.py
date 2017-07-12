@@ -753,7 +753,6 @@ def main():
             if url_tuple[0] in assignment_url:    # 滅多にないが同じものが送られていることがある気がする
                 wa_file('assign.txt', url_tuple[0] + '\n')
                 continue
-            url_tuple = ('http://www.spice.ci.ritsumei.ac.jp/top/index-j.html', 'start')
 
             # URLのホスト名から、それを担当しているプロセスがなければ(死んでいれば)生成。
             host_name = choice_process(url_tuple, max_process, setting_dict)

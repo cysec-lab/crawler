@@ -17,7 +17,7 @@ def nonEmptyLines(text_target):
 
 def getNavigableStrings(soup):
     if isinstance(soup, NavigableString):
-        if type(soup) not in (Comment, Declaration, Doctype) and soup.strip():
+        if type(soup) not in (Comment, Declaration, Doctype) and soup.strip():   # ここにDoctypeを追加
             yield soup
     elif soup.name not in ('script', 'style'):
         for c in soup.contents:
@@ -84,10 +84,14 @@ def get_tf_dict_by_mecab(soup):
         kind = node.feature.split(',')[0]
         if kind == '名詞':
             word = node.surface
-            if word.isdigit():    # 数値は無視
+            if word.isdigit():    # 数字は無視
                 node = node.next
                 continue
-            if (len(word) == 0) and word.isalpha():   # 英字一文字は無視
+            if len(word) == 1:   # str.isalpha()という英字を判別する関数があるが、なぜか漢字もTrueを返していた
+                if ('a' < word < 'z') or ('A' < word < 'Z'):   # 英字一文字は無視
+                    node = node.next
+                    continue
+            if 'http://' in word:  # http:// が頻発していたので消す
                 node = node.next
                 continue
             if word in tf_dict:

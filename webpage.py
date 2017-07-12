@@ -2,6 +2,7 @@ from urllib.parse import urlparse, quote
 from urllib.request import urlopen
 from time import sleep
 from copy import deepcopy
+from content_get import UrlOpenReadThread
 
 
 # 一つのURLが持つ情報をまとめたもの
@@ -29,7 +30,7 @@ class Page:
 
     def set_html_and_content_type_urlopen(self, url):
         try:
-            content = urlopen(url=url, timeout=60)
+            content = urlopen(url=url, timeout=10)   # レスポンスのtimeoutは10秒
             sleep(1)
         except UnicodeEncodeError as e:   # URLに日本語が混ざっている場合にたまになる
             if self.loop_escape:
@@ -40,21 +41,27 @@ class Page:
         except Exception as e:
             return ['Error_urlopen', self.url + '\n' + str(e)]
         else:
-            try:
-                self.encoding = content.info().get_content_charset(failobj='utf-8')
-                self.html_urlopen = content.read()
-                self.url_urlopen = content.geturl()
-                self.content_type = content.getheader('Content-Type')
-                self.content_length = content.getheader('Content-Length')
-            except Exception as e:
-                return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + str(e)]
-            else:
-                self.html = self.html_urlopen
-                self.url = self.url_urlopen
-                if self.content_type is None:
-                    self.content_type = ''
-                self.hostName = urlparse(self.url).netloc
-                self.scheme = urlparse(self.url).scheme
+            t = UrlOpenReadThread(content)
+            t.daemon = True
+            t.start()
+            t.join(timeout=60)  # 60秒のread待機時間
+            if t.re is False:
+                return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + 'time out']
+            elif t.re is not True:
+                return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + str(t.re)]
+
+            self.encoding = t.content['encoding']
+            self.html_urlopen = t.content['html_urlopen']
+            self.url_urlopen = t.content['url_urlopen']
+            self.content_type = t.content['content_type']
+            self.content_length = t.content['content_length']
+
+            self.html = self.html_urlopen
+            self.url = self.url_urlopen
+            if self.content_type is None:
+                self.content_type = ''
+            self.hostName = urlparse(self.url).netloc
+            self.scheme = urlparse(self.url).scheme
         return True
 
     def make_links_html(self, soup):

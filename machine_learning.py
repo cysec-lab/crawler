@@ -145,7 +145,7 @@ def machine_learning_main(recvq, sendq, path):
 
     # ファイル書き込み
     if not result_data_frames.empty:
-        file_name = '../alert/iframe_inspection_ByMachineLearning.csv'
+        file_name = 'iframe_inspection_ByMachineLearning.csv'
         if os.path.exists(file_name):
             result_data_frames.to_csv(file_name, mode='a', header=False, index=False)
         else:

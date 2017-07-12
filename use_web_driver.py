@@ -7,7 +7,7 @@ from selenium.webdriver.support import expected_conditions
 from os import path
 from urllib.parse import urlparse
 from copy import deepcopy
-import phantom_get
+from content_get import PhantomGetThread
 
 
 # phantomJSを使うためのdriverを返す
@@ -29,12 +29,13 @@ def driver_get():
             return False
     # たぶん意味ない
     driver.set_page_load_timeout = 60  # ページを構成するファイルのロードのタイムアウト?
-    driver.timeout = 30   # リクエストのタイムアウト?
+    driver.timeout = 10   # リクエストのタイムアウト?
     return driver
 
 
 def set_html(page, driver):
-    t = phantom_get.PhantomGetThread(driver, page.url)
+    t = PhantomGetThread(driver, page.url)
+    t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
     t.start()
     t.join(timeout=60)   # 60秒のロード待機時間
     re = True
