@@ -7,7 +7,7 @@ def train_data_split(training_data, label_and_identifier, kaizan_length):
     test_label = list()
     test_name = list()
 
-    # 最後のn個に改ざんデータを入れて、それをテストデータとしている
+    # 最後のn個に改ざんデータを入れて、それをテストデータとしている(たため、学習にいらないのでそれを削除する分)
     temp = deque(training_data.copy())
     temp2 = deque(label_and_identifier.copy())
     for i in range(kaizan_length):

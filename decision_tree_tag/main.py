@@ -23,13 +23,13 @@ def count_pages(path):
     # tagにラベル付け
     tag_list = list(tag_set)
     i = 0
-    for i in range(len(tag_list)):
-        if 'iframe' == tag_list[i]:
-            tag_label['iframe'] = -1
-        elif 'invisible_iframe' == tag_list[i]:
-            tag_label['invisible_iframe'] = -2
+    for i, tag in enumerate(tag_list):
+        if 'iframe' == tag:
+            tag_label[tag] = -1
+        elif 'invisible_iframe' == tag:
+            tag_label[tag] = -2
         else:
-            tag_label[tag_list[i]] = i
+            tag_label[tag] = i
     tag_label['NewTag'] = i+1
 
     return server_quantity, tag_label
@@ -85,4 +85,3 @@ def main(path, sample, sample2):
         """
 
     return tree_dict, tag_label, server_without_iframe_set, cannot_make_vec_server_set
-

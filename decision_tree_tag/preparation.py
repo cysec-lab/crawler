@@ -113,15 +113,16 @@ def make_training_data(target_server, path, tag_label, sample, sample2):
     kaizan_data = list()
     kaizan_identifier = list()
 
-    for i in range(len(tags_list)):
-        if len(tags_list[i]) > sample*2:
-            vec, label = make_data(tags_list[i], tag_label, url_list[i], sample=sample, sample2=sample2)
-            if '!kaizan!' in url_list[i]:
-                kaizan_data.extend(vec)
-                kaizan_identifier.extend(label)
+    for tags, url in zip(tags_list, url_list):
+        if len(tags) > sample*2:   # タグの数がsample*2以上ないと、ベクトル化できない
+            vec_list, label_list = make_data(tags, tag_label, url, sample=sample, sample2=sample2)
+            if '!kaizan!' in url:
+                kaizan_data.extend(vec_list)
+                kaizan_identifier.extend(label_list)
             else:
-                training_data.extend(vec)
-                label_identifier.extend(label)
+                training_data.extend(vec_list)
+                label_identifier.extend(label_list)
+
     # ベクトルを作れるタグがひとつもなかった場合、iframeが含まれていたらNone、含まれていなければFalse
     if len(training_data) == 0:
         for tags in tags_list:
@@ -131,12 +132,14 @@ def make_training_data(target_server, path, tag_label, sample, sample2):
 
     # !kaizan!データ以外のiframeタグのデータをテストデータにするためにもう一度追加
     flag = True
-    for i in range(len(label_identifier)):
-        if label_identifier[i][0]:
+    for i, label_identifier_ in enumerate(label_identifier):
+        if label_identifier_[0] != 0:   # labelが0じゃなければ(-1はiframe、-2はinv_iframe、それ以外は0)
             kaizan_data.append(training_data[i])
-            kaizan_identifier.append(label_identifier[i])
+            kaizan_identifier.append(label_identifier_)
             flag = False
-    if flag:   # !kaizan!以外にiframeタグが見つからなかった場合
+
+    # !kaizan!以外にiframeタグが見つからなかった場合
+    if flag:
         return False, False, False
     else:
         training_data.extend(kaizan_data)
