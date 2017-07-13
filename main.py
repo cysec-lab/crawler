@@ -605,7 +605,7 @@ def del_child(now):
                 pass
 
 
-def main():
+def crawler_main():
     global hostName_achievement, hostName_pid, hostName_process, hostName_queue, hostName_remaining, pid_time
     global notRitsumei_url, ritsumei_url, black_url, waiting_list, url_list, assignment_url, thread_set
     global remaining, send_num, recv_num, all_achievement
@@ -817,4 +817,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    crawler_main()

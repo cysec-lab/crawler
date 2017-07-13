@@ -12,6 +12,7 @@ import pickle
 import json
 import threading
 from bs4 import BeautifulSoup
+from urllib.parse import urlparse
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
@@ -31,6 +32,9 @@ request_url_host_set_pre = set()   # 前回のクローリング時のやつ
 iframe_src_set = set()      # iframeのsrc先urlのホスト名の集合
 iframe_src_set_pre = set()  # 前回のクローリング時のやつ
 iframe_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
+link_set = set()      # ページに貼られていたリンク先URLのホスト名の集合
+link_set_pre = set()  # 前回のクローリング時のやつ
+link_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
 
 write_file_to_hostdir = dict()    # server/www.ac.jp/の中に作るファイルの内容。{file名 : [文字, 内容, ...], file名 : []}
 wfth_lock = threading.Lock()      # write_file_to_hostdir更新の際のlock
@@ -43,7 +47,7 @@ wfta_lock = threading.Lock()      # write_file_to_alertdir更新の際のlock
 def init(host, screenshots):
     global html_special_char
     global num_of_achievement, dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict
-    global request_url_host_set, request_url_host_set_pre, iframe_src_set, iframe_src_set_pre
+    global request_url_host_set, request_url_host_set_pre, iframe_src_set, iframe_src_set_pre, link_set, link_set_pre
     data_temp = r_file('../../ROD/LIST/HTML_SPECHAR.txt')
     data_temp = data_temp.split('\n')
     for line in data_temp:
@@ -73,18 +77,26 @@ def init(host, screenshots):
             url_cache = deepcopy(data_temp['cache'])
             request_url_host_set = deepcopy(data_temp['request'])
             iframe_src_set = deepcopy(data_temp['iframe'])
-    # 前回クローリング時のこのサーバの全request_urlをロード
+            if 'link_host' in data_temp:
+                link_set = deepcopy(data_temp['link_host'])
+    # 今までのクローリングで集めた、このサーバの全request_url(のホスト部)をロード
     path = '../../../../ROD/request_url/' + f_name + '.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             request_url_host_set_pre = set(data_temp)
-    # 前回クローリング時のこのサーバの全iframeタグのsrc属性値をロード
+    # 今までのクローリングで集めた、このサーバの全iframeタグのsrc属性(のホスト部)をロード
     path = '../../../../ROD/iframe_src/' + f_name + '.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             iframe_src_set_pre = set(data_temp)
+    # 今までのクローリングで集めた、このサーバのリンクURL(のホスト部)をロード
+    path = '../../../../ROD/link_host/' + f_name + '.json'
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            data_temp = json.load(f)
+            link_set_pre = set(data_temp)
     # idf辞書をロード
     path = '../../../../ROD/idf_dict/' + f_name + '.json'
     if os.path.exists(path):
@@ -110,7 +122,7 @@ def save_result():
     if num_of_achievement:
         with open('../../../../RAD/temp/progress_' + f_name + '.pickle', 'wb') as f:
             pickle.dump({'num': num_of_achievement, 'cache': url_cache, 'request': request_url_host_set,
-                         'iframe': iframe_src_set}, f)
+                         'iframe': iframe_src_set, 'link_host': link_set}, f)
     w_file('achievement.txt', str(num_of_achievement))
     for file_name, value in write_file_to_hostdir.items():
         text = ''
@@ -240,7 +252,7 @@ def get_tags_from_html(soup, page, machine_learning_q):
 
 
 def parser(parse_args_dic):
-    global word_df_dict, iframe_src_set
+    global word_df_dict
     host = parse_args_dic['host']
     page = parse_args_dic['page']
     q_send = parse_args_dic['q_send']
@@ -258,9 +270,9 @@ def parser(parse_args_dic):
     get_tags_from_html(soup, page, machine_learning_q)
 
     # ページに貼られているリンク集を作り、親プロセスへ送信
-    make_link(page, soup, page_type=file_type)
-    send_data = make_send_links_data(page)     # 親に送るURLリストを作成
-    send_to_parent(q_send, send_data)          # 親にURLリストを送信
+    make_link(page, soup, page_type=file_type)  # ページに貼られているリンクを取得
+    send_data = make_send_links_data(page)      # 親に送るURLリストを作成
+    send_to_parent(q_send, send_data)           # 親にURLリストを送信
 
     # 検査
     # 前回とのハッシュ値を比較
@@ -309,13 +321,14 @@ def parser(parse_args_dic):
         if iframe_result['iframe_src_list']:    # iframeのsrc属性値のネットワーク部のリストがあれば
             if not urlDict.compere_iframe(page.url, iframe_result['iframe_src_list']):   # 前回データと比較
                 update_write_file_dict('result', 'change_iframeSrc.csv', content=['URL', page.url])
-            with iframe_src_set_lock:   # 今回のクローリングで集めた、このサーバの全部のページのiframeのsrcデータの更新
-                iframe_src_set = iframe_src_set.union(set(iframe_result['iframe_src_list']))
+            with iframe_src_set_lock:   # iframeのsrc集合の更新
+                iframe_src_set.update(set(iframe_result['iframe_src_list']))
             if iframe_src_set_pre:   # 前回のクローリング時のiframeのsrcデータがあれば
                 diff = set(iframe_result['iframe_src_list']).difference(iframe_src_set_pre)   # 差をとる
                 if diff:   # 前回のクローリング時に確認されなかったサーバのiframeが使われているならば
-                    update_write_file_dict('alert', 'new_iframeSrc.csv', content=['URL, iframe_src',
-                                                                                  page.url + ',' + str(diff)])
+                    for i in diff:
+                        update_write_file_dict('alert', 'new_iframeSrc.csv',
+                                               content=['URL,iframe_src', page.url + ',' + i])
         if iframe_result['invisible_iframe_list']:
             update_write_file_dict('result', 'invisible_iframe.csv', content=['URL', page.url])
 
@@ -354,6 +367,20 @@ def parser(parse_args_dic):
     # requestURL と requestURLで同じサーバのURL を url_dictに追加
     if page.request_url:
         urlDict.add_request_url_to_url_dict(page)
+
+    # 貼られていたリンクの中に、このサーバのウェブページが今まで貼ったことのないサーバへのリンクがあるかチェック
+    if page.normalized_links:
+        host_set = set([urlparse(url).netloc for url in page.normalized_links])  # リンク集からホスト名だけの集合を作成
+        with link_set_lock:  # リンク集合の更新
+            link_set.update(host_set)
+        if link_set_pre:  # 前回のデータがあれば
+            diff = host_set.difference(link_set_pre)  # 差をとる
+            if diff:  # 今まで確認されなかったサーバへのリンクが貼られていれば
+                temp = list()
+                for link_host in diff:   # ページのリンク集から、特定のホスト名を持つURLを取ってくる
+                    temp.extend([check_url for check_url in page.normalized_links if link_host in check_url])
+                for i in temp:
+                    update_write_file_dict('alert', 'link_to_new_server.csv', content=['URL,link', page.url + ',' + i])
 
     # スレッド集合から削除
     try:
