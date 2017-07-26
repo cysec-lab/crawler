@@ -1,5 +1,5 @@
 ﻿import pyclamd
-from os import path, mkdir
+import os
 from time import sleep
 from os import listdir
 from threading import Thread
@@ -68,8 +68,8 @@ def clamd_main(recvq, sendq):
         else:
             if result is not None:
                 wa_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n')
-                if not path.exists('../clamd_files'):
-                    mkdir('../clamd_files')
+                if not os.path.exists('../clamd_files'):
+                    os.mkdir('../clamd_files')
                 wa_file('../clamd_files/' + str(len(listdir('clamd_files'))) + '.clam', url + '\n' + str(byte))
             print('clamd : ' + url + ' have scanned.')
         if len(clamd_error) > 100:
@@ -90,3 +90,4 @@ def clamd_main(recvq, sendq):
         sleep(3)
     print('clamd : ended')
     sendq.put('end')
+    os._exit(0)

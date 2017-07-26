@@ -163,7 +163,7 @@ def import_file(path):             # 実行でディレクトリは「crawler」
 
 
 # 必要なディレクトリを作成(一回目のクローリング時のみ)
-def make_dir(screenshots, clamd_scan):          # 実行ディレクトリは「crawler」
+def make_dir(screenshots):          # 実行ディレクトリは「crawler」
     if not os.path.exists('ROD/url_hash_json'):
         os.mkdir('ROD/url_hash_json')
     if not os.path.exists('ROD/url_hash_json2'):
@@ -402,7 +402,6 @@ def thread_start(url_tuple):
 def choice_process(url_tuple, max_process, setting_dict):
     host_name = urlparse(url_tuple[0]).netloc
     if host_name not in hostName_process:   # まだ作られていない場合、プロセス作成
-
         # www.ritsumei.ac.jpは子プロセス数が上限でも常に回したい(一番多いから)
         if not host_name == 'www.ritsumei.ac.jp':
             if get_alive_child_num() >= max_process:
@@ -604,7 +603,7 @@ def del_child(now):
                 pass
 
 
-def crawler_main():
+def crawler_host():
     global hostName_achievement, hostName_pid, hostName_process, hostName_queue, hostName_remaining, pid_time
     global notRitsumei_url, ritsumei_url, black_url, waiting_list, url_list, assignment_url, thread_set
     global remaining, send_num, recv_num, all_achievement
@@ -817,4 +816,4 @@ def crawler_main():
 
 
 if __name__ == '__main__':
-    crawler_main()
+    crawler_host()

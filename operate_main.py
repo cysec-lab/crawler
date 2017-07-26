@@ -1,4 +1,4 @@
-from main import crawler_main
+from main import crawler_host
 from tf_idf import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
 from check_result.main_cr import del_and_make_achievement
 from multiprocessing import Process
@@ -75,7 +75,7 @@ def main():
 
     while True:
         print('---next crawling---')
-        p = Process(target=crawler_main)
+        p = Process(target=crawler_host)
         p.start()
         p.join()
         print('crawler has finished.')
