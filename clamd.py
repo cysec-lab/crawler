@@ -1,4 +1,5 @@
 ﻿import pyclamd
+from os import path, mkdir
 from time import sleep
 from os import listdir
 from threading import Thread
@@ -50,7 +51,7 @@ def clamd_main(recvq, sendq):
     t = Thread(target=receive, args=(recvq,))    # 子プロセスからのデータを受信するスレッド
     t.start()
     while True:
-        if len(data_list) == 0:
+        if not data_list:
             if end:
                 break
             sleep(3)
@@ -65,9 +66,11 @@ def clamd_main(recvq, sendq):
             print('clamd : ERROR, URL = ' + url)
             clamd_error.append(url + '\n' + str(e))
         else:
-            if not (result is None):
-                wa_file('warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n')
-                wa_file('clamd_files/' + str(len(listdir('clamd_files'))) + '.clam', url + '\n' + str(byte))
+            if result is not None:
+                wa_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n')
+                if not path.exists('../clamd_files'):
+                    mkdir('../clamd_files')
+                wa_file('../clamd_files/' + str(len(listdir('clamd_files'))) + '.clam', url + '\n' + str(byte))
             print('clamd : ' + url + ' have scanned.')
         if len(clamd_error) > 100:
             text = ''

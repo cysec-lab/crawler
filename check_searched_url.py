@@ -78,4 +78,4 @@ class CheckSearchedUrlThread(Thread):
                                 ritsumei_flag = 'black'   # ipアドレスにより組織関連サーバだと判断(したが、検索はしない
                                 break
         self.result = ritsumei_flag
-        self.lock.acquire()   # メインスレッドでreleaseされるまで待機
+        self.lock.acquire(timeout=120)   # メインスレッドでreleaseされるまで待機

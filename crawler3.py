@@ -6,7 +6,7 @@ from inspection_page import title_inspection, invisible
 from inspection_file import check_content_type
 from use_web_driver import driver_get, set_html, set_request_url, get_window_url
 import os
-import time
+from time import sleep, time
 from copy import deepcopy
 import pickle
 import json
@@ -28,13 +28,14 @@ num_of_achievement = 0       # 実際に取得してパースしたファイル�
 url_cache = set()            # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
 urlDict = None              # サーバ毎のurl_dictの辞書を扱うクラス
 request_url_host_set = set()       # 各ページを構成するためにGETしたurlのホスト名の集合
-request_url_host_set_pre = set()   # 前回のクローリング時のやつ
+request_url_host_set_pre = set()   # 今までのクローリング時のやつ
 iframe_src_set = set()      # iframeのsrc先urlのホスト名の集合
-iframe_src_set_pre = set()  # 前回のクローリング時のやつ
+iframe_src_set_pre = set()  # 今までのクローリング時のやつ
 iframe_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
 link_set = set()      # ページに貼られていたリンク先URLのホスト名の集合
-link_set_pre = set()  # 前回のクローリング時のやつ
+link_set_pre = set()  # 今までのクローリング時のやつ
 link_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
+frequent_word_list = list()   # 今までこのサーバに出てきた頻出単語top50
 
 write_file_to_hostdir = dict()    # server/www.ac.jp/の中に作るファイルの内容。{file名 : [文字, 内容, ...], file名 : []}
 wfth_lock = threading.Lock()      # write_file_to_hostdir更新の際のlock
@@ -46,7 +47,7 @@ wfta_lock = threading.Lock()      # write_file_to_alertdir更新の際のlock
 
 def init(host, screenshots):
     global html_special_char
-    global num_of_achievement, dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict
+    global num_of_achievement, dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, frequent_word_list
     global request_url_host_set, request_url_host_set_pre, iframe_src_set, iframe_src_set_pre, link_set, link_set_pre
     data_temp = r_file('../../ROD/LIST/HTML_SPECHAR.txt')
     data_temp = data_temp.split('\n')
@@ -97,6 +98,12 @@ def init(host, screenshots):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             link_set_pre = set(data_temp)
+    # 今までのクローリングで集めた、このサーバの頻出単語をロード
+    path = '../../../../ROD/frequent_word_50/' + f_name + '.json'
+    if os.path.exists(path):
+        with open(path, 'r') as f:
+            data_temp = json.load(f)
+            frequent_word_list = list(data_temp)
     # idf辞書をロード
     path = '../../../../ROD/idf_dict/' + f_name + '.json'
     if os.path.exists(path):
@@ -190,7 +197,7 @@ def send_to_parent(sendq, data):
     if not sendq.full():
         sendq.put(data)  # 親にdataを送信
     else:
-        time.sleep(1)
+        sleep(1)
         sendq.put(data)
 
 
@@ -284,10 +291,11 @@ def parser(parse_args_dic):
         update_write_file_dict('result', 'same_hash_page.csv', content=['URL', page.url])
     elif num_of_days is False:
         update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ',' + page.src])
+        page.new_page = True
 
     if use_mecab:
         # このページの各単語のtf値を計算、df辞書を更新
-        hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と辞書を獲得
+        hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と"hacked by"検索
         if hack_level:    # hackの文字が入っていると0以外が返ってくる
             if hack_level == 1:
                 update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
@@ -314,6 +322,19 @@ def parser(parse_args_dic):
                                                         str(len(symmetric_difference)) + ',' + str(top10) + ',' +
                                                         str(pre_top10) + ',' + str(num_of_days)])
                 urlDict.add_top10_to_url_dict(url=page.url, top10=top10)          # top10を更新
+
+            # ページにあった単語が今までの頻出単語にどれだけ含まれているか調査-------------------------------
+            if frequent_word_list:
+                # 上位50個と比較し、頻出単語に含まれていなかった単語の数を保存
+                max_num = min(len(frequent_word_list), 50)  # 保存されている単語数が50未満のサーバがあるため
+                and_ = set(word_tf_dict.keys()).intersection(set(frequent_word_list[0:max_num]))
+                update_write_file_dict('result', 'frequent_word_investigation.csv',
+                                       ['URL,new', page.url + ',' + str(page.new_page) + ',' + str(len(and_))])
+
+                # 新しいページで、ANDの単語(このページの単語と今までの頻出単語top50とのAND)が5個以下なら
+                if len(and_) < 6 and page.new_page:
+                    update_write_file_dict('alert', 'new_page_without_frequent_word.csv',
+                                           ['URL,num', page.url + ',' + str(and_)])
 
     # iframeの検査
     iframe_result = iframe_inspection(soup)     # iframeがなければFalse
@@ -402,8 +423,8 @@ def check_thread_time(now):
 # 5秒間隔で180秒以上続いているスレッドがあるかチェックし、あるとリストから削除
 def del_thread(host):
     while True:
-        time.sleep(5)
-        del_thread_list = check_thread_time(int(time.time()))
+        sleep(5)
+        del_thread_list = check_thread_time(int(time()))
         for th in del_thread_list:
             print(host + ' del: ' + str(th))
             try:
@@ -480,7 +501,11 @@ def crawler_main(args_dic):
 
     # クローラプロセスメインループ
     while True:
-        print(host + ' : main loop is running...')    # 動いていることを確認
+        # 動いていることを確認
+        if page is None:
+            print(host + ' : main loop is running...')
+        else:
+            print(host + ' : ' + str(page.url_initial))
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -498,7 +523,7 @@ def crawler_main(args_dic):
         if search_tuple is False:
             if threadId_set:   # 実行中のパーススレッドがあるならば
                 print(host + ' : wait 3sec because the queue is empty.')
-                time.sleep(3)   # 3秒待って、もう一度受信キューを確認する
+                sleep(3)   # 3秒待って、もう一度受信キューを確認する
                 continue
             else:   # パーススレッドが全て終わっていれば、メインループを抜ける
                 break
@@ -562,7 +587,7 @@ def crawler_main(args_dic):
                 t = threading.Thread(target=download_check, args=(page.url_urlopen, page.url, host,),)
                 t.start()
                 threadId_set.add(t.ident)  # スレッド集合に追加
-                threadId_time[t.ident] = int(time.time())
+                threadId_time[t.ident] = int(time())
                 # aタグで、href属性がなく、onclick属性があるものをクリックし、URLのジャンプを確認
                 click_a_tags(driver=driver, q_send=q_send, url_ini=page.url)
                 """
@@ -608,7 +633,7 @@ def crawler_main(args_dic):
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             threadId_set.add(t.ident)  # スレッド集合に追加
-            threadId_time[t.ident] = int(time.time())  # スレッド開始時刻保存
+            threadId_time[t.ident] = int(time())  # スレッド開始時刻保存
         else:    # ウェブページではないファイルだった場合(PDF,excel,word...
             send_to_parent(q_send, {'type': 'file_done'})   # mainプロセスにこのURLのクローリング完了を知らせる
             # ハッシュ値の比較
@@ -641,7 +666,7 @@ def crawler_main(args_dic):
             print(host + ' : achievement have reached ' + str(num_of_achievement))
             while threadId_set:
                 print(host + ' : wait 3sec for thread end.')
-                time.sleep(3)
+                sleep(3)
             break
 
     if page is not None:

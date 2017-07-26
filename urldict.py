@@ -1,4 +1,4 @@
-import hashlib
+from hashlib import sha256
 import json
 import os
 from datetime import date
@@ -114,7 +114,7 @@ class UrlDict:
         else:
             html_hash = page.html
         try:
-            sha256 = hashlib.sha256(html_hash).hexdigest()
+            sha = sha256(html_hash).hexdigest()
         except Exception:
             return None, False
 
@@ -124,7 +124,7 @@ class UrlDict:
         today = [int(y), int(m), int(d)]
         if page.url in self.url_dict:
             pre_info = deepcopy(self.url_dict[page.url])
-            self.url_dict[page.url]['hash'] = sha256               # ハッシュ値
+            self.url_dict[page.url]['hash'] = sha               # ハッシュ値
             self.url_dict[page.url]['file_length'] = file_length   # ファイルの長さを更新
             self.url_dict[page.url]['run_date'] = today            # 実行日を更新
             self.url_dict[page.url]['source'] = page.src           # URLのリンク元
@@ -134,7 +134,7 @@ class UrlDict:
             pre_day = date(pre_day[0], pre_day[1], pre_day[2])     # dateクラス化
             date_difference = date.today() - pre_day               # 接続日と前回日との日にち差
 
-            if pre_sha == sha256:
+            if pre_sha == sha:
                 diff = pre_info['unchanged_num_of_days'] + date_difference.days
                 self.url_dict[page.url]['unchanged_num_of_days'] = diff     # 不変日数を更新
                 return True, 0
@@ -147,7 +147,7 @@ class UrlDict:
                 return pre_info['unchanged_num_of_days'], length_difference
         else:
             self.url_dict[page.url] = dict()
-            self.url_dict[page.url]['hash'] = sha256
+            self.url_dict[page.url]['hash'] = sha
             self.url_dict[page.url]['file_length'] = file_length
             self.url_dict[page.url]['unchanged_num_of_days'] = 0
             self.url_dict[page.url]['run_date'] = today

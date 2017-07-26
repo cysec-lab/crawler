@@ -2,14 +2,14 @@
 from urllib.parse import urlparse
 from collections import deque
 from time import time, sleep
-import crawler3
+from crawler3 import crawler_main
 from file_rw import wa_file, r_file, w_json, r_json
 from check_searched_url import CheckSearchedUrlThread
 from threading import active_count
 import os
 from datetime import date
 from machine_learning import machine_learning_main
-import clamd
+from clamd import clamd_main
 from shutil import copytree
 
 necessary_list_dict = dict()   # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
@@ -162,8 +162,8 @@ def import_file(path):             # 実行でディレクトリは「crawler」
             after_redirect_list = data_temp.split('\n')
 
 
-# 必要なディレクトリを作成
-def make_dir(screenshots):          # 実行ディレクトリは「crawler」
+# 必要なディレクトリを作成(一回目のクローリング時のみ)
+def make_dir(screenshots, clamd_scan):          # 実行ディレクトリは「crawler」
     if not os.path.exists('ROD/url_hash_json'):
         os.mkdir('ROD/url_hash_json')
     if not os.path.exists('ROD/url_hash_json2'):
@@ -221,7 +221,7 @@ def init(first_time, clamd_scan, machine_learning_):    # 実行ディレクト�
         sendq = Queue()
         clamd_q['recv'] = recvq   # clamdプロセスが受け取る用のキュー
         clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
-        p = Process(target=clamd.clamd_main, args=(recvq, sendq))
+        p = Process(target=clamd_main, args=(recvq, sendq))
         p.daemon = True   # デーモン設定により、メインは子プロセスが死んでいなくても死ぬことができる
         p.start()
         if sendq.get(block=True):
@@ -229,7 +229,6 @@ def init(first_time, clamd_scan, machine_learning_):    # 実行ディレクト�
         else:
             print("main : couldn't connect to clamd")  # できなかったようならFalseを返す
             return False
-        os.mkdir('clamd_files')
     if machine_learning_:
         # 機械学習を使うためのプロセスを起動
         recvq = Queue()
@@ -390,7 +389,7 @@ def make_url_list(now_time):
 # クローリング対象のURLかどうかのチェックスレッドを起動する
 def thread_start(url_tuple):
     t = CheckSearchedUrlThread(url_tuple, int(time()), necessary_list_dict,)
-    t.setDaemon(True)   # メインが死ぬとスレッドも死ぬ(メインはスレッドが生きていても死ぬことができる)
+    t.setDaemon(True)   # メインはスレッドが生きていても死ぬことができる
     try:
         t.start()
     except RuntimeError:
@@ -432,7 +431,7 @@ def choice_process(url_tuple, max_process, setting_dict):
         hostName_args[host_name] = args_dic    # クローラプロセスの引数は、サーバ毎に毎回同じなので保存しておく
 
         # プロセス作成
-        p = Process(target=crawler3.crawler_main, name=host_name, args=(hostName_args[host_name],))
+        p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
         p.daemon = True
         p.start()    # スタート
 
@@ -448,7 +447,7 @@ def choice_process(url_tuple, max_process, setting_dict):
                 return False
         print('main : ' + host_name + ' is not alive.')
         # プロセス作成
-        p = Process(target=crawler3.crawler_main, name=host_name, args=(hostName_args[host_name],))
+        p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
         p.daemon = True
         p.start()   # スタート
         hostName_process[host_name] = p   # プロセスを指す辞書だけ更新する
@@ -741,6 +740,7 @@ def crawler_main():
                         waiting_list.append(url_tuple)   # 失敗したら待ちリストに戻す
                 else:
                     print("main : number of thread is over 2000.")
+                    sleep(1)
 
             # クローリングするURLかどうかのチェックが終わったものからurl_listに追加する
             make_url_list(now)
