@@ -13,18 +13,23 @@ iframeのsrc先URLの集合
 """
 
 
-def make_and_save_host_idf_dict():
+def make_idf_dict_frequent_word_dict():
     df_dict = dict()   # {server : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
     try:
         os.mkdir('ROD/idf_dict')
     except FileExistsError:
         pass
-    os.chdir('ROD/df_dicts/')   # このフォルダ以下の全てのdfフォルダをマージしてidf辞書を作る
-    dir_list = os.listdir()
+    n = 100   # 頻出単語上位n個を保存
+    try:
+        os.mkdir('ROD/frequent_word_' + str(n))
+    except FileExistsError:
+        pass
+
+    dir_list = os.listdir('ROD/df_dicts/')  # このフォルダ以下の全てのdfフォルダをマージしてidf辞書を作る
     for df_dict_dir in dir_list:
-        json_file_list = os.listdir(df_dict_dir)
+        json_file_list = os.listdir('ROD/df_dicts/' + df_dict_dir)
         for json_file in json_file_list:
-            f = open(df_dict_dir + '/' + json_file, 'r')
+            f = open('ROD/df_dicts/' + df_dict_dir + '/' + json_file, 'r')
             dic = json.load(f)   # df辞書ロード
             f.close()
             if len(dic) == 0:  # 中身がなければ次へ
@@ -34,6 +39,18 @@ def make_and_save_host_idf_dict():
             df_dict[json_file] = dict(Counter(df_dict[json_file]) + Counter(dic))   # 既存の辞書と同じキーの要素を足す
     # この時点で、df辞書のマージ終わり(同じ単語の出現文書数を足し合わせた)
 
+    # 頻出単語辞書の作成
+    for server, dic in df_dict.items():
+        frequent_words = list()
+        for word, df in sorted(dic.items(), key=lambda x: x[1], reverse=True):
+            if word != 'NumOfPages':
+                frequent_words.append(word)
+            if len(frequent_words) == n:
+                break
+        with open('ROD/frequent_word_' + str(n) + '/' + server, 'w') as f:
+            json.dump(frequent_words, f)
+
+    # idf辞書の作成
     c = 0
     for server, dic in df_dict.items():
         N = dic['NumOfPages']     # NumOfPageはそのサーバで辞書を更新した回数 = そのサーバのページ数
@@ -49,12 +66,11 @@ def make_and_save_host_idf_dict():
         idf_dict['NULLnullNULL'] = idf
 
         if idf_dict:
-            f = open('../idf_dict/' + server, 'w')
+            f = open('ROD/idf_dict/' + server, 'w')
             json.dump(idf_dict, f)
             f.close()
         c += 1
         print(str(c) + '/' + str(len(df_dict.keys())))
-    os.chdir('../../')
 
 
 def make_request_url_iframeSrc_link_host_set():
@@ -110,6 +126,7 @@ def make_request_url_iframeSrc_link_host_set():
             with open('ROD/link_host/' + file, 'w') as f:
                 json.dump(list(url_set), f)
 
+
 if __name__ == '__main__':
-    make_and_save_host_idf_dict()     # 次回クローリングのためのidf値を計算する
-    make_request_url_iframeSrc_link_host_set()  # 次回クローリングのための...
+    make_idf_dict_frequent_word_dict()     # 次回クローリングのためのidf値を計算する
+    # make_request_url_iframeSrc_link_host_set()  # 次回クローリングのための...

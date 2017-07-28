@@ -99,7 +99,7 @@ def init(host, screenshots):
             data_temp = json.load(f)
             link_set_pre = set(data_temp)
     # 今までのクローリングで集めた、このサーバの頻出単語をロード
-    path = '../../../../ROD/frequent_word_50/' + f_name + '.json'
+    path = '../../../../ROD/frequent_word_100/' + f_name + '.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
@@ -325,13 +325,24 @@ def parser(parse_args_dic):
 
             # ページにあった単語が今までの頻出単語にどれだけ含まれているか調査-------------------------------
             if frequent_word_list:
-                # 上位50個と比較し、頻出単語に含まれていなかった単語の数を保存
-                max_num = min(len(frequent_word_list), 50)  # 保存されている単語数が50未満のサーバがあるため
+                n = 60
+                # 上位n個と比較し、頻出単語に含まれていなかった単語の数を保存
+                max_num = min(len(frequent_word_list), n)  # 保存されている単語数がn個未満のサーバがあるため
                 and_ = set(word_tf_dict.keys()).intersection(set(frequent_word_list[0:max_num]))
+                and_list = list()
+                and_list.append(len(and_))
+                while n < 100:
+                    n += 10
+                    max_num = min(len(frequent_word_list), n)  # 保存されている単語数がn個未満のサーバがあるため
+                    and_ = set(word_tf_dict.keys()).intersection(set(frequent_word_list[0:max_num]))
+                    and_list.append(len(and_))
+                    if max_num == len(frequent_word_list):
+                        break
                 update_write_file_dict('result', 'frequent_word_investigation.csv',
-                                       ['URL,new', page.url + ',' + str(page.new_page) + ',' + str(len(and_))])
+                                       ['URL,new', page.url + ',' + str(page.new_page) + ',' +
+                                        str(and_list)[1:-1].replace(' ', '')])
 
-                # 新しいページで、ANDの単語(このページの単語と今までの頻出単語top50とのAND)が5個以下なら
+                # 新しいページで、ANDの単語(このページの単語と今までの頻出単語top100とのAND)が5個以下なら
                 if len(and_) < 6 and page.new_page:
                     update_write_file_dict('alert', 'new_page_without_frequent_word.csv',
                                            ['URL,num', page.url + ',' + str(and_)])
