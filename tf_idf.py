@@ -91,9 +91,33 @@ def make_request_url_iframeSrc_link_host_set():
     for file in lis:
         with open('RAD/temp/' + file, 'rb') as f:
             pick = pickle.load(f)
-
         file = file[file.find('_') + 1:file.find('.')] + '.json'
-        # ページをロードするために行ったrequestURL(のホスト名)の集合を今までのデータとマージする
+
+        if 'link_host' in pick and pick['link_host']:
+            url_domain_set = set()
+            if os.path.exists('ROD/link_host/' + file):
+                with open('ROD/link_host/' + file, 'r') as f:
+                    url_set = set(json.load(f))
+                for url_domain in url_set:
+                    if url_domain.count('.') > 1:  # xx.comのように、ホスト部がないものもあるため
+                        url_domain = '.'.join(url_domain.split('.')[1:])  # ホスト部がある場合は、ホスト部は削除し、ネットワーク名のみにする
+                    url_domain_set.add(url_domain)
+            set2 = set()
+            for url_domain in pick['link_host']:
+                if url_domain.count('.') > 1:  # xx.comのように、ホスト部がないものもあるため
+                    url_domain = '.'.join(url_domain.split('.')[1:])  # ホスト部がある場合は、ホスト部は削除し、ネットワーク名のみにする
+                set2.add(url_domain)
+            url_domain_set.update(set2)
+            with open('ROD/link_host/' + file, 'w') as f:
+                json.dump(list(url_domain_set), f)
+            
+            pick['link_host'] = set2
+            with open('RAD/temp/progress_' + file + '.pickle', 'wb') as f:
+                pickle.dump(pick, f)
+
+        """
+        # ネットワーク名 : URL = ホスト部 + ネットワーク部 + ファイル位置　としたときの、ネットワーク部のところ
+        # ページをロードするために行ったrequestURL(のネットワーク名)の集合を今までのデータとマージする
         if 'request' in pick and pick['request']:
             if os.path.exists('ROD/request_url/' + file):
                 with open('ROD/request_url/' + file, 'r') as f:
@@ -104,7 +128,7 @@ def make_request_url_iframeSrc_link_host_set():
             with open('ROD/request_url/' + file, 'w') as f:
                 json.dump(list(url_set), f)
 
-        # iframeのsrc先URL(のホスト名)の集合を今までのデータとマージする
+        # iframeのsrc先URL(のネットワーク名)の集合を今までのデータとマージする
         if 'iframe' in pick and pick['iframe']:
             if os.path.exists('ROD/iframe_src/' + file):
                 with open('ROD/iframe_src/' + file, 'r') as f:
@@ -115,7 +139,7 @@ def make_request_url_iframeSrc_link_host_set():
             with open('ROD/iframe_src/' + file, 'w') as f:
                 json.dump(list(url_set), f)
 
-        # リンクURL(のホスト名)の集合を今までのデータとマージする
+        # リンクURL(のネットワーク名)の集合を今までのデータとマージする
         if 'link_host' in pick and pick['link_host']:
             if os.path.exists('ROD/link_host/' + file):
                 with open('ROD/link_host/' + file, 'r') as f:
@@ -125,8 +149,9 @@ def make_request_url_iframeSrc_link_host_set():
             url_set.update(pick['link_host'])
             with open('ROD/link_host/' + file, 'w') as f:
                 json.dump(list(url_set), f)
+        """
 
 
 if __name__ == '__main__':
-    make_idf_dict_frequent_word_dict()     # 次回クローリングのためのidf値を計算する
-    # make_request_url_iframeSrc_link_host_set()  # 次回クローリングのための...
+    # make_idf_dict_frequent_word_dict()     # 次回クローリングのためのidf値を計算する
+    make_request_url_iframeSrc_link_host_set()  # 次回クローリングのための...
