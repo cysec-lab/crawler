@@ -27,12 +27,12 @@ word_df_lock = threading.Lock()        # word_df_dict更新の際のlock
 num_of_achievement = 0       # 実際に取得してパースしたファイルやページの数。ジャンプ前URL、エラーだったURLは含まない。
 url_cache = set()            # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
 urlDict = None              # サーバ毎のurl_dictの辞書を扱うクラス
-request_url_host_set = set()       # 各ページを構成するためにGETしたurlのホスト名の集合
+request_url_host_set = set()       # 各ページを構成するためにGETしたurlのネットワーク名の集合
 request_url_host_set_pre = set()   # 今までのクローリング時のやつ
-iframe_src_set = set()      # iframeのsrc先urlのホスト名の集合
+iframe_src_set = set()      # iframeのsrc先urlのネットワーク名の集合
 iframe_src_set_pre = set()  # 今までのクローリング時のやつ
 iframe_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
-link_set = set()      # ページに貼られていたリンク先URLのホスト名の集合
+link_set = set()      # ページに貼られていたリンク先URLのネットワーク名の集合
 link_set_pre = set()  # 今までのクローリング時のやつ
 link_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
 frequent_word_list = list()   # 今までこのサーバに出てきた頻出単語top50
@@ -325,6 +325,7 @@ def parser(parse_args_dic):
 
             # ページにあった単語が今までの頻出単語にどれだけ含まれているか調査-------------------------------
             if frequent_word_list:
+                """
                 n = 60
                 # 上位n個と比較し、頻出単語に含まれていなかった単語の数を保存
                 max_num = min(len(frequent_word_list), n)  # 保存されている単語数がn個未満のサーバがあるため
@@ -341,26 +342,28 @@ def parser(parse_args_dic):
                 update_write_file_dict('result', 'frequent_word_investigation.csv',
                                        ['URL,new', page.url + ',' + str(page.new_page) + ',' +
                                         str(and_list)[1:-1].replace(' ', '')])
-
-                # 新しいページで、ANDの単語(このページの単語と今までの頻出単語top100とのAND)が5個以下なら
+                """
+                n = 50
+                # 上位50個と比較し、頻出単語に含まれていなかった単語の数を保存
+                # (frequent_word_listには、サイトの頻出単語が上位100個まで保存されているが、50個で十分と判断)
+                max_num = min(len(frequent_word_list), n)  # 保存されている単語数がn個未満のサーバがあるため
+                and_ = set(word_tf_dict.keys()).intersection(set(frequent_word_list[0:max_num]))
+                # 新しく見つかったURLで、ANDの単語(このページの単語と今までの頻出単語top50とのAND)が5個以下なら
                 if len(and_) < 6 and page.new_page:
                     update_write_file_dict('alert', 'new_page_without_frequent_word.csv',
-                                           ['URL,num', page.url + ',' + str(and_)])
+                                           ['URL,words', page.url + ',' + str(and_)])
 
     # iframeの検査
     iframe_result = iframe_inspection(soup)     # iframeがなければFalse
     if iframe_result:
-        if iframe_result['iframe_src_list']:    # iframeのsrc属性値のネットワーク部のリストがあれば
-            if not urlDict.compere_iframe(page.url, iframe_result['iframe_src_list']):   # 前回データと比較
-                update_write_file_dict('result', 'change_iframeSrc.csv', content=['URL', page.url])
+        if iframe_result['iframe_src_list']:    # iframeのsrcURLのネットワーク部のリストがあれば
             with iframe_src_set_lock:   # iframeのsrc集合の更新
                 iframe_src_set.update(set(iframe_result['iframe_src_list']))
             if iframe_src_set_pre:   # 前回のクローリング時のiframeのsrcデータがあれば
                 diff = set(iframe_result['iframe_src_list']).difference(iframe_src_set_pre)   # 差をとる
                 if diff:   # 前回のクローリング時に確認されなかったサーバのiframeが使われているならば
                     for i in diff:
-                        update_write_file_dict('alert', 'new_iframeSrc.csv',
-                                               content=['URL,iframe_src', page.url + ',' + i])
+                        update_write_file_dict('alert', 'new_iframeSrc.csv', ['URL,iframe_src', page.url + ',' + i])
         if iframe_result['invisible_iframe_list']:
             update_write_file_dict('result', 'invisible_iframe.csv', content=['URL', page.url])
 
@@ -402,15 +405,20 @@ def parser(parse_args_dic):
 
     # 貼られていたリンクの中に、このサーバのウェブページが今まで貼ったことのないサーバへのリンクがあるかチェック
     if page.normalized_links:
-        host_set = set([urlparse(url).netloc for url in page.normalized_links])  # リンク集からホスト名だけの集合を作成
+        url_domain_set_temp = set([urlparse(url).netloc for url in page.normalized_links])  # リンク集からホスト名だけの集合を作成
+        url_domain_set = set()
+        for url_domain in url_domain_set_temp:  # ホスト部がある場合は、ホスト部は削除し、ネットワーク名のみにする
+            if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
+                url_domain = '.'.join(url_domain.split('.')[1:])   # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+            url_domain_set.add(url_domain)
         with link_set_lock:  # リンク集合の更新
-            link_set.update(host_set)
+            link_set.update(url_domain_set)
         if link_set_pre:  # 前回のデータがあれば
-            diff = host_set.difference(link_set_pre)  # 差をとる
+            diff = url_domain_set.difference(link_set_pre)  # 差をとる
             if diff:  # 今まで確認されなかったサーバへのリンクが貼られていれば
                 temp = list()
-                for link_host in diff:   # ページのリンク集から、特定のホスト名を持つURLを取ってくる
-                    temp.extend([check_url for check_url in page.normalized_links if link_host in check_url])
+                for link_host in diff:   # ページのリンク集から、ホスト名に特定のネットワーク部を含むURLを取ってくる
+                    temp.extend([url for url in page.normalized_links if link_host in urlparse(url).netloc])
                 for i in temp:
                     update_write_file_dict('alert', 'link_to_new_server.csv', content=['URL,link', page.url + ',' + i])
 

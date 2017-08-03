@@ -30,7 +30,6 @@ def dealing_after_fact(dir_name):
     print('copy to ROD from RAD')
     shutil.move('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
-    shutil.move('RAD/url_hash_json2', 'ROD/url_hash_json2')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
 
     # tf_idf.pyの実行
@@ -62,13 +61,12 @@ def save_rod(dir_name):
     with open('ROD_history/' + dir_name + '/read.txt', 'w') as f:
         f.writelines('This ROD directory is used by ' + dir_name + ' crawling.')
     shutil.copytree('ROD/url_hash_json', 'ROD_history/' + dir_name + '/url_hash_json')
-    shutil.copytree('ROD/url_hash_json2', 'ROD_history/' + dir_name + '/url_hash_json2')
     shutil.copytree('ROD/tag_data', 'ROD_history/' + dir_name + '/tag_data')
     shutil.copytree('ROD/request_url', 'ROD_history/' + dir_name + '/request_url')
     shutil.copytree('ROD/link_host', 'ROD_history/' + dir_name + '/link_host')
     shutil.copytree('ROD/iframe_src', 'ROD_history/' + dir_name + '/iframe_src')
     shutil.copytree('ROD/idf_dict', 'ROD_history/' + dir_name + '/idf_dict')
-    shutil.copytree('ROD/frequent_word_50', 'ROD_history/' + dir_name + '/frequent_word_50')
+    shutil.copytree('ROD/frequent_word_100', 'ROD_history/' + dir_name + '/frequent_word_100')
 
 
 def main():

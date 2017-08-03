@@ -93,9 +93,9 @@ def set_request_url(page, driver):
         url_domain = urlparse(url).netloc
         if page.hostName == url_domain:                 # 同じホスト名(サーバ)のURLはそのまま保存
             page.request_url_same_server.append(url)
-        if url_domain.count('.') > 1:                   # xx.com　のような「.」が一つしかない場合がある
-            url_domain = '.'.join(url_domain.split('.')[1:])
-        page.request_url_host.append(url_domain)     # ホスト名だけ保存
+        if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
+            url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+        page.request_url_host.append(url_domain)     # ホスト名(ネットワーク部)だけ保存
     return re
 
 

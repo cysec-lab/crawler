@@ -71,11 +71,10 @@ def get_src_iframe(iframe_list):
     for iframe in iframe_list:
         src = iframe.get('src')
         if src:
-            o = urlparse(src)
-            host = o.netloc
-            if host.count('.') > 1:
-                host = '.'.join(host.split('.')[1:])
-            src_list.append(host)
+            url_domain = urlparse(src).netloc
+            if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
+                url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+            src_list.append(url_domain)
     if src_list:
         return sorted(src_list)
     else:

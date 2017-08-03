@@ -10,7 +10,6 @@ class UrlDict:
     def __init__(self, host, path=None):
         self.host = host
         self.url_dict = dict()       # url : そのURLの情報の辞書
-        self.url_dict2 = dict()      # url : iframeのsrc
         self.url_dict3 = dict()      # url : タグ順番保存
         self.load_url_dict(path)
 
@@ -25,12 +24,6 @@ class UrlDict:
                 f = open(path, 'r')
                 self.url_dict = json.load(f)
                 f.close()
-        path = data_dir + '/url_hash_json2/' + self.host + '.json'
-        if os.path.exists(path):
-            if os.path.getsize(path) > 0:
-                f = open(path, 'r')
-                self.url_dict2 = json.load(f)
-                f.close()
         path = data_dir + '/tag_data/' + self.host + '.json'
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
@@ -43,10 +36,6 @@ class UrlDict:
         if len(self.url_dict) > 0:
             f = open(data_dir + '/url_hash_json/' + self.host + '.json', 'w')
             json.dump(self.url_dict, f)
-            f.close()
-        if len(self.url_dict2) > 0:
-            f = open(data_dir + '/url_hash_json2/' + self.host + '.json', 'w')
-            json.dump(self.url_dict2, f)
             f.close()
         if len(self.url_dict3) > 0:
             f = open(data_dir + '/tag_data/' + self.host + '.json', 'w')
@@ -153,15 +142,3 @@ class UrlDict:
             self.url_dict[page.url]['run_date'] = today
             self.url_dict[page.url]['source'] = page.src
             return False, False
-
-    # iframeのsrc先を比較、変わっているとFalseを返す
-    def compere_iframe(self, url, iframe_src):
-        if url in self.url_dict2:
-            if self.url_dict2[url] == iframe_src:
-                return True
-            else:
-                self.url_dict2[url] = iframe_src
-                return False
-        else:
-            self.url_dict2[url] = iframe_src
-            return True

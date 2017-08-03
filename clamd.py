@@ -70,7 +70,7 @@ def clamd_main(recvq, sendq):
                 wa_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n')
                 if not os.path.exists('../clamd_files'):
                     os.mkdir('../clamd_files')
-                wa_file('../clamd_files/' + str(len(listdir('clamd_files'))) + '.clam', url + '\n' + str(byte))
+                wa_file('../clamd_files/file_' + str(len(listdir('../clamd_files'))+1) + '.clam', url + '\n' + str(byte))
             print('clamd : ' + url + ' have scanned.')
         if len(clamd_error) > 100:
             text = ''
@@ -85,9 +85,13 @@ def clamd_main(recvq, sendq):
     wa_file('clamd_error.txt', text)
     clamd_error.clear()
 
-    cd.shutdown()    # clamdにシャットダウンシグナル送信
+    # clamdにシャットダウンシグナル送信
+    try:
+        cd.shutdown()
+    except pyclamd.ConnectionError as e:
+        print(e)
     while p.poll() is None:   # Noneの間は生きている
         sleep(3)
     print('clamd : ended')
-    sendq.put('end')
-    os._exit(0)
+
+    sendq.put('end')   # 親にendを知らせる
