@@ -1,6 +1,5 @@
 検索を許可するドメイン名。
-以下の文字列を含むドメイン名は組織内とする。
-「含む」ではなく、完全一致にしたい場合は、main.pyのcheck_searched_url()を書き換える必要。
+ドメイン名が以下の文字列で終わるURLは組織内とする。
 www.ritsumeihuman.com
 .apu.ac.jp
 ivrc.jp

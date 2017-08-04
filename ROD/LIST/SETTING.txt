@@ -16,7 +16,7 @@ MAX_time=3600*0
 # MAX_time=24時間、SAVE_time=5時間なら、5時間ごとの途中経過を保存。24時間で終わらなければ最後は4時間分を保存。
 # 単位は秒。0は途中セーブなし。
 # 数値か掛け算のみ
-SAVE_time=3600*5
+SAVE_time=3600*0
 
 # run_count
 # 今何回目の実行か。最初から始める場合は0。
@@ -43,7 +43,7 @@ clamd_scan=True
 # machine_learning
 # 機械学習による分類を使うか。
 # TrueかFalseのみ
-machine_learning=True
+machine_learning=False
 
 # phantomjs
 # ヘッドレスブラウザであるPhantomJSを使うかどうか。
