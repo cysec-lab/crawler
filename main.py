@@ -368,7 +368,7 @@ def make_url_list(now_time):
                 # リダイレクト後であった場合、ホスト名を見てあやしければ外部出力
                 if len(thread.url_tuple) == 3:
                     host_name = urlparse(thread.url_tuple[0]).netloc
-                    if [white for white in after_redirect_list if white in host_name]:
+                    if not [white for white in after_redirect_list if host_name.endswith(white)]:
                         wa_file('../alert/after_redirect_check.csv',
                                 thread.url_tuple[0] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[2] + '\n')
                     else:
