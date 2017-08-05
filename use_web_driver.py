@@ -1,35 +1,43 @@
-from selenium import webdriver
-import selenium.common
+
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from time import sleep
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-from os import path
 from urllib.parse import urlparse
 from copy import deepcopy
 from content_get import PhantomGetThread
+from content_get import DriverGetThread
 
 
 # phantomJSを使うためのdriverを返す
 def driver_get():
+    # PhantomJSの設定
     des_cap = dict(DesiredCapabilities.PHANTOMJS)
     des_cap["phantomjs.page.settings.userAgent"] = (
         'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
     )
     # des_cap["phantomjs.page.settings.loadImages"] = False
     des_cap['phantomjs.page.settings.resourceTimeout'] = 60   # たぶん意味ない
-    try:
-        driver = webdriver.PhantomJS(desired_capabilities=des_cap, service_log_path=path.devnull)
-    except selenium.common.exceptions.WebDriverException:
-        sleep(1)
+
+    # PhantomJSのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
+    t = DriverGetThread(des_cap)
+    t.daemon = True
+    t.start()
+    t.join(10)
+    if t.re is False:   # ドライバ取得でフリーズしている場合
         try:
-            driver = webdriver.PhantomJS(desired_capabilities=des_cap, service_log_path=path.devnull)
-        except selenium.common.exceptions.WebDriverException:
-            print('End by WebDriverException.')
-            return False
+            t.driver.quit()
+        except Exception:
+            pass
+        return False
+    if t.driver is False:  # 単にエラーで取得できなかった場合
+        return False
+    driver = t.driver
+
     # たぶん意味ない
     driver.set_page_load_timeout = 60  # ページを構成するファイルのロードのタイムアウト?
     driver.timeout = 10   # リクエストのタイムアウト?
+
     return driver
 
 

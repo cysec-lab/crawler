@@ -117,7 +117,7 @@ def import_file(path):             # 実行でディレクトリは「crawler」
     if os.path.exists(path + '/DOMAIN.txt'):
         data_temp = r_file(path + '/DOMAIN.txt')
         if data_temp:
-            data_temp = data_temp.split('#')[1]
+            data_temp = data_temp.split('###')[1]
             necessary_list_dict['domain_list'] = data_temp.split('\n')[1:]      # 組織内ドメインリスト
         else:
             necessary_list_dict['domain_list'] = list()
@@ -126,7 +126,8 @@ def import_file(path):             # 実行でディレクトリは「crawler」
     if os.path.exists(path + '/NOT_DOMAIN.txt'):
         data_temp = r_file(path + '/NOT_DOMAIN.txt')
         if data_temp:
-            necessary_list_dict['not_domain_list'] = data_temp.split('\n')  # 組織外ドメインリスト
+            data_temp = data_temp.split('###')[1]
+            necessary_list_dict['not_domain_list'] = data_temp.split('\n')[1:]  # 組織外ドメインリスト
         else:
             necessary_list_dict['not_domain_list'] = list()
     else:
@@ -134,7 +135,8 @@ def import_file(path):             # 実行でディレクトリは「crawler」
     if os.path.exists(path + '/BLACK_LIST.txt'):
         data_temp = r_file(path + '/BLACK_LIST.txt')
         if data_temp:
-            necessary_list_dict['black_list'] = data_temp.split('\n')       # 組織内だが検査しないリスト
+            data_temp = data_temp.split('###')[1]
+            necessary_list_dict['black_list'] = data_temp.split('\n')[1:]       # 組織内だが検査しないリスト
         else:
             necessary_list_dict['black_list'] = list()
     else:
@@ -142,7 +144,8 @@ def import_file(path):             # 実行でディレクトリは「crawler」
     if os.path.exists(path + '/WHITE_LIST.txt'):
         data_temp = r_file(path + '/WHITE_LIST.txt')
         if data_temp:
-            necessary_list_dict['white_list'] = data_temp.split('\n')  # ドメインは組織内ではないが、特定URLにおいて接続するリスト(google.siteなど
+            data_temp = data_temp.split('###')[1]
+            necessary_list_dict['white_list'] = data_temp.split('\n')[1:]  # 特定URLにおいて接続するリスト(google.siteなど
         else:
             necessary_list_dict['white_list'] = list()
     else:

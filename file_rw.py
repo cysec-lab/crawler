@@ -25,9 +25,9 @@ def wa_file(name, data):
             raise
 
 
-def r_file(name, mode='r'):
+def r_file(name, mode='r', encode='utf-8'):
     try:
-        with open(name, mode) as f:
+        with open(name, mode, encoding=encode) as f:
             return f.read()     # 改行文字は含まれる
     except:
         raise

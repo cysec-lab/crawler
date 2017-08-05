@@ -26,8 +26,8 @@ def receive(recvq):
 
 def clamd_main(recvq, sendq):
 
-    # clamAVのclamdを起動
-    p = Popen(["clamd"])
+    # clamAVのclamdを起動(ubuntuにしたので、ずっと起動されている?)
+    # p = Popen(["clamd"])
     while True:
         try:
             cd = pyclamd.ClamdAgnostic()
@@ -36,13 +36,13 @@ def clamd_main(recvq, sendq):
         except ValueError:
             print('wait for clamd starting ...')
             sleep(3)
-        except Exception as e:    # ウイルスデータの更新のwarningはキャッチできない
+        except Exception as e:
             pin = False
             print(e)
             break
     sendq.put(pin)   # 親プロセスにclamdに接続できたかどうかの結果を送る
     if pin is False:
-        return 0    # 接続できなければ終わる
+        os._exit(0)    # 接続できなければ終わる
 
     # EICARテスト
     eicar = cd.EICAR()
@@ -85,6 +85,7 @@ def clamd_main(recvq, sendq):
     wa_file('clamd_error.txt', text)
     clamd_error.clear()
 
+    """
     # clamdにシャットダウンシグナル送信
     try:
         cd.shutdown()
@@ -93,5 +94,6 @@ def clamd_main(recvq, sendq):
     while p.poll() is None:   # Noneの間は生きている
         sleep(3)
     print('clamd : ended')
+    """
 
     sendq.put('end')   # 親にendを知らせる

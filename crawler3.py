@@ -513,7 +513,7 @@ def crawler_main(args_dic):
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
 
-    # 180秒以上パースに時間がかかるスレッドは削除する(ためのスレッド)
+    # 180秒以上パースに時間がかかるスレッドは削除する(ためのスレッド)...実際にそんなスレッドがあるかは不明
     t = threading.Thread(target=del_thread, args=(host,))
     t.daemon = True
     t.start()

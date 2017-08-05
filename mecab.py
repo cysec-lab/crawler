@@ -1,6 +1,5 @@
 import MeCab
 import json
-import os
 from bs4 import NavigableString, Comment, Declaration, Doctype
 import unicodedata
 import time
@@ -60,20 +59,13 @@ def get_tf_dict_by_mecab(soup):
     text = normalizeText(text)
     # hacked byの文字列を探す。「hack」が見つかれば1、「hacked」が見つかれば2、「hacked by」が見つかれば3とする。
     hack_level = detect_hack(text)
-    # mecab辞書をインポート
-    mecab_u_dic = ''
-    file = os.listdir('../../../../ROD/mecab-dic/')
-    for dic in file:
-        if dic.endswith('.dic'):
-            mecab_u_dic += '../../../../ROD/mecab-dic/' + dic + ','
-    mecab_u_dic = mecab_u_dic.rstrip(',')
     # mecabで形態素解析
     try:
-        mecab = MeCab.Tagger('-Ochasen -u ' + mecab_u_dic)
+        mecab = MeCab.Tagger('-Ochasen -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
     except RuntimeError:
         time.sleep(1)
         try:
-            mecab = MeCab.Tagger('-Ochasen -u ' + mecab_u_dic)
+            mecab = MeCab.Tagger('-Ochasen -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
         except RuntimeError:
             return hack_level, False
     mecab.parse('')    # エラー回避のおまじない
@@ -88,7 +80,7 @@ def get_tf_dict_by_mecab(soup):
                 node = node.next
                 continue
             if len(word) == 1:   # str.isalpha()という英字を判別する関数があるが、なぜか漢字もTrueを返していた
-                if ('a' < word < 'z') or ('A' < word < 'Z'):   # 英字一文字は無視
+                if ('a' <= word <= 'z') or ('A' <= word <= 'Z'):   # 英字一文字は無視
                     node = node.next
                     continue
             if 'http://' in word:  # http:// が頻発していたので消す
