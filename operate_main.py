@@ -23,7 +23,6 @@ def kill_process(queue, p):
 def dealing_after_fact(dir_name):
     # コピー先を削除
     shutil.rmtree('ROD/url_hash_json')
-    shutil.rmtree('ROD/url_hash_json2')
     shutil.rmtree('ROD/tag_data')
 
     # 移動
@@ -62,11 +61,16 @@ def save_rod(dir_name):
         f.writelines('This ROD directory is used by ' + dir_name + ' crawling.')
     shutil.copytree('ROD/url_hash_json', 'ROD_history/' + dir_name + '/url_hash_json')
     shutil.copytree('ROD/tag_data', 'ROD_history/' + dir_name + '/tag_data')
-    shutil.copytree('ROD/request_url', 'ROD_history/' + dir_name + '/request_url')
-    shutil.copytree('ROD/link_host', 'ROD_history/' + dir_name + '/link_host')
-    shutil.copytree('ROD/iframe_src', 'ROD_history/' + dir_name + '/iframe_src')
-    shutil.copytree('ROD/idf_dict', 'ROD_history/' + dir_name + '/idf_dict')
-    shutil.copytree('ROD/frequent_word_100', 'ROD_history/' + dir_name + '/frequent_word_100')
+    if os.path.exists('ROD/request_url'):
+        shutil.copytree('ROD/request_url', 'ROD_history/' + dir_name + '/request_url')
+    if os.path.exists('ROD/link_host'):
+        shutil.copytree('ROD/link_host', 'ROD_history/' + dir_name + '/link_host')
+    if os.path.exists('ROD/iframe_src'):
+        shutil.copytree('ROD/iframe_src', 'ROD_history/' + dir_name + '/iframe_src')
+    if os.path.exists('ROD/idf_dict'):
+        shutil.copytree('ROD/idf_dict', 'ROD_history/' + dir_name + '/idf_dict')
+    if os.path.exists('ROD/frequent_word_100'):
+        shutil.copytree('ROD/frequent_word_100', 'ROD_history/' + dir_name + '/frequent_word_100')
 
 
 def main():

@@ -3,6 +3,7 @@ import json
 import os
 from datetime import date
 from copy import deepcopy
+import mysql.connector
 
 
 # url_dictの操作を行う。各サーバ毎に生成される。

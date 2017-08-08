@@ -497,7 +497,7 @@ def receive():
                 url_tuple = received_data['url_tuple_list'][0]   # リダイレクトの場合、リストの要素数は１個だけ
                 if url_tuple[0] in notRitsumei_url:  # 外部組織サーバへのリダイレクトならば
                     host_name = urlparse(url_tuple[0]).netloc
-                    if host_name not in after_redirect_list:
+                    if not [white for white in after_redirect_list if host_name.endswith(white)]:
                         wa_file('../alert/after_redirect_check.csv',
                                 url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
                     else:
