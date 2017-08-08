@@ -1,4 +1,5 @@
-accounts.google.com
+.google.com
+.googlegroups.com
 twitter.com
 www.facebook.com
 www.linkedin.com
@@ -16,7 +17,6 @@ npo-net.or.jp
 latecomer612.wixsite.com
 hitomi265.wixsite.com
 glyph-on.jp
-sites.google.com
 www.ritsumei-fubo.com
 www.rits-fes.net
 secure.ritsco-op.jp

@@ -1,5 +1,5 @@
-ŒŸõ‚ð‹–‰Â‚·‚éƒhƒƒCƒ“–¼B
-ƒhƒƒCƒ“–¼‚ªˆÈ‰º‚Ì•¶Žš—ñ‚ÅI‚í‚éURL‚Í‘gD“à‚Æ‚·‚éB
+æ¤œç´¢ã‚’è¨±å¯ã™ã‚‹ãƒ‰ãƒ¡ã‚¤ãƒ³åã€‚
+ãƒ‰ãƒ¡ã‚¤ãƒ³åãŒä»¥ä¸‹ã®æ–‡å­—åˆ—ã§çµ‚ã‚ã‚‹URLã¯çµ„ç¹”å†…ã¨ã™ã‚‹ã€‚
 www.ritsumeihuman.com
 .apu.ac.jp
 ivrc.jp
@@ -31,9 +31,9 @@ www.ritsumeirugby.com
 www.ritsumei-fubo.com
 www.ritsumei-rdiri.org
 
-ã‚ÍŠw•”Žž‚É‚Í‰ñ‚Á‚Ä‚¢‚½ƒhƒƒCƒ“B
-‚±‚ê‚æ‚è‰º‚ªA¡ƒNƒ[ƒŠƒ“ƒO‚µ‚Ä‚¢‚éƒhƒƒCƒ“B
-#
+ä¸Šã¯å­¦éƒ¨æ™‚ã«ã¯å›žã£ã¦ã„ãŸãƒ‰ãƒ¡ã‚¤ãƒ³ã€‚
+ã“ã‚Œã‚ˆã‚Šä¸‹ãŒã€ä»Šã‚¯ãƒ­ãƒ¼ãƒªãƒ³ã‚°ã—ã¦ã„ã‚‹ãƒ‰ãƒ¡ã‚¤ãƒ³ã€‚
+###
 www.apu.ac.jp
 koudai.ac.jp
 pep-rg.jp

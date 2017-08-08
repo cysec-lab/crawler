@@ -1,3 +1,5 @@
+URLに以下の文字列を含む場合は、検索しない
+###
 //database.ritsumei.ac.jp/subjgw/
 //www.dh-jac.net/db
 //runners.ritsumei.ac.jp/
