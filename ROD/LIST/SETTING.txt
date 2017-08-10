@@ -55,6 +55,11 @@ phantomjs=True
 # TrueかFalseのみ
 mecab=True
 
+# mysql
+# mysqlにデータを保存するかどうか
+# 保存されるデータ：各URLごとの、html全文、リンク、content-type、リダイレクト後URL(あれば)、リクエストURL
+mysql=False
+
 # assignOrAchievement
 # MAX_pageで指定した数を達成したか、割り当てたかのどちらの判断基準を使うかどうか。
 # Trueは割り当て、Falseは達成。この2値のみ使用可能。
