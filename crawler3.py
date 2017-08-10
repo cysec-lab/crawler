@@ -14,6 +14,7 @@ import threading
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
+from use_mysql import execute_query, get_id_from_url, register_url
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 threadId_set = set()         # パーサーのスレッドid集合
@@ -258,6 +259,29 @@ def get_tags_from_html(soup, page, machine_learning_q):
             machine_learning_q.put(dic)
 
 
+def make_query(mysql, url, table_type, contents):
+    conn = mysql['conn']
+    n = mysql['n']
+    query_list = list()
+    value_list = list()
+    tables = table_type + '_url_' + n
+
+    # urlからidを取得する
+    url_id = get_id_from_url(conn, url, n)
+    if url_id is None:
+        register_url(conn, url, n)
+    elif url_id is False:
+        return query_list, value_list
+
+    for string in contents:
+        query = 'INSERT INTO ' + tables + ' (url_id, ' + table_type + ') VALUES (%s, %s)'
+        query_list.append(query)
+        value = [str(url_id), string]
+        value.append(value)
+
+    return query_list, value_list
+
+
 def parser(parse_args_dic):
     global word_df_dict
     host = parse_args_dic['host']
@@ -266,6 +290,7 @@ def parser(parse_args_dic):
     file_type = parse_args_dic['file_type']
     machine_learning_q = parse_args_dic['machine_learning_q']
     use_mecab = parse_args_dic['use_mecab']
+    mysql = parse_args_dic['mysql']
 
     # スクレイピングするためのsoup
     try:
@@ -280,6 +305,11 @@ def parser(parse_args_dic):
     make_link(page, soup, page_type=file_type)  # ページに貼られているリンクを取得
     send_data = make_send_links_data(page)      # 親に送るURLリストを作成
     send_to_parent(q_send, send_data)           # 親にURLリストを送信
+
+    # リンク集をデータベースに保存
+    if mysql is not False:
+        query_list, value_list = make_query(mysql, url=page.url, table_type='link', contents=page.normalized_links)
+        execute_query(conn=mysql['conn'], query_list=query_list, value_list=value_list)
 
     # 検査
     # 前回とのハッシュ値を比較
@@ -434,7 +464,7 @@ def parser(parse_args_dic):
 def check_thread_time(now):
     thread_list = list()
     for threadId, th_time in threadId_time.items():
-        if (now - th_time) >= 180:
+        if (now - th_time) > 180:
             thread_list.append(threadId)
     return thread_list
 
@@ -501,6 +531,7 @@ def crawler_main(args_dic):
     machine_learning_q = args_dic['machine_learning_q']
     phantomjs = args_dic['phantomjs']
     use_mecab = args_dic['mecab']
+    mysql = args_dic['mysql']
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
@@ -648,7 +679,8 @@ def crawler_main(args_dic):
 
             # スレッドを作成してパース開始(phantomJSで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-                                      'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab}
+                                      'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab,
+                                      'mysql': mysql}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             threadId_set.add(t.ident)  # スレッド集合に追加

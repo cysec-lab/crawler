@@ -26,28 +26,32 @@ def dealing_after_fact(dir_name):
     shutil.rmtree('ROD/tag_data')
 
     # 移動
-    print('copy to ROD from RAD')
+    print('copy to ROD from RAD : ', end='')
     shutil.move('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
+    print('done')
 
     # tf_idf.pyの実行
-    print('run function of tf_idf.py')
+    print('run function of tf_idf.py : ', end='')
     p = Process(target=make_idf_dict_frequent_word_dict)
     p2 = Process(target=make_request_url_iframeSrc_link_host_set)
     p.start()
     p2.start()
     p.join()
     p2.join()
+    print('done')
 
     # RADの削除
-    print('delete RAD')
+    print('delete RAD : ', end='')
     shutil.rmtree('RAD')
+    print('done')
 
     # resultの移動
-    print('move result to check_result')
+    print('move result to check_result : ', end='')
     path = 'check_result/result/' + dir_name
     shutil.move(src='result', dst=path)
+    print('done')
 
     # main_cr.pyの実行
     del_and_make_achievement(path)
@@ -74,21 +78,29 @@ def save_rod(dir_name):
 
 
 def main():
+    if not os.path.exists('check_result/result'):
+        os.mkdir('check_result/result')
+    dir_name = len(os.listdir('check_result/result')) + 1
 
     while True:
         print('---next crawling---')
-        p = Process(target=crawler_host)
+        p = Process(target=crawler_host, args=(dir_name,))
         p.start()
         p.join()
-        print('crawler has finished.')
+        exitcode = p.exitcode
+        print(exitcode)
+        if exitcode == 255:  # エラー落ちの場合
+            break
+        print('crawling has finished.')
 
-        dir_name = str(len(os.listdir('check_result/result')) + 1)
-
-        print('save used ROD before overwriting the ROD directory')
-        save_rod(dir_name)
+        print('save used ROD before overwriting the ROD directory : ', end='')
+        save_rod(str(dir_name))
+        print('done')
 
         print('---dealing after fact---')
-        dealing_after_fact(dir_name)
+        dealing_after_fact(str(dir_name))
+
+        dir_name += 1
 
 
 if __name__ == '__main__':

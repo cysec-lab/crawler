@@ -27,6 +27,7 @@ class Page:
         self.request_url_host = list()         # 上のURLからホスト名だけ抜き出したもの
         self.request_url_same_server = list()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
         self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
+        self.new_page = False
 
     def set_html_and_content_type_urlopen(self, url):
         try:
@@ -66,17 +67,16 @@ class Page:
 
     def make_links_html(self, soup):
         bs_html = soup
-        for a_area in bs_html.findAll('a'):      # aタグを全部取ってくる
-            link_url = a_area.get('href')
-            style = a_area.get('class')
+        for a_tag in bs_html.findAll('a'):      # aタグを全部取ってくる
+            link_url = a_tag.get('href')
+            style = a_tag.get('class')
             if link_url:
                 if ('#' == link_url) or ('/' == link_url):
                     continue
                 if 'styleswitch' in str(style):
                     continue
-                else:
-                    if ('mailto:' not in link_url)and('do=login' not in link_url)and('tel:' not in link_url):
-                        self.links.add(link_url)
+                if ('mailto:' not in link_url)and('do=login' not in link_url)and('tel:' not in link_url):
+                    self.links.add(link_url)
 
     def make_links_xml(self, soup):
         bs_xml = soup
@@ -97,7 +97,7 @@ class Page:
             i += 1
 
     # http以外から始まるurl_1をroot_1で補完
-    # むっちゃごちゃごちゃしてるけど、立命のリンクは汚いものも多いので普通のURL正規化関数では正規化できなかった
+    # むっちゃごちゃごちゃしてるけど、立命のリンクは適当なものも多いので普通のURL正規化関数では正規化できなかった
     def comp_http(self, root_1, url_1):
         if url_1.startswith('./'):       # ./から始まっていると./を削除
             url_1 = url_1[2:]
@@ -144,9 +144,9 @@ class Page:
                 if checked_url == '#':   # 'javascript:'から始まるものや'#'から始まるもの
                     continue
             # 特殊文字が使われているものは置き換える
-            for spechar in html_special_char:
+            included_spechar = [spechar for spechar in html_special_char if spechar[0] in checked_url]
+            for spechar in included_spechar:
                 checked_url = checked_url.replace(spechar[0], spechar[1])
-
             # #が含まれていたら、#手前までのURLにする
             sharp = checked_url.find('#')
             if not (sharp == -1):

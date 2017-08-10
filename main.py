@@ -11,6 +11,7 @@ from datetime import date
 from machine_learning import machine_learning_main
 from clamd import clamd_main
 from shutil import copytree
+from use_mysql import get_connector, make_tables, register_url
 
 necessary_list_dict = dict()   # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
 after_redirect_list = list()   # リダイレクト後、ジャンプ先ホストとしてあやしくないもの
@@ -41,7 +42,8 @@ all_achievement = 0
 # 設定ファイルの読み込み
 def get_setting_dict(path):
     setting = dict()
-    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'machine_learning', 'phantomjs', 'mecab']
+    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'machine_learning', 'phantomjs', 'mecab',
+                          'mysql']
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
     for line in setting_line:
@@ -97,7 +99,7 @@ def get_setting_dict(path):
                         setting['MAX_process'] = cpu_count()
                     else:
                         setting['MAX_process'] = value
-            elif variable in bool_variable_list:   # true or falseの2値しか取らない設定はまとめている
+            elif variable in bool_variable_list:   # True or Falseの2値しか取らない設定はまとめている
                 if right_side == 'True':
                     setting[variable] = True
                 elif right_side == 'False':
@@ -171,6 +173,9 @@ def make_dir(screenshots):          # 実行ディレクトリは「crawler」
         os.mkdir('ROD/url_hash_json')
     if not os.path.exists('ROD/tag_data'):
         os.mkdir('ROD/tag_data')
+    if not os.path.exists('ROD/df_dicts'):
+        os.mkdir('ROD/df_dicts')
+
     if not os.path.exists('RAD/df_dict'):
         os.mkdir('RAD/df_dict')
     if not os.path.exists('RAD/temp'):
@@ -401,7 +406,7 @@ def thread_start(url_tuple):
 
 
 # urlのホスト名を返す。子プロセス数が上限ならFalseを返す。
-def choice_process(url_tuple, max_process, setting_dict):
+def choice_process(url_tuple, max_process, setting_dict, conn, n):
     host_name = urlparse(url_tuple[0]).netloc
     if host_name not in hostName_process:   # まだ作られていない場合、プロセス作成
         # www.ritsumei.ac.jpは子プロセス数が上限でも常に回したい(一番多いから)
@@ -426,6 +431,10 @@ def choice_process(url_tuple, max_process, setting_dict):
             args_dic['machine_learning_q'] = machine_learning_q['recv']
         else:
             args_dic['machine_learning_q'] = False
+        if setting_dict['mysql']:
+            args_dic['mysql'] = {'conn': conn, 'n': str(n)}
+        else:
+            args_dic['mysql'] = False
         args_dic['phantomjs'] = setting_dict['phantomjs']
         args_dic['mecab'] = setting_dict['mecab']
         args_dic['screenshots'] = setting_dict['screenshots']
@@ -605,7 +614,10 @@ def del_child(now):
                 pass
 
 
-def crawler_host():
+def crawler_host(n=None):
+    # n : 何回目のクローリングか
+    if n is None:
+        os._exit(255)
     global hostName_achievement, hostName_pid, hostName_process, hostName_queue, hostName_remaining, pid_time
     global notRitsumei_url, ritsumei_url, black_url, waiting_list, url_list, assignment_url, thread_set
     global remaining, send_num, recv_num, all_achievement
@@ -615,7 +627,7 @@ def crawler_host():
     setting_dict = get_setting_dict(path='ROD/LIST')
     if None in setting_dict.values():
         print('main : check the SETTING.txt')
-        return False
+        os._exit(255)
     assign_or_achievement = setting_dict['assignOrAchievement']
     max_process = setting_dict['MAX_process']
     max_page = setting_dict['MAX_page']
@@ -625,6 +637,7 @@ def crawler_host():
     screenshots = setting_dict['screenshots']
     clamd_scan = setting_dict['clamd_scan']
     machine_learning_ = setting_dict['machine_learning']
+    mysql = setting_dict['mysql']
 
     # 一回目の実行の場合
     if run_count == 0:
@@ -632,7 +645,7 @@ def crawler_host():
             print('RAD directory exists.')
             print('If this running is at first time, please delete this dire.')
             print('Else, you should check the run_count in SETTING.txt.')
-            return False
+            os._exit(255)
         os.mkdir('RAD')
         make_dir(screenshots)
         copytree('ROD/url_hash_json', 'RAD/url_hash_json')
@@ -655,6 +668,15 @@ def crawler_host():
         os.chdir('result')
     except FileNotFoundError:
         print('You should check the run_count in setting file.')
+
+    # databaseに必要なテーブルを作成、コネクターとカーソルを取得
+    if mysql:
+        conn = get_connector()
+        if not make_tables(conn=conn, n=n):
+            print('cannot make tables')
+            os._exit(255)
+    else:
+        conn = None
 
     # メインループを回すループ(save_timeが設定されていなければ、一周しかしない)
     while True:
@@ -680,7 +702,7 @@ def crawler_host():
         pre_time = current_start_time
 
         if not init(first_time=run_count, clamd_scan=clamd_scan, machine_learning_=machine_learning_):
-            return False
+            os._exit(255)
 
         # メインループ
         while True:
@@ -755,7 +777,7 @@ def crawler_host():
                 continue
 
             # URLのホスト名から、それを担当しているプロセスがなければ(死んでいれば)生成。
-            host_name = choice_process(url_tuple, max_process, setting_dict)
+            host_name = choice_process(url_tuple, max_process, setting_dict, conn, n)
             if host_name is False:
                 url_list.append(url_tuple)  # Falseが返ってくると子プロセス数が上限なので、url_listに戻す
                 continue
@@ -763,6 +785,7 @@ def crawler_host():
             # 子プロセスにURLのタプルを送信
             q_to_child = hostName_queue[host_name]['parent_send']  # そのサーバを担当しているプロセスに送るキューをゲット
             if not q_to_child.full():
+                register_url(conn=conn, url=url_tuple[0], n=n)  # データベースにurlを登録する
                 q_to_child.put(url_tuple)
                 hostName_remaining[host_name] += 1
                 assignment_url.add(url_tuple[0])
