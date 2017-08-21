@@ -1,5 +1,7 @@
-import mysql.connector
-
+try:
+    import mysql.connector
+except:
+    pass
 
 def get_connector():
     sql_connect = mysql.connector.connect(host='localhost', user='crawler', password=,

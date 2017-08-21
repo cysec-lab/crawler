@@ -92,7 +92,6 @@ def main():
         p.start()
         p.join()
         exitcode = p.exitcode
-        print(exitcode)
         if exitcode == 255:  # エラー落ちの場合
             break
         print('crawling has finished.')

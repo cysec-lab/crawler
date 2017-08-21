@@ -222,7 +222,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         black_url.update(set(data_temp))
         data_temp = r_json('result_' + str(first_time) + '/url_list')  # これから子プロセスに割り当てるURLの集合
         url_list.extend([tuple(i) for i in data_temp])
-        assignment_url.difference_update(set([i[0] for i in url_list]))  # これから割り当てるので、割り当て集合から削除しておく必要(割り当ての際にチェックされるため)
+        assignment_url.difference_update(set([i[0] for i in url_list]))  # これから割り当てるので割り当て集合から削除する必要(割り当ての際にチェックされるため)
         data_temp = r_json('result_' + str(first_time) + '/waiting_list')  # クローリングするかしないかのチェックをしていないURLの集合
         waiting_list.extend([tuple(i) for i in data_temp])
     # 作業ディレクトリを作って移動
