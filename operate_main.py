@@ -31,6 +31,8 @@ def dealing_after_fact(dir_name):
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
     if os.path.exists('RAD/screenshots'):
+        if os.path.exists('ROD/screenshots'):
+            shutil.rmtree('ROD/screenshots')
         shutil.move('RAD/screenshots', 'ROD/screenshots')
     print('done')
 
