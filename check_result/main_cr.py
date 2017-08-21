@@ -32,7 +32,9 @@ def print_url_tuple():
 
 
 def make_achievement(dire):
-    file_dic = {}
+    now_dir = os.path.dirname(os.path.abspath(__file__))  # 現在位置を絶対パスで取得
+
+    file_dic = dict()
     os.chdir(dire)
     lis = os.listdir()
     lis.sort()
@@ -98,6 +100,8 @@ def make_achievement(dire):
 
     for key, value in file_dic.items():
         wa_file('achievement/' + key, value)
+
+    os.chdir(now_dir)
 
 
 def print_assignment():
@@ -179,22 +183,20 @@ def print_changed_important_word():
 
 def del_and_make_achievement(path):
     del_pickle(path)
-    del_temp(path, 0, 0)  # 与えた数字の「result_*」フォルダ内の.jsonファイルを削除する。0,0は最後以外全て。
+    del_temp(path, 0, 0)
     del_dir(path, 0, 0)
     make_achievement(path)
-    for i in range(path.count('/')+1):
-        os.chdir('..')
 
 
 if __name__ == '__main__':
-    dire = 1
+    dire = 24
     dire = str(dire)
-    path = 'result/' + dire
-    del_pickle(path)
-    del_temp(0, 0, path)   # 与えた数字の「result_*」フォルダ内の.jsonファイルを削除する。0,0は最後以外全て。
-    del_dir(0, 0, path)
-
-    make_achievement(path)
+    os.chdir(dire)
+    del_pickle()
+    del_temp(0, 0)   # 与えた数字の「result_*」フォルダ内の.jsonファイルを削除する。0,0は最後以外全て。
+    del_dir(0, 0)
+    os.chdir('..')
+    make_achievement(dire)
     """
     
     #os.chdir('../result/result_4')
