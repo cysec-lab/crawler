@@ -28,6 +28,7 @@ def clamd_main(recvq, sendq):
 
     # clamAVのclamdを起動(ubuntuにしたので、ずっと起動されている?)
     # p = Popen(["clamd"])
+
     while True:
         try:
             cd = pyclamd.ClamdAgnostic()
@@ -70,7 +71,7 @@ def clamd_main(recvq, sendq):
                 wa_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n')
                 if not os.path.exists('../clamd_files'):
                     os.mkdir('../clamd_files')
-                wa_file('../clamd_files/file_' + str(len(listdir('../clamd_files'))+1) + '.clam', url + '\n' + str(byte))
+                wa_file('../clamd_files/b_' + str(len(listdir('../clamd_files'))+1) + '.clam', url + '\n' + str(byte))
             print('clamd : ' + url + ' have scanned.')
         if len(clamd_error) > 100:
             text = ''
@@ -93,7 +94,7 @@ def clamd_main(recvq, sendq):
         print(e)
     while p.poll() is None:   # Noneの間は生きている
         sleep(3)
-    print('clamd : ended')
     """
+    print('clamd : ended')
 
     sendq.put('end')   # 親にendを知らせる

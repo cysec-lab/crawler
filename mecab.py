@@ -3,6 +3,7 @@ import json
 from bs4 import NavigableString, Comment, Declaration, Doctype
 import unicodedata
 import time
+import os
 
 
 # 以下3つの関数、ネットから取ってきたソース URL = http://d.hatena.ne.jp/s-yata/20100619/1276961636
@@ -59,7 +60,27 @@ def get_tf_dict_by_mecab(soup):
     text = normalizeText(text)
     # hacked byの文字列を探す。「hack」が見つかれば1、「hacked」が見つかれば2、「hacked by」が見つかれば3とする。
     hack_level = detect_hack(text)
+
     # mecabで形態素解析
+    """
+    # windows.ver
+    mecab_u_dic = ''
+    file = os.listdir('../../../../ROD/mecab-dic/')
+    for dic in file:
+        if dic.endswith('.dic'):
+            mecab_u_dic += '../../../../ROD/mecab-dic/' + dic + ','
+    mecab_u_dic = mecab_u_dic.rstrip(',')
+    # mecabで形態素解析
+    try:
+        mecab = MeCab.Tagger('-Ochasen -u ' + mecab_u_dic)
+    except RuntimeError:
+        time.sleep(1)
+        try:
+            mecab = MeCab.Tagger('-Ochasen -u ' + mecab_u_dic)
+        except RuntimeError:
+            return hack_level, False
+    # linux.ver
+    """
     try:
         mecab = MeCab.Tagger('-Ochasen -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
     except RuntimeError:
@@ -68,6 +89,7 @@ def get_tf_dict_by_mecab(soup):
             mecab = MeCab.Tagger('-Ochasen -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
         except RuntimeError:
             return hack_level, False
+
     mecab.parse('')    # エラー回避のおまじない
     node = mecab.parseToNode(text)
     tf_dict = dict()

@@ -8,15 +8,18 @@ from check_searched_url import CheckSearchedUrlThread
 from threading import active_count
 import os
 from datetime import date
-from machine_learning import machine_learning_main
+from machine_learning_screenshots import screenshots_learning_main
+from machine_learning_tag import machine_learning_main
 from clamd import clamd_main
 from shutil import copytree
 from use_mysql import get_connector, make_tables, register_url
+
 
 necessary_list_dict = dict()   # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
 after_redirect_list = list()   # リダイレクト後、ジャンプ先ホストとしてあやしくないもの
 clamd_q = dict()
 machine_learning_q = dict()
+screenshots_svc_q = dict()
 
 hostName_process = dict()      # ホスト名 : 子プロセス
 hostName_remaining = dict()    # ホスト名 : キューの残り
@@ -43,7 +46,7 @@ all_achievement = 0
 def get_setting_dict(path):
     setting = dict()
     bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'machine_learning', 'phantomjs', 'mecab',
-                          'mysql']
+                          'mysql', 'screenshots_svc']
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
     for line in setting_line:
@@ -109,6 +112,7 @@ def get_setting_dict(path):
                     setting[variable] = None
             else:
                 print("main : couldn't import setting file. because of exist extra setting.")
+                print("main : what's " + variable)
                 setting['extra'] = None
     return setting
 
@@ -167,7 +171,7 @@ def import_file(path):             # 実行でディレクトリは「crawler」
             after_redirect_list = data_temp.split('\n')
 
 
-# 必要なディレクトリを作成(一回目のクローリング時のみ)
+# 必要なディレクトリを作成
 def make_dir(screenshots):          # 実行ディレクトリは「crawler」
     if not os.path.exists('ROD/url_hash_json'):
         os.mkdir('ROD/url_hash_json')
@@ -185,12 +189,16 @@ def make_dir(screenshots):          # 実行ディレクトリは「crawler」
     if not os.path.exists('result/alert'):
         os.mkdir('result/alert')
     if screenshots:
-        if not os.path.exists('image'):
-            os.mkdir('image')
+        if not os.path.exists('RAD/screenshots'):
+            os.mkdir('RAD/screenshots')
 
 
 # いろいろと最初の処理
-def init(first_time, clamd_scan, machine_learning_):    # 実行ディレクトリは「result」、最後の方に「result_*」に移動
+def init(first_time, setting_dict):    # 実行ディレクトリは「result」、最後の方に「result_*」に移動
+    machine_learning_ = setting_dict['machine_learning']
+    clamd_scan = setting_dict['clamd_scan']
+    screenshots_svc = setting_dict['screenshots_svc']
+
     global all_achievement
     # 検索済みURL、検索待ちURLなど、途中保存データを読み込む。一回目の実行の場合は、START_LISTだけ読み込む。
     if first_time == 0:
@@ -246,6 +254,16 @@ def init(first_time, clamd_scan, machine_learning_):    # 実行ディレクト�
         p = Process(target=machine_learning_main, args=(recvq, sendq, '../../ROD/tag_data'))
         p.start()
         print('main : wait for machine learning...')
+        print(sendq.get(block=True))   # 学習が終わるのを待つ(数分？)
+    if screenshots_svc:
+        # 機械学習を使うためのプロセスを起動
+        recvq = Queue()
+        sendq = Queue()
+        screenshots_svc_q['recv'] = recvq
+        screenshots_svc_q['send'] = sendq
+        p = Process(target=screenshots_learning_main, args=(recvq, sendq, '../../ROD/screenshots'))
+        p.start()
+        print('main : wait for screenshots learning...')
         print(sendq.get(block=True))   # 学習が終わるのを待つ(数分？)
     return True
 
@@ -431,6 +449,10 @@ def choice_process(url_tuple, max_process, setting_dict, conn, n):
             args_dic['machine_learning_q'] = machine_learning_q['recv']
         else:
             args_dic['machine_learning_q'] = False
+        if setting_dict['screenshots_svc']:
+            args_dic['screenshots_svc_q'] = screenshots_svc_q['recv']
+        else:
+            args_dic['screenshots_svc_q'] = False
         if setting_dict['mysql']:
             args_dic['mysql'] = {'conn': conn, 'n': str(n)}
         else:
@@ -635,8 +657,6 @@ def crawler_host(n=None):
     save_time = setting_dict['SAVE_time']
     run_count = setting_dict['run_count']
     screenshots = setting_dict['screenshots']
-    clamd_scan = setting_dict['clamd_scan']
-    machine_learning_ = setting_dict['machine_learning']
     mysql = setting_dict['mysql']
 
     # 一回目の実行の場合
@@ -701,7 +721,7 @@ def crawler_host(n=None):
         current_start_time = int(time())
         pre_time = current_start_time
 
-        if not init(first_time=run_count, clamd_scan=clamd_scan, machine_learning_=machine_learning_):
+        if not init(first_time=run_count, setting_dict=setting_dict):
             os._exit(255)
 
         # メインループ
@@ -785,7 +805,8 @@ def crawler_host(n=None):
             # 子プロセスにURLのタプルを送信
             q_to_child = hostName_queue[host_name]['parent_send']  # そのサーバを担当しているプロセスに送るキューをゲット
             if not q_to_child.full():
-                register_url(conn=conn, url=url_tuple[0], n=n)  # データベースにurlを登録する
+                if mysql:
+                    register_url(conn=conn, url=url_tuple[0], n=n)  # データベースにurlを登録する
                 q_to_child.put(url_tuple)
                 hostName_remaining[host_name] += 1
                 assignment_url.add(url_tuple[0])
@@ -819,11 +840,15 @@ def crawler_host(n=None):
         copytree('../alert', 'TEMP/alert')
         print('main : save done')
 
-        if machine_learning_:
+        if setting_dict['machine_learning']:
             print('wait for machine learning process')
             machine_learning_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
             print(machine_learning_q['send'].get(block=True))  # 機械学習プロセスが終わるのを待つ
-        if clamd_scan:
+        if setting_dict['screenshots_svc']:
+            print('wait for screenshots learning process')
+            screenshots_svc_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
+            print(screenshots_svc_q['send'].get(block=True))  # 機械学習プロセスが終わるのを待つ
+        if setting_dict['clamd_scan']:
             print('wait for clamd process')
             clamd_q['recv'].put('end')        # clamdプロセスに終わりを知らせる
             print(clamd_q['send'].get(block=True))   # clamdプロセスが終わるのを待つ

@@ -30,6 +30,8 @@ def dealing_after_fact(dir_name):
     shutil.move('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
+    if os.path.exists('RAD/screenshots'):
+        shutil.move('RAD/screenshots', 'ROD/screenshots')
     print('done')
 
     # tf_idf.pyの実行

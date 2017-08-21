@@ -66,8 +66,8 @@ def init(host, screenshots):
     if not os.path.exists('server/' + dir_name):
         os.mkdir('server/' + dir_name)
     if screenshots:
-        if not os.path.exists('../../image/' + dir_name):
-            os.mkdir('../../image/' + dir_name)
+        if not os.path.exists('../../RAD/screenshots/' + dir_name):
+            os.mkdir('../../RAD/screenshots/' + dir_name)
 
     os.chdir('server/' + dir_name)
 
@@ -291,6 +291,8 @@ def parser(parse_args_dic):
     machine_learning_q = parse_args_dic['machine_learning_q']
     use_mecab = parse_args_dic['use_mecab']
     mysql = parse_args_dic['mysql']
+    screenshots_svc_q = parse_args_dic['screenshots_svc_q']
+    img_name = parse_args_dic['img_name']
 
     # スクレイピングするためのsoup
     try:
@@ -347,6 +349,10 @@ def parser(parse_args_dic):
                             update_write_file_dict('alert', 'change_important_word.csv',
                                                    content=['URL,top10,pre', page.url + ',' + str(top10) + ','
                                                             + str(pre_top10)])
+                            if screenshots_svc_q is not False:
+                                data_dic = {'host': dir_name, 'url': page.url, 'img_name': img_name,
+                                            'num_diff_word': len(symmetric_difference)}
+                                screenshots_svc_q.put(data_dic)
                         update_write_file_dict('result', 'symmetric_diff_of_word.csv',
                                                content=['URL,length,top10,pre top10', page.url + ',' +
                                                         str(len(symmetric_difference)) + ',' + str(top10) + ',' +
@@ -529,6 +535,7 @@ def crawler_main(args_dic):
     clamd_q = args_dic['clamd_q']
     screenshots = args_dic['screenshots']
     machine_learning_q = args_dic['machine_learning_q']
+    screenshots_svc_q = args_dic['screenshots_svc_q']
     phantomjs = args_dic['phantomjs']
     use_mecab = args_dic['mecab']
     mysql = args_dic['mysql']
@@ -608,6 +615,7 @@ def crawler_main(args_dic):
                                                             page.content_type + ',' + page.url + ',' + page.src])  # 記録
 
         if type(file_type) == str:   # ウェブページの場合
+            img_name = False
             if phantomjs:
                 # phantomJSでURLに再接続。関数内で接続後１秒待機
                 phantom_result = set_html(page=page, driver=driver)
@@ -660,8 +668,8 @@ def crawler_main(args_dic):
                 if screenshots:
                     try:
                         if phantom_result is True:
-                            driver.save_screenshot('../../../../image/' + dir_name + '/' +
-                                                   str(len(os.listdir('../../../../image/' + dir_name))) + '.png')
+                            img_name = str(len(os.listdir('../../../../RAD/screenshots/' + dir_name)))
+                            driver.save_screenshot('../../../../RAD/screenshots/' + dir_name + '/' + img_name + '.png')
                     except Exception as e:
                         print(e)
 
@@ -669,7 +677,7 @@ def crawler_main(args_dic):
                 try:
                     window_url_list = get_window_url(page, driver)
                 except Exception as e:
-                    wa_file('../../window_url_get_error.text', data=page.url + '\n' + str(e) + '\n')
+                    wa_file('../../window_url_get_error.txt', data=page.url + '\n' + str(e) + '\n')
                 else:
                     if window_url_list:   # URLがあった場合、リンクURLを渡すときと同じ形にして親プロセスに送信
                         url_tuple_list = list()
@@ -680,7 +688,7 @@ def crawler_main(args_dic):
             # スレッドを作成してパース開始(phantomJSで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
                                       'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab,
-                                      'mysql': mysql}
+                                      'mysql': mysql, 'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             threadId_set.add(t.ident)  # スレッド集合に追加
