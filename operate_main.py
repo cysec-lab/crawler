@@ -1,6 +1,7 @@
 from main import crawler_host
 from tf_idf import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
 from check_result.main_cr import del_and_make_achievement
+from SVC_screenshot import del_0size
 from multiprocessing import Process
 import os
 import shutil
@@ -27,10 +28,14 @@ def dealing_after_fact(dir_name):
 
     # 移動
     print('copy to ROD from RAD : ', end='')
-    shutil.move('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
+    shutil.copy2('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
     if os.path.exists('RAD/screenshots'):
+        # スクショを撮っていたら、0サイズの画像を削除
+        p = Process(target=del_0size.del_0size_and_rename, args=('RAD/screenshots',))
+        p.start()
+        p.join()
         if os.path.exists('ROD/screenshots'):
             shutil.rmtree('ROD/screenshots')
         shutil.move('RAD/screenshots', 'ROD/screenshots')
@@ -87,12 +92,12 @@ def main():
     dir_name = len(os.listdir('check_result/result')) + 1
 
     while True:
-        print('---next crawling---')
+        print('---' + str(dir_name) + ' th crawling---')
         p = Process(target=crawler_host, args=(dir_name,))
         p.start()
         p.join()
         exitcode = p.exitcode
-        if exitcode == 255:  # エラー落ちの場合
+        if (exitcode == 255) or (exitcode < 0):  # エラー落ちの場合
             break
         print('crawling has finished.')
 

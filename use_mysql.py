@@ -3,8 +3,9 @@ try:
 except:
     pass
 
+
 def get_connector():
-    sql_connect = mysql.connector.connect(host='localhost', user='crawler', password=,
+    sql_connect = mysql.connector.connect(host='localhost', user='crawler', password='',
                                           database='ritsumeidb', charset='utf8')
     return sql_connect
 

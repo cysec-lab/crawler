@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
 from use_mysql import execute_query, get_id_from_url, register_url
+import signal
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 threadId_set = set()         # パーサーのスレッドid集合
@@ -621,6 +622,7 @@ def crawler_main(args_dic):
                 phantom_result = set_html(page=page, driver=driver)
                 if type(phantom_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', phantom_result[0] + '.txt', content=phantom_result[1])
+                    driver.service.process.send_signal(signal.SIGTERM)
                     driver.quit()           # driverを一回終了して
                     driver = driver_get()   # 再取得
                     if driver is False:
@@ -735,6 +737,7 @@ def crawler_main(args_dic):
     save_result()
     print(host + ' saved.')
     try:
+        driver.service.process.send_signal(signal.SIGTERM)
         driver.quit()
     except Exception:
         pass

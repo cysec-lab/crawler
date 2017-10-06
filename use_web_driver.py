@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from copy import deepcopy
 from content_get import PhantomGetThread
 from content_get import DriverGetThread
+import signal
 
 
 # phantomJSを使うためのdriverを返す
@@ -26,6 +27,7 @@ def driver_get():
     t.join(10)
     if t.re is False:   # ドライバ取得でフリーズしている場合
         try:
+            t.driver.service.process.send_signal(signal.SIGTERM)
             t.driver.quit()
         except Exception:
             pass

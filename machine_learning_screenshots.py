@@ -4,6 +4,7 @@ from collections import deque
 from file_rw import wa_file
 from SVC_screenshot import preparation, main, prediction
 import os
+import shutil
 
 end = False          # メインプロセスから'end'が送られてくると終了
 data_list = deque()  # 子プロセスから送られてきたデータのリスト[{url, url_src, 画像ファイル名, host名, 重要単語変化数},{辞書}, {辞書}...]
@@ -31,6 +32,7 @@ def screenshots_learning_main(recvq, sendq, path):
     # 前回クローリング時のスクショを学習させる
     print('screenshots learning : start learning...')
     svc_dict = main.main(path)
+    print(svc_dict)
     sendq.put('main : screenshots learning ended.')
     while True:
         if len(data_list) == 0:
@@ -66,15 +68,18 @@ def screenshots_learning_main(recvq, sendq, path):
 
         # 予測
         classify_count += 1   # 検査したURL数
-        result_df = prediction.prediction_main(classifier, test_data, url, src, num_diff_word)
+        result_df = prediction.prediction_main(classifier, test_data, url, src, num_diff_word, img_name)
 
         # 重要単語が8個以上変わっていて、かつスクショがそのサイトらしくなかった場合
         if result_df is not False:
-            file_name = 'screenshots_inspection.csv'
+            file_name = '../alert/screenshots_inspection.csv'
             if os.path.exists(file_name):
                 result_df.to_csv(file_name, mode='a', header=False, index=False)
             else:
                 result_df.to_csv(file_name, mode='a', header=True, index=False)
+            if not os.path.exists('../alert/screenshots'):
+                os.mkdir('../alert/screenshots')
+            shutil.copyfile(src=file_path, dst='../alert/screenshots/' + img_name + '.png')
 
     wa_file('num_of_checked_ByScreenshotsLearning.txt', str(classify_count) + '\n')
 

@@ -51,6 +51,33 @@ def make_idf_dict_frequent_word_dict():
             json.dump(frequent_words, f)
 
     # idf辞書の作成
+    # 前回データからのみ
+    lis = os.listdir('RAD/df_dict')
+    c = 0
+    for server in lis:
+        idf_dict = dict()
+        with open('RAD/df_dict/' + server, 'r') as f:
+            dic = json.load(f)
+        if len(dic) == 0:
+            continue
+        N = dic['NumOfPages']  # NumOfPageはそのサーバで辞書を更新した回数 = そのサーバのページ数
+        if N == 0:
+            continue
+        for word, count in dic.items():
+            if not word == 'NumOfPages':
+                idf = log(N / count) + 1
+                idf_dict[word] = idf
+        # 前回に出現していなかった単語のtf-idfを計算するためのidf値
+        idf = log(N) + 1  # 初登場の単語は、countを1でidf値を計算
+        idf_dict['NULLnullNULL'] = idf
+
+        if idf_dict:
+            f = open('ROD/idf_dict/' + server, 'w')
+            json.dump(idf_dict, f)
+            f.close()
+        c += 1
+    """
+    # 過去すべてのdfデータから計算
     c = 0
     for server, dic in df_dict.items():
         N = dic['NumOfPages']     # NumOfPageはそのサーバで辞書を更新した回数 = そのサーバのページ数
@@ -70,7 +97,7 @@ def make_idf_dict_frequent_word_dict():
             json.dump(idf_dict, f)
             f.close()
         c += 1
-        print(str(c) + '/' + str(len(df_dict.keys())))
+    """
 
 
 def make_request_url_iframeSrc_link_host_set():

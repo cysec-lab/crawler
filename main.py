@@ -240,6 +240,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
         p = Process(target=clamd_main, args=(recvq, sendq))
         p.start()
+        clamd_q['process'] = p
         if sendq.get(block=True):
             print('main : connect to clamd')   # clamdに接続できたようなら次へ
         else:
@@ -253,6 +254,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         machine_learning_q['send'] = sendq
         p = Process(target=machine_learning_main, args=(recvq, sendq, '../../ROD/tag_data'))
         p.start()
+        machine_learning_q['process'] = p
         print('main : wait for machine learning...')
         print(sendq.get(block=True))   # 学習が終わるのを待つ(数分？)
     if screenshots_svc:
@@ -263,6 +265,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         screenshots_svc_q['send'] = sendq
         p = Process(target=screenshots_learning_main, args=(recvq, sendq, '../../ROD/screenshots'))
         p.start()
+        screenshots_svc_q['process'] = p
         print('main : wait for screenshots learning...')
         print(sendq.get(block=True))   # 学習が終わるのを待つ(数分？)
     return True
@@ -843,15 +846,18 @@ def crawler_host(n=None):
         if setting_dict['machine_learning']:
             print('wait for machine learning process')
             machine_learning_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
-            print(machine_learning_q['send'].get(block=True))  # 機械学習プロセスが終わるのを待つ
+            if not machine_learning_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
+                machine_learning_q['process'].terminate()
         if setting_dict['screenshots_svc']:
             print('wait for screenshots learning process')
             screenshots_svc_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
-            print(screenshots_svc_q['send'].get(block=True))  # 機械学習プロセスが終わるのを待つ
+            if not screenshots_svc_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
+                screenshots_svc_q['process'].terminate()
         if setting_dict['clamd_scan']:
             print('wait for clamd process')
             clamd_q['recv'].put('end')        # clamdプロセスに終わりを知らせる
-            print(clamd_q['send'].get(block=True))   # clamdプロセスが終わるのを待つ
+            if not clamd_q['process'].join(timeout=60):   # clamdプロセスが終わるのを待つ
+                clamd_q['process'].terminate()
 
         # メインループをもう一度回すかどうか
         if save:

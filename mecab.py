@@ -82,11 +82,11 @@ def get_tf_dict_by_mecab(soup):
     # linux.ver
     """
     try:
-        mecab = MeCab.Tagger('-Ochasen -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
+        mecab = MeCab.Tagger('-Ochasen')  # -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
     except RuntimeError:
         time.sleep(1)
         try:
-            mecab = MeCab.Tagger('-Ochasen -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
+            mecab = MeCab.Tagger('-Ochasen')  # -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
         except RuntimeError:
             return hack_level, False
 
