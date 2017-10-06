@@ -1,10 +1,8 @@
-﻿from check_result.get_result import get_result
-from check_result.get_hash import get_hash
+﻿
 import os
 from file_rw import r_json, w_json, wa_file, r_file, w_file
 import shutil
 from check_result.normalize_dir import del_temp, del_pickle, del_dir
-from urllib.parse import urlparse
 
 
 def print_url_tuple():
@@ -101,7 +99,8 @@ def make_achievement(dire):
     for key, value in file_dic.items():
         wa_file('achievement/' + key, value)
 
-    os.chdir(now_dir)
+    os.chdir(now_dir)  # check_resultにとぶ
+    os.chdir('..')     # 実行ディレクトリにとぶ
 
 
 def print_assignment():
@@ -189,14 +188,9 @@ def del_and_make_achievement(path):
 
 
 if __name__ == '__main__':
-    dire = 24
-    dire = str(dire)
-    os.chdir(dire)
-    del_pickle()
-    del_temp(0, 0)   # 与えた数字の「result_*」フォルダ内の.jsonファイルを削除する。0,0は最後以外全て。
-    del_dir(0, 0)
-    os.chdir('..')
-    make_achievement(dire)
+    s = os.path.dirname(os.path.abspath(__file__))
+    print(s)
+    del_and_make_achievement(path='check_result/result/1111')
     """
     
     #os.chdir('../result/result_4')
