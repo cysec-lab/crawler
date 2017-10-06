@@ -68,3 +68,5 @@ www.apu.ac.jp/rcaps/
 login.fcc?
 .ritsumei.ac.jp/se/rv/chikamoto/
 .ritsumei.ac.jp/research/common/file/seeds/
+www.malab.se.ritsumei.ac.jp/top/publication/papers/index/papers/en/
+www.malab.se.ritsumei.ac.jp/top/publication/papers/index/papers/papers/

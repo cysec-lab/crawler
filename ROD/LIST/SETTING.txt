@@ -3,7 +3,7 @@
 # MAX_page
 # 最大検索数。この数のURLを調べたら終了する。
 # 数値
-MAX_page=100000
+MAX_page=200000
 
 # MAX_time
 # 最大実行時間。この時間内に終わらなければセーブして終了する。
@@ -31,7 +31,7 @@ run_count=0
 MAX_process=0
 
 # screenshots
-# 各ページのスクリーンショットを撮るかどうか。
+# 各ページのスクリーンショットを撮るかどうか。スクショによる判別をする場合は必須。
 # TrueかFalseのみ
 screenshots=False
 
@@ -41,9 +41,14 @@ screenshots=False
 clamd_scan=True
 
 # machine_learning
-# 機械学習による分類を使うか。
+# 機械学習でtagによる分類を使うか。
 # TrueかFalseのみ
 machine_learning=False
+
+# screenshots_svc
+# 機械学習でスクショによる分類を使うか。
+# TrueかFalseのみ
+screenshots_svc=False
 
 # phantomjs
 # ヘッドレスブラウザであるPhantomJSを使うかどうか。
