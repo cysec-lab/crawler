@@ -4,7 +4,7 @@ from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
 from inspection_page import title_inspection, invisible
 from inspection_file import check_content_type
-from use_web_driver import driver_get, set_html, set_request_url, get_window_url, take_screenshot
+from use_web_driver import driver_get, set_html, set_request_url, get_window_url, take_screenshots, quit_driver
 import os
 from time import sleep, time
 from copy import deepcopy
@@ -622,9 +622,8 @@ def crawler_main(args_dic):
                 phantom_result = set_html(page=page, driver=driver)
                 if type(phantom_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', phantom_result[0] + '.txt', content=phantom_result[1])
-                    driver.service.process.send_signal(signal.SIGTERM)
-                    driver.quit()           # driverを一回終了して
-                    driver = driver_get()   # 再取得
+                    quit_driver(driver)    # headless browser終了して
+                    driver = driver_get()  # 再取得
                     if driver is False:
                         os._exit(0)
                     else:
@@ -633,7 +632,6 @@ def crawler_main(args_dic):
                             continue
                 if page.url in url_cache:     # phantomJSでurlが変わっている可能性があるため再度チェック
                     continue
-
                 # リダイレクトのチェック
                 redirect = check_redirect(page, host)
                 if redirect is True:    # リダイレクトでサーバが変わっていれば
@@ -670,7 +668,7 @@ def crawler_main(args_dic):
                 if screenshots:
                     if phantom_result is True:
                         scsho_path = '../../../../RAD/screenshots/' + dir_name
-                        take_screenshot(scsho_path, driver)
+                        take_screenshots(scsho_path, driver)
 
                 # 別窓やタブが開いた場合、そのURLを取得
                 try:
@@ -733,9 +731,5 @@ def crawler_main(args_dic):
         url_cache.add(page.url)          # 最終的にパースしたURL
     save_result()
     print(host + ' saved.')
-    try:
-        driver.service.process.send_signal(signal.SIGTERM)
-        driver.quit()
-    except Exception:
-        pass
+    quit_driver(driver)  # headless browser終了して
     os._exit(0)

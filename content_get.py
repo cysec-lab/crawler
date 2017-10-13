@@ -2,6 +2,7 @@
 from selenium import webdriver
 import selenium.common
 from os import path
+from use_web_driver import quit_driver
 
 
 class DriverGetThread(Thread):
@@ -15,16 +16,10 @@ class DriverGetThread(Thread):
         try:
             self.driver = webdriver.PhantomJS(desired_capabilities=self.des_cap, service_log_path=path.devnull)
         except selenium.common.exceptions.WebDriverException:
-            try:
-                self.driver.quit()
-            except Exception:
-                pass
+            quit_driver(self.driver)
             self.driver = False
         except LookupError:
-            try:
-                self.driver.quit()
-            except Exception:
-                pass
+            quit_driver(self.driver)
             self.driver = False
         self.re = True
 

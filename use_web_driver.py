@@ -26,11 +26,7 @@ def driver_get():
     t.start()
     t.join(10)
     if t.re is False:   # ドライバ取得でフリーズしている場合
-        try:
-            t.driver.service.process.send_signal(signal.SIGTERM)
-            t.driver.quit()
-        except Exception:
-            pass
+        quit_driver(t.driver)   # 一応終了させて
         return False
     if t.driver is False:  # 単にエラーで取得できなかった場合
         return False
@@ -123,7 +119,7 @@ def get_window_url(page, driver):
     return url_list
 
 
-def take_screenshot(path, driver):
+def take_screenshots(path, driver):
     import os
     try:
         img_name = str(len(os.listdir(path)))
@@ -134,6 +130,16 @@ def take_screenshot(path, driver):
         return True
 
     return False
+
+
+def quit_driver(driver):
+    try:
+        driver.service.process.send_signal(signal.SIGTERM)
+        driver.quit()
+    except Exception:
+        return False
+    else:
+        return True
 
 """
 def set_content_type(self, driver):
