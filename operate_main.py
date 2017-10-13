@@ -21,6 +21,10 @@ def kill_process(queue, p):
         p.terminate()
 
 
+def kill_phantomjs():
+    pass
+
+
 def dealing_after_fact(dir_name):
     # コピー先を削除
     shutil.rmtree('ROD/url_hash_json')
@@ -28,7 +32,7 @@ def dealing_after_fact(dir_name):
 
     # 移動
     print('copy to ROD from RAD : ', end='')
-    shutil.copy2('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
+    shutil.copytree('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
     if os.path.exists('RAD/screenshots'):
@@ -97,9 +101,13 @@ def main():
         p.start()
         p.join()
         exitcode = p.exitcode
-        if (exitcode == 255) or (exitcode < 0):  # エラー落ちの場合
+        if (exitcode == 255) or (exitcode < 0):  # エラー落ちの場合?
+            print('operate_main end with crawler error')
             break
         print('crawling has finished.')
+
+        print('kill PhantomJS')
+        kill_phantomjs()
 
         print('save used ROD before overwriting the ROD directory : ', end='')
         save_rod(str(dir_name))

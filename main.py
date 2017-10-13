@@ -165,6 +165,11 @@ def import_file(path):             # 実行でディレクトリは「crawler」
     else:
         necessary_list_dict['IPAddress_list'] = list()
 
+    # 空文字が入っている場合は削除(急にBLACK_LISTに空文字が入るようになってしまった)
+    for v in necessary_list_dict.values():
+        if '' in v:
+            v.remove('')
+
     if os.path.exists(path + '/REDIRECT_LIST.txt'):   # 外部サイトへのリダイレクトとして安全が確認されたホスト名のリスト
         data_temp = r_file(path + '/REDIRECT_LIST.txt')
         if data_temp:
@@ -280,34 +285,44 @@ def get_achievement_amount():
     return achievement
 
 
+# hostを担当しているプロセスへの通信キューからURLを一つ取り出し、url_listに加える
+# url_listに加えないと子プロセスは生成されない(通信キューに残っているだけじゃだめ)
+def reborn_child(host):
+    try:
+        url_tuple = hostName_queue[host]['parent_send'].get(block=False)
+    except Exception:
+        pass
+    else:
+        print('main : ' + host + ' is die, although queue is not empty. so append to url_list')
+        print('main : add ' + str(url_tuple))
+        hostName_remaining[host] -= 1
+        url_list.append(url_tuple)
+        assignment_url.discard(url_tuple[0])  # 送信URL集合から削除(送信時にチェックしているため)
+        return True
+    return False
+
+
 # 5秒ごとに途中経過表示、メインループが動いてることの確認のため、スレッド化していない
 def print_progress(run_time_pp, max_process, current_achievement):
     global send_num, recv_num
     alive_count = get_alive_child_num()
     print('main : ---------progress--------')
     count = 0
+    alive_count_temp = alive_count
     for host, remaining_temp in hostName_remaining.items():
         if not remaining_temp:
             count += 1    # remainingが0のホスト数をカウント
         else:
-            # プロセスが死んでいて、キューにURLが残っている場合、キューから1つ取り出し、url_listに加える
-            # 子プロセスが親プロセスに殺されると、これにあたる可能性がでてくる
-            if not hostName_process[host].is_alive():
-                if not hostName_queue[host]['parent_send'].empty():
-                    if alive_count < max_process:
-                        try:
-                            url_tuple = hostName_queue[host]['parent_send'].get(block=False)
-                        except Exception:
-                            pass
-                        else:
-                            print('main : ' + host + ' is die, although queue is not empty. so append to url_list')
-                            print('main : add ' + str(url_tuple))
-                            hostName_remaining[host] -= 1
-                            url_list.append(url_tuple)
-                            assignment_url.discard(url_tuple[0])    # 送信URL集合から削除(送信時にチェックしているため)
-                else:
-                    hostName_remaining[host] = 0
-            print('main : ' + host + "'s remaining is " + str(remaining_temp) + '\t active = ' + str(hostName_process[host].is_alive()))
+            print('main : ' + host + "'s remaining is " + str(remaining_temp) +
+                  '\t active = ' + str(hostName_process[host].is_alive()))
+            if hostName_queue[host]['parent_send'].empty():  # 実際にキューの中を見て、空ならばremainingを0に
+                hostName_remaining[host] = 0
+            else:
+                if alive_count_temp < max_process:
+                    # プロセスが死んでいて、キューにURLが残っている場合、通信キューから1つ取り出し、url_listに加える
+                    if not hostName_process[host].is_alive():
+                        if reborn_child(host=host):   # 通信キューからurl_listに加えることに成功すれば
+                            alive_count_temp += 1
     print('main : remaining=0 is ' + str(count))
     print('main : run time = ' + str(run_time_pp) + 's.')
     print('main : URL / recv-num : send-num = ' + str(recv_num) + ' : ' + str(send_num))
