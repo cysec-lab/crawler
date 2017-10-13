@@ -122,6 +122,19 @@ def get_window_url(page, driver):
         raise
     return url_list
 
+
+def take_screenshot(path, driver):
+    import os
+    try:
+        img_name = str(len(os.listdir(path)))
+        driver.save_screenshot(path + '/' + img_name + '.png')
+    except Exception as e:
+        print(e)
+    else:
+        return True
+
+    return False
+
 """
 def set_content_type(self, driver):
     try:

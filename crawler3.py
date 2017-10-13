@@ -4,7 +4,7 @@ from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
 from inspection_page import title_inspection, invisible
 from inspection_file import check_content_type
-from use_web_driver import driver_get, set_html, set_request_url, get_window_url
+from use_web_driver import driver_get, set_html, set_request_url, get_window_url, take_screenshot
 import os
 from time import sleep, time
 from copy import deepcopy
@@ -668,12 +668,9 @@ def crawler_main(args_dic):
 
                 # スクショが欲しければ撮る
                 if screenshots:
-                    try:
-                        if phantom_result is True:
-                            img_name = str(len(os.listdir('../../../../RAD/screenshots/' + dir_name)))
-                            driver.save_screenshot('../../../../RAD/screenshots/' + dir_name + '/' + img_name + '.png')
-                    except Exception as e:
-                        print(e)
+                    if phantom_result is True:
+                        scsho_path = '../../../../RAD/screenshots/' + dir_name
+                        take_screenshot(scsho_path, driver)
 
                 # 別窓やタブが開いた場合、そのURLを取得
                 try:
