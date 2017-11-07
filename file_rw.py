@@ -3,25 +3,45 @@ import json
 
 def w_file(name, data):
     try:
-        with open(name, 'w', encoding='utf-8') as f:
-            f.write(data)
+        f = open(name, 'w', encoding='utf-8')
+        f.write(data)
+        f.close()
     except:
         try:
-            with open(name, 'w', encoding='shift-jis') as f:
-                f.write(data)
+            f.close()
         except:
+            pass
+        try:
+            f = open(name, 'w', encoding='shift-jis')
+            f.write(data)
+            f.close()
+        except:
+            try:
+                f.close()
+            except:
+                pass
             raise
 
 
 def wa_file(name, data):
     try:
-        with open(name, 'a', encoding='utf-8') as f:
-            f.write(data)
+        f = open(name, 'a', encoding='utf-8')
+        f.write(data)
+        f.close()
     except:
         try:
-            with open(name, 'a', encoding='shift-jis') as f:
-                f.write(data)
+            f.close()
         except:
+            pass
+        try:
+            f = open(name, 'a', encoding='shift-jis')
+            f.write(data)
+            f.close()
+        except:
+            try:
+                f.close()
+            except:
+                pass
             raise
 
 

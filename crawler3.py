@@ -15,7 +15,6 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
 from use_mysql import execute_query, get_id_from_url, register_url
-import signal
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 threadId_set = set()         # パーサーのスレッドid集合
@@ -543,7 +542,7 @@ def crawler_main(args_dic):
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
-        driver = driver_get()
+        driver = driver_get(screenshots)
         if driver is False:
             os._exit(0)
 
@@ -623,7 +622,7 @@ def crawler_main(args_dic):
                 if type(phantom_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', phantom_result[0] + '.txt', content=phantom_result[1])
                     quit_driver(driver)    # headless browser終了して
-                    driver = driver_get()  # 再取得
+                    driver = driver_get(screenshots)  # 再取得
                     if driver is False:
                         os._exit(0)
                     else:
@@ -718,7 +717,7 @@ def crawler_main(args_dic):
 
         # 検索結果数をインクリメント
         num_of_achievement += 1
-        if not (num_of_achievement % 300):  # 300URLをクローリングごとに保存して終了
+        if not (num_of_achievement % 100):  # 300URLをクローリングごとに保存して終了
             print(host + ' : achievement have reached ' + str(num_of_achievement))
             while threadId_set:
                 print(host + ' : wait 3sec for thread end.')

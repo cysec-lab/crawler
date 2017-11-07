@@ -1,4 +1,4 @@
-﻿from multiprocessing import Process, Queue, cpu_count
+﻿from multiprocessing import Process, Queue, cpu_count, get_context
 from urllib.parse import urlparse
 from collections import deque
 from time import time, sleep
@@ -8,8 +8,8 @@ from check_searched_url import CheckSearchedUrlThread
 from threading import active_count
 import os
 from datetime import date
-from machine_learning_screenshots import screenshots_learning_main
-from machine_learning_tag import machine_learning_main
+# from machine_learning_screenshots import screenshots_learning_main
+# from machine_learning_tag import machine_learning_main
 from clamd import clamd_main
 from shutil import copytree
 from use_mysql import get_connector, make_tables, register_url
@@ -252,6 +252,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
             print("main : couldn't connect to clamd")  # できなかったようならFalseを返す
             return False
     if machine_learning_:
+        """
         # 機械学習を使うためのプロセスを起動
         recvq = Queue()
         sendq = Queue()
@@ -273,6 +274,8 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         screenshots_svc_q['process'] = p
         print('main : wait for screenshots learning...')
         print(sendq.get(block=True))   # 学習が終わるのを待つ(数分？)
+        """
+        return False
     return True
 
 
@@ -302,17 +305,42 @@ def reborn_child(host):
     return False
 
 
+# 残り数が負数を取ることが起き始めたので臨時に調整
+def adjust_remaining(host):
+    url_tuple_list = list()
+
+    # 通信キューから取り出す
+    while True:
+        try:
+            temp = hostName_queue[host]['parent_send'].get(block=False)
+        except Exception:
+            break
+        else:
+            url_tuple_list.append(temp)
+
+    # 残り数を実際にカウント
+    hostName_remaining[host] = len(url_tuple_list)
+
+    # 通信キューに戻す
+    for url_tuple in url_tuple_list:
+        hostName_queue[host]['parent_send'].put(url_tuple)
+
+
 # 5秒ごとに途中経過表示、メインループが動いてることの確認のため、スレッド化していない
 def print_progress(run_time_pp, max_process, current_achievement):
     global send_num, recv_num
     alive_count = get_alive_child_num()
     print('main : ---------progress--------')
+
     count = 0
     alive_count_temp = alive_count
     for host, remaining_temp in hostName_remaining.items():
-        if not remaining_temp:
+        if remaining_temp == 0:
             count += 1    # remainingが0のホスト数をカウント
         else:
+            if remaining_temp < 0:
+                print('main : adjust remaining... , host= ' + host)
+                adjust_remaining(host)
             print('main : ' + host + "'s remaining is " + str(remaining_temp) +
                   '\t active = ' + str(hostName_process[host].is_alive()))
             if hostName_queue[host]['parent_send'].empty():  # 実際にキューの中を見て、空ならばremainingを0に
@@ -321,7 +349,7 @@ def print_progress(run_time_pp, max_process, current_achievement):
                 if alive_count_temp < max_process:
                     # プロセスが死んでいて、キューにURLが残っている場合、通信キューから1つ取り出し、url_listに加える
                     if not hostName_process[host].is_alive():
-                        if reborn_child(host=host):   # 通信キューからurl_listに加えることに成功すれば
+                        if reborn_child(host=host):   # 通信キューからURLをurl_listに追加したら
                             alive_count_temp += 1
     print('main : remaining=0 is ' + str(count))
     print('main : run time = ' + str(run_time_pp) + 's.')
@@ -408,6 +436,8 @@ def make_url_list(now_time):
                 black_url.add(thread.url_tuple[0])    # 立命館だがblackリストでフィルタリングされたURL集合
             else:   # (Falseか'unknown')
                 notRitsumei_url.add(thread.url_tuple[0])
+                #if thread.result is not False:
+                    #wa_file('get_addinfo_e.csv', thread.result)
                 # タプルの長さが3の場合はリダイレクト後のURL
                 # リダイレクト後であった場合、ホスト名を見てあやしければ外部出力
                 if len(thread.url_tuple) == 3:
@@ -482,7 +512,6 @@ def choice_process(url_tuple, max_process, setting_dict, conn, n):
 
         # プロセス作成
         p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
-        p.daemon = True
         p.start()    # スタート
 
         # いろいろ保存
@@ -498,7 +527,6 @@ def choice_process(url_tuple, max_process, setting_dict, conn, n):
         print('main : ' + host_name + ' is not alive.')
         # プロセス作成
         p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
-        p.daemon = True
         p.start()   # スタート
         hostName_process[host_name] = p   # プロセスを指す辞書だけ更新する
         print('main : ' + host_name + " 's process start. " + 'pid =' + str(p.pid))
@@ -655,6 +683,9 @@ def del_child(now):
 
 
 def crawler_host(n=None):
+    # spawnで子プロセスを生成するように(windowsではデフォ、unixではforkがデフォ)
+    print(get_context())
+
     # n : 何回目のクローリングか
     if n is None:
         os._exit(255)
@@ -830,6 +861,7 @@ def crawler_host(n=None):
                 assignment_url.add(url_tuple[0])
                 send_num += 1
             else:
+                print('main : ' + host_name + ' queue is full')
                 url_list.append(url_tuple)
 
         # メインループを抜け、結果表示＆保存
@@ -882,7 +914,3 @@ def crawler_host(n=None):
         else:
             print('main : End')
             break
-
-
-if __name__ == '__main__':
-    crawler_host()

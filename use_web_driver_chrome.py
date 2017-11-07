@@ -1,51 +1,53 @@
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
+
+from selenium.webdriver.chrome.options import Options
 from time import sleep
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from urllib.parse import urlparse
 from copy import deepcopy
-from content_get import PhantomGetThread, DriverGetThread
-import signal
+from content_get_chrome import PhantomGetThread, DriverGetThread
 
 
 # phantomJSを使うためのdriverを返す
-def driver_get(screenshots):
-    # PhantomJSの設定
-    des_cap = dict(DesiredCapabilities.PHANTOMJS)
-    des_cap["phantomjs.page.settings.userAgent"] = (
-        'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
-    )
-    if not screenshots:
-        des_cap["phantomjs.page.settings.loadImages"] = False
-    des_cap['phantomjs.page.settings.resourceTimeout'] = 60   # たぶん意味ない
+def driver_get(screenshots=False):
+    # headless chromeの設定
+    options = Options()
+    options.add_argument('--headless')
+    options.add_argument('--disable-gpu')
+    # エラーの許容
+    options.add_argument('--ignore-certificate-errors')
+    options.add_argument('--allow-running-insecure-content')
+    options.add_argument('--disable-web-security')
+    # headlessでは不要そうな機能
+    options.add_argument('--disable-desktop-notifications')
+    options.add_argument("--disable-extensions")
+    # user agent
+    ua = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
+    options.add_argument('--user-agent=' + ua)
+    # 言語
+    options.add_argument('--lang=ja')
 
     # PhantomJSのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     try:
-        t = DriverGetThread(des_cap)
+        t = DriverGetThread(options)
         # t.daemon = True
         t.start()
         t.join(10)
     except Exception:
         sleep(10)
         try:
-            t = DriverGetThread(des_cap)
+            t = DriverGetThread(options)
             # t.daemon = True
             t.start()
             t.join(10)
         except Exception:
             return False
-
     if t.re is False:   # ドライバ取得でフリーズしている場合
         quit_driver(t.driver)   # 一応終了させて
         return False
     if t.driver is False:  # 単にエラーで取得できなかった場合
-        quit_driver(t.driver)   # 一応終了させて
         return False
     driver = t.driver
-
-    # たぶん意味ない
-    driver.set_page_load_timeout = 60  # ページを構成するファイルのロードのタイムアウト?
-    driver.timeout = 10   # リクエストのタイムアウト?
 
     return driver
 
@@ -53,24 +55,23 @@ def driver_get(screenshots):
 def set_html(page, driver):
     try:
         t = PhantomGetThread(driver, page.url)
-        # t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
+        t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
         t.start()
         t.join(timeout=60)   # 60秒のロード待機時間
     except Exception:
         sleep(10)
         try:
             t = PhantomGetThread(driver, page.url)
-            # t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
+            t.daemon = True  # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
             t.start()
             t.join(timeout=60)  # 60秒のロード待機時間
         except Exception as e:
-            return ['Error_phantom', page.url + '\n' + str(e)]
-
+            return ['Error_chrome', page.url + '\n' + str(e)]
     re = True
     if t.re is False:
         re = 'timeout'
     elif t.re is not True:
-        return ['Error_phantom', page.url + '\n' + str(t.re)]
+        return ['Error_chrome', page.url + '\n' + str(t.re)]
     sleep(1)
     try:
         wait = WebDriverWait(driver, 5)
@@ -78,20 +79,23 @@ def set_html(page, driver):
         page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = driver.page_source   # htmlソースを更新
     except Exception as e:
-        return ['infoGetError_phantom', page.url + '\n' + str(e)]
+        return ['infoGetError_chrome', page.url + '\n' + str(e)]
     else:
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
         if page.html:
             return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
         else:
-            return ['infoGetError_phantom', page.url + '\n']
+            return ['infoGetError_chrome', page.url + '\n']
 
 
 def set_request_url(page, driver):
     try:
+        print(driver.get_log('browser'))
+        print(driver.get_log('driver'))
         log_content = driver.get_log('har')[0]['message']
-    except:
+    except Exception as e:
+        print(e)
         raise
     temp = set()   # ページをロードするのにリクエストしたurlを入れる集合
     re = list()    # GETとPOST以外のメソッドがあれば入る
@@ -156,7 +160,6 @@ def take_screenshots(path, driver):
 
 def quit_driver(driver):
     try:
-        driver.service.process.send_signal(signal.SIGTERM)
         driver.quit()
     except Exception:
         return False

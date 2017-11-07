@@ -1,7 +1,6 @@
 ﻿from threading import Thread, Lock
 import socket
 from urllib.parse import urlparse
-from file_rw import wa_file
 
 
 # クローリングするURLかどうかを判定するスレッド
@@ -55,8 +54,8 @@ class CheckSearchedUrlThread(Thread):
                     try:
                         o = socket.getaddrinfo(host_name, 80, 0, 0, proto=socket.IPPROTO_TCP)
                     except Exception as e:
-                        wa_file('get_addinfo_e.csv', check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n')
-                        crawling_flag = 'unknown'
+                        # wa_file('get_addinfo_e.csv', check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n')
+                        crawling_flag = check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n'
                     else:
                         ip_address = o[0][4][0]
                         for ip in self.IPAddress_list:
@@ -64,8 +63,9 @@ class CheckSearchedUrlThread(Thread):
                                 # ipアドレスが133.19.で始まらず(もしくは取得できず)、立命館リストにも載っていなかったので
                                 crawling_flag = False
                             else:
-                                wa_file('ipAddress_ritsumei.csv', check_url + ',' + self.url_tuple[1] + '\n')
-                                crawling_flag = 'black'   # ipアドレスにより組織関連サーバだと判断(したが、検索はしない
+                                # ipアドレスにより組織関連サーバだと判断(したが、検索はしない
+                                # wa_file('ipAddress_ritsumei.csv', check_url + ',' + self.url_tuple[1] + '\n')
+                                crawling_flag = 'black'
                                 break
         self.result = crawling_flag
         self.lock.acquire(timeout=120)   # メインスレッドでreleaseされるまで待機

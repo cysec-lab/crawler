@@ -1,9 +1,10 @@
 from main import crawler_host
 from tf_idf import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
 from check_result.main_cr import del_and_make_achievement
-from SVC_screenshot import del_0size
-from multiprocessing import Process
+# from SVC_screenshot import del_0size
+from multiprocessing import Process, set_start_method, get_context
 import os
+import subprocess
 import shutil
 
 
@@ -15,14 +16,18 @@ def get_user_input(queue):
             break
 
 
-def kill_process(queue, p):
-    kill = queue.get(block=True)
-    if kill is True:
-        p.terminate()
+# 自分以外のpythonプロセスをkillする
+def kill_python():
+    re = subprocess.check_output(['pgrep', 'python'])
+    me = os.getpid()
+    re = re.decode().split('\n')
+    re.remove(str(me))
+    for py3 in re:
+        os.system("kill " + py3)
 
 
 def kill_phantomjs():
-    pass
+    os.system("pkill -f 'phantomjs'")
 
 
 def dealing_after_fact(dir_name):
@@ -35,6 +40,7 @@ def dealing_after_fact(dir_name):
     shutil.copytree('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
+    """
     if os.path.exists('RAD/screenshots'):
         # スクショを撮っていたら、0サイズの画像を削除
         p = Process(target=del_0size.del_0size_and_rename, args=('RAD/screenshots',))
@@ -44,7 +50,7 @@ def dealing_after_fact(dir_name):
             shutil.rmtree('ROD/screenshots')
         shutil.move('RAD/screenshots', 'ROD/screenshots')
     print('done')
-
+    """
     # tf_idf.pyの実行
     print('run function of tf_idf.py : ', end='')
     p = Process(target=make_idf_dict_frequent_word_dict)
@@ -91,6 +97,8 @@ def save_rod(dir_name):
 
 
 def main():
+    print(get_context())
+
     if not os.path.exists('check_result/result'):
         os.mkdir('check_result/result')
     dir_name = len(os.listdir('check_result/result')) + 1
@@ -109,6 +117,9 @@ def main():
         print('kill PhantomJS')
         kill_phantomjs()
 
+        print('kill other python')
+        kill_python()
+
         print('save used ROD before overwriting the ROD directory : ', end='')
         save_rod(str(dir_name))
         print('done')
@@ -120,4 +131,7 @@ def main():
 
 
 if __name__ == '__main__':
+    # spawnで子プロセス生成
+    set_start_method('spawn')
+
     main()

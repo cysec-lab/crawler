@@ -42,10 +42,21 @@ class Page:
         except Exception as e:
             return ['Error_urlopen', self.url + '\n' + str(e)]
         else:
-            t = UrlOpenReadThread(content)
-            t.daemon = True
-            t.start()
-            t.join(timeout=60)  # 60秒のread待機時間
+            try:
+                t = UrlOpenReadThread(content)
+                # t.daemon = True
+                t.start()
+                t.join(timeout=60)  # 60秒のread待機時間
+            except Exception:
+                sleep(10)
+                try:
+                    t = UrlOpenReadThread(content)
+                    # t.daemon = True
+                    t.start()
+                    t.join(timeout=60)  # 60秒のread待機時間
+                except Exception as e:
+                    return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + str(e)]
+
             if t.re is False:
                 return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + 'time out']
             elif t.re is not True:

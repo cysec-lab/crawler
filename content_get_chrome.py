@@ -2,18 +2,17 @@
 
 
 class DriverGetThread(Thread):
-    def __init__(self, des_cap):
+    def __init__(self, options):
         super(DriverGetThread, self).__init__()
-        self.des_cap = des_cap
+        self.options = options
         self.driver = False
         self.re = False
 
     def run(self):
         from selenium import webdriver
         import selenium.common
-        from os import path
         try:
-            self.driver = webdriver.PhantomJS(desired_capabilities=self.des_cap, service_log_path=path.devnull)
+            self.driver = webdriver.Chrome(chrome_options=self.options)
         except selenium.common.exceptions.WebDriverException:
             self.driver = False
         except LookupError:
