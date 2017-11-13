@@ -3,17 +3,18 @@ import json
 import os
 from datetime import date
 from copy import deepcopy
+from shutil import copyfile
 
 
 # url_dictの操作を行う。各サーバ毎に生成される。
 class UrlDict:
-    def __init__(self, host, path=None):
+    def __init__(self, host):
         self.host = host
         self.url_dict = dict()       # url : そのURLの情報の辞書
         self.url_dict3 = dict()      # url : タグ順番保存
-        self.load_url_dict(path)
 
     def load_url_dict(self, path):
+        copy_flag = False
         data_dir = '../../../../RAD'
         if path is None:
             path = data_dir + '/url_hash_json/' + self.host + '.json'
@@ -22,14 +23,26 @@ class UrlDict:
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
                 f = open(path, 'r')
-                self.url_dict = json.load(f)
-                f.close()
+                try:
+                    self.url_dict = json.load(f)
+                except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
+                    f.close()
+                    copy_flag = True
+                    # RODから持ってくる
+                    copyfile('../../../../ROD/url_hash_json/' + self.host + '.json',
+                             data_dir + '/url_hash_json/' + self.host + '.json')
+                    f = open(path, 'r')
+                    self.url_dict = json.load(f)
+                    f.close()
+                else:
+                    f.close()
         path = data_dir + '/tag_data/' + self.host + '.json'
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
                 f = open(path, 'r')
                 self.url_dict3 = json.load(f)
                 f.close()
+        return copy_flag
 
     def save_url_dict(self):
         data_dir = '../../../../RAD'

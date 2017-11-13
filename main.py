@@ -11,8 +11,9 @@ from datetime import date
 # from machine_learning_screenshots import screenshots_learning_main
 # from machine_learning_tag import machine_learning_main
 from clamd import clamd_main
-from shutil import copytree
+from shutil import copytree, copyfile
 from use_mysql import get_connector, make_tables, register_url
+import dbm
 
 
 necessary_list_dict = dict()   # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
@@ -30,9 +31,13 @@ hostName_args = dict()         # ホスト名 : 子プロセスの引数   こ�
 
 pid_time = dict()              # pid : (確認した時間, その時にキューに入っていた最初のURLのタプル)
 thread_set = set()             # クローリングするURLかチェックするスレッドのid集合
-notRitsumei_url = set()        # チェックスレッドによって、組織外だと判断されたURL集合
-ritsumei_url = set()           # クローリングすると判断されたURL集合
-black_url = set()              # 組織内だが、クローリングしないと判断されたURL集合
+
+# notRitsumei_url = set()        # チェックスレッドによって、組織外だと判断されたURL集合
+# ritsumei_url = set()           # クローリングすると判断されたURL集合
+# black_url = set()              # 組織内だが、クローリングしないと判断されたURL集合
+url_db = None                  # 上記３つをまとめたkey-valueデータベース
+nth = None                       # 何回目のクローリングか
+
 waiting_list = deque()         # (URL, リンク元)のタプルのリスト(受信したもの全て)
 url_list = deque()             # (URL, リンク元)のタプルのリスト(子プロセスに送信用)
 assignment_url = set()         # 割り当て済みのURLの集合
@@ -193,6 +198,7 @@ def make_dir(screenshots):          # 実行ディレクトリは「crawler」
         os.mkdir('result')
     if not os.path.exists('result/alert'):
         os.mkdir('result/alert')
+
     if screenshots:
         if not os.path.exists('RAD/screenshots'):
             os.mkdir('RAD/screenshots')
@@ -200,6 +206,10 @@ def make_dir(screenshots):          # 実行ディレクトリは「crawler」
 
 # いろいろと最初の処理
 def init(first_time, setting_dict):    # 実行ディレクトリは「result」、最後の方に「result_*」に移動
+    global url_db
+    # url_dbの作成
+    url_db = dbm.open('../RAD/url_db', 'c')
+
     machine_learning_ = setting_dict['machine_learning']
     clamd_scan = setting_dict['clamd_scan']
     screenshots_svc = setting_dict['screenshots_svc']
@@ -219,12 +229,12 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         all_achievement = data_temp
         data_temp = r_json('result_' + str(first_time) + '/assignment')   # 子プロセスに割り当てたURLの集合
         assignment_url.update(set(data_temp))
-        data_temp = r_json('result_' + str(first_time) + '/searching_url')  # クローリングするURLの集合(割り当てたかどうかは関係ない)
-        ritsumei_url.update(set(data_temp))
-        data_temp = r_json('result_' + str(first_time) + '/unsearching_url')  # クローリングしない(組織外だと判断された)URLの集合
-        notRitsumei_url.update(set(data_temp))
-        data_temp = r_json('result_' + str(first_time) + '/black_url')  # 組織内だがクローリングしないと判断されたURLの集合
-        black_url.update(set(data_temp))
+        # data_temp = r_json('result_' + str(first_time) + '/searching_url')  # クローリングするURLの集合(割り当てたかどうかは関係ない)
+        # ritsumei_url.update(set(data_temp))
+        # data_temp = r_json('result_' + str(first_time) + '/unsearching_url')  # クローリングしない(組織外だと判断された)URLの集合
+        # notRitsumei_url.update(set(data_temp))
+        # data_temp = r_json('result_' + str(first_time) + '/black_url')  # 組織内だがクローリングしないと判断されたURLの集合
+        # black_url.update(set(data_temp))
         data_temp = r_json('result_' + str(first_time) + '/url_list')  # これから子プロセスに割り当てるURLの集合
         url_list.extend([tuple(i) for i in data_temp])
         assignment_url.difference_update(set([i[0] for i in url_list]))  # これから割り当てるので割り当て集合から削除する必要(割り当ての際にチェックされるため)
@@ -276,6 +286,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         print(sendq.get(block=True))   # 学習が終わるのを待つ(数分？)
         """
         return False
+
     return True
 
 
@@ -369,7 +380,7 @@ def forced_termination():
     url_list_ft = list()
 
     # 子に送信する用のキューからURLデータを抜き出し、end()がTrueを返すまで回り続ける
-    while not end():
+    while end() is not True:
         for queue in hostName_queue.values():
             while True:
                 try:
@@ -398,9 +409,9 @@ def forced_termination():
     url_list_ft.extend(url_list)
     w_json(name='url_list', data=url_list_ft)
     w_json(name='assignment', data=list(assignment_url))
-    w_json(name='searching_url', data=list(ritsumei_url))
-    w_json(name='unsearching_url', data=list(notRitsumei_url))
-    w_json(name='black_url', data=list(black_url))
+    # w_json(name='searching_url', data=list(ritsumei_url))
+    # w_json(name='unsearching_url', data=list(notRitsumei_url))
+    # w_json(name='black_url', data=list(black_url))
     w_json(name='all_achievement', data=all_achievement)
     w_json(name='waiting_list', data=list(waiting_list))
     remaining = len(url_list_ft) + len(waiting_list)
@@ -408,17 +419,17 @@ def forced_termination():
 
 # 全てのキューに要素がなく、全ての子プロセスが終了していたらTrue
 def end():
-    for q_e in hostName_queue.values():  # キューに要素があるかどうか
+    if get_alive_child_num():
+        # print('main : exist child process.')
+        return False
+    for host, q_e in hostName_queue.items():  # キューに要素があるかどうか
         if not (q_e['child_send'].empty()):
             print('main : child send queue is not empty.')
             return False
         if not (q_e['parent_send'].empty()):
-            return False
-    if get_alive_child_num():
-        # print('main : exist child process.')
-        return False
-    else:
-        return True
+            return host
+
+    return True
 
 
 # checkスレッド後が終わったURLのタプルを、子プロセスに送るためのリストに追加する
@@ -430,12 +441,15 @@ def make_url_list(now_time):
     for thread in thread_set:
         if type(thread.result) is not int:     # そのスレッドが最後まで実行されたか
             if thread.result is True:
-                ritsumei_url.add(thread.url_tuple[0])   # 立命館URL集合に追加
+                # ritsumei_url.add(thread.url_tuple[0])   # 立命館URL集合に追加
+                url_db[thread.url_tuple[0]] = 'True,' + str(nth)
                 url_list.append((thread.url_tuple[0], thread.url_tuple[1]))    # URLのタプルを検索リストに追加
             elif thread.result == 'black':
-                black_url.add(thread.url_tuple[0])    # 立命館だがblackリストでフィルタリングされたURL集合
+                # black_url.add(thread.url_tuple[0])    # 立命館だがblackリストでフィルタリングされたURL集合
+                url_db[thread.url_tuple[0]] = 'Black,' + str(nth)
             else:   # (Falseか'unknown')
-                notRitsumei_url.add(thread.url_tuple[0])
+                # notRitsumei_url.add(thread.url_tuple[0])
+                url_db[thread.url_tuple[0]] = 'False,' + str(nth)
                 #if thread.result is not False:
                     #wa_file('get_addinfo_e.csv', thread.result)
                 # タプルの長さが3の場合はリダイレクト後のURL
@@ -559,7 +573,8 @@ def receive():
             hostName_remaining[host_name] -= 1   # キューに残っているURL数をデクリメント
         elif type(received_data) is tuple:      # リダイレクトしたが、ホスト名が変わらなかったため子プロセスで処理を続行
             assignment_url.add(received_data[0])  # リダイレクト後のURLを割り当てURL集合に追加
-            ritsumei_url.add(received_data[0])    # 立命館URL集合にも追加
+            # ritsumei_url.add(received_data[0])    # 立命館URL集合にも追加
+            url_db[received_data[0]] = 'True,' + str(nth)
         elif type(received_data) is dict:
             if received_data['type'] == 'links':
                 hostName_achievement[host_name] += 1   # ページクローリング結果なので、検索済み数更新
@@ -572,14 +587,18 @@ def receive():
                     wa_file('../alert/new_window_url.csv', url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
             elif received_data['type'] == 'redirect':
                 url_tuple = received_data['url_tuple_list'][0]   # リダイレクトの場合、リストの要素数は１個だけ
-                if url_tuple[0] in notRitsumei_url:  # 外部組織サーバへのリダイレクトならば
-                    host_name = urlparse(url_tuple[0]).netloc
-                    if not [white for white in after_redirect_list if host_name.endswith(white)]:
-                        wa_file('../alert/after_redirect_check.csv',
-                                url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
-                    else:
-                        wa_file('after_redirect.csv',
-                                url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
+                # if url_tuple[0] in notRitsumei_url:  # 外部組織サーバへのリダイレクトならば
+                if url_tuple[0] in url_db:
+                    value = url_db[url_tuple[0]].decode('utf-8')
+                    value = value[0:value.find(',')]
+                    if value == 'False':
+                        host_name = urlparse(url_tuple[0]).netloc
+                        if not [white for white in after_redirect_list if host_name.endswith(white)]:
+                            wa_file('../alert/after_redirect_check.csv',
+                                    url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
+                        else:
+                            wa_file('after_redirect.csv',
+                                    url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
 
             # waitingリストに追加。既に割り当て済みの場合は追加しない。
             url_tuple_list = received_data['url_tuple_list']
@@ -587,14 +606,24 @@ def receive():
                 recv_num += len(url_tuple_list)
                 # リンク集から取り出してwaiting_listに追加。
                 for url_tuple in url_tuple_list:
-                    if url_tuple[0] in notRitsumei_url:   # 既にチェック済みでクローリングしないURLと分かっているため
-                        pass
-                    elif url_tuple[0] in black_url:       # ブラックリストに入っているため
-                        pass
-                    elif url_tuple[0] in ritsumei_url:    # 既に割り当て済みで立命館
-                        pass
+                    # if url_tuple[0] in notRitsumei_url:   # 既にチェック済みでクローリングしないURLと分かっているため
+                    #     pass
+                    # elif url_tuple[0] in black_url:       # ブラックリストに入っているため
+                    #     pass
+                    # elif url_tuple[0] in ritsumei_url:    # 既に割り当て済みで立命館
+                    #     pass
+                    if url_tuple[0] not in url_db:
+                        waiting_list.append(url_tuple)    # まだ対象URLかのチェックをしていないのでチェック待ちリストに入れる
                     else:
-                        waiting_list.append(url_tuple)    # まだ割り当てていないためチェック待ちリストに入れる
+                        value = url_db[url_tuple[0]].decode('utf-8')
+                        flag = value[0:value.find(',')]
+                        n = value[value.find(',')+1:]
+                        if int(n) != nth:
+                            url_db[url_tuple[0]] = flag + ',' + str(nth)
+                            if flag == 'True':
+                                url_list.append(url_tuple)    # 今回はまだ割り当てていないため割り当て待ちリストに入れる
+                            elif flag == 'False':
+                                waiting_list.append(url_tuple)  # 前回はFalseだが、今回もう一度チェックする(ipアドレスの取得に失敗したものもFalseのため)
 
 
 # 子プロセスが終了しない、子のメインループも回ってなく、どこかで止まっている場合、親から強制終了させる
@@ -683,14 +712,17 @@ def del_child(now):
 
 
 def crawler_host(n=None):
+    global nth
     # spawnで子プロセスを生成するように(windowsではデフォ、unixではforkがデフォ)
     print(get_context())
 
     # n : 何回目のクローリングか
     if n is None:
         os._exit(255)
+    nth = n
     global hostName_achievement, hostName_pid, hostName_process, hostName_queue, hostName_remaining, pid_time
-    global notRitsumei_url, ritsumei_url, black_url, waiting_list, url_list, assignment_url, thread_set
+    # global notRitsumei_url, ritsumei_url, black_url
+    global waiting_list, url_list, assignment_url, thread_set
     global remaining, send_num, recv_num, all_achievement
     start = int(time())
 
@@ -719,6 +751,7 @@ def crawler_host(n=None):
         make_dir(screenshots)
         copytree('ROD/url_hash_json', 'RAD/url_hash_json')
         copytree('ROD/tag_data', 'RAD/tag_data')
+        copyfile('ROD/url_db', 'RAD/url_db')
         with open('RAD/READ.txt', 'w') as f:
             f.writelines("This directory's files are read and written.\n")
             f.writelines("On the other hand, ROD directory's files are not written, Read only.\n\n")
@@ -760,9 +793,9 @@ def crawler_host(n=None):
         hostName_achievement = dict()    # ホスト名 : 達成数
         pid_time = dict()                # pid : (確認した時間, その時にキューに入っていた最初のURLのタプル)
         thread_set = set()               # クローリングするURLかチェックするスレッドのid集合
-        notRitsumei_url = set()          # チェックスレッドによって、組織外だと判断されたURL集合
-        ritsumei_url = set()             # クローリングすると判断されたURL集合
-        black_url = set()                # 組織内だが、クローリングしないと判断されたURL集合
+        # notRitsumei_url = set()          # チェックスレッドによって、組織外だと判断されたURL集合
+        # ritsumei_url = set()             # クローリングすると判断されたURL集合
+        # black_url = set()                # 組織内だが、クローリングしないと判断されたURL集合
         waiting_list = deque()           # (URL, リンク元)のタプルのリスト(クローリングするURLかチェック待ちのリスト)
         url_list = deque()               # (URL, リンク元)のタプルのリスト(子プロセスに送信用)
         assignment_url = set()           # 割り当て済みのURLの集合
@@ -817,11 +850,15 @@ def crawler_host(n=None):
             if not waiting_list:   # クローリングするURLかどうかのチェックを待っているURLがなくて
                 if not url_list:   # 子プロセスに送るためのURLのリストが空で
                     if not thread_set:  # 立命館かどうかのチェックの最中のスレッドがない場合、end()を呼び出す
-                        if end():
+                        end_flag = end()
+                        if end_flag is True:
                             all_achievement += current_achievement
                             w_json(name='assignment', data=list(assignment_url))
                             break
-                        continue
+                        elif end_flag is False:
+                            continue
+                        else:
+                            reborn_child(end_flag)  # 親が送信したURLがキューに残っている場合
             else:
                 if active_count() < 2000:
                     url_tuple = waiting_list.popleft()    # クローリングするURLかどうかのチェック待ちリストからpop
@@ -906,6 +943,7 @@ def crawler_host(n=None):
             if not clamd_q['process'].join(timeout=60):   # clamdプロセスが終わるのを待つ
                 clamd_q['process'].terminate()
 
+        url_db.close()
         # メインループをもう一度回すかどうか
         if save:
             print('main : Restart...')

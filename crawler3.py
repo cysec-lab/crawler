@@ -118,6 +118,9 @@ def init(host, screenshots):
             with open(path, 'r') as f:
                 word_df_dict = json.load(f)
     urlDict = UrlDict(f_name)
+    copy_flag = urlDict.load_url_dict(path=None)
+    if copy_flag:
+        wa_file('../../notice.txt', host + ' : copy url_hash_json data from ROD, because JSON data is broken.\n')
 
 
 # クローリングして得たページの情報を外部ファイルに記録
@@ -469,9 +472,12 @@ def parser(parse_args_dic):
 # 180秒以上続いているスレッドのリストを返す
 def check_thread_time(now):
     thread_list = list()
-    for threadId, th_time in threadId_time.items():
-        if (now - th_time) > 180:
-            thread_list.append(threadId)
+    try:
+        for threadId, th_time in threadId_time.items():
+            if (now - th_time) > 180:
+                thread_list.append(threadId)
+    except RuntimeError as e:
+        print(e)
     return thread_list
 
 
