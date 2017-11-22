@@ -40,6 +40,7 @@ def dealing_after_fact(dir_name):
     shutil.copytree('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
+    shutil.move('RAD/url_db', 'ROD/url_db')
     """
     if os.path.exists('RAD/screenshots'):
         # スクショを撮っていたら、0サイズの画像を削除
@@ -79,21 +80,25 @@ def dealing_after_fact(dir_name):
 def save_rod(dir_name):
     if not os.path.exists('ROD_history'):
         os.mkdir('ROD_history')
-    os.mkdir('ROD_history/' + dir_name)
-    with open('ROD_history/' + dir_name + '/read.txt', 'w') as f:
+
+    dst_dir = 'ROD_history/' + dir_name
+    os.mkdir(dst_dir)
+    with open(dst_dir + '/read.txt', 'w') as f:
         f.writelines('This ROD directory is used by ' + dir_name + ' crawling.')
-    shutil.copytree('ROD/url_hash_json', 'ROD_history/' + dir_name + '/url_hash_json')
-    shutil.copytree('ROD/tag_data', 'ROD_history/' + dir_name + '/tag_data')
+    shutil.copytree('ROD/url_hash_json', dst_dir + '/url_hash_json')
+    shutil.copyfile('ROD/url_db', dst_dir + '/url_db')
+    if os.path.exists('ROD/tag_data'):
+        shutil.copytree('ROD/tag_data', dst_dir + '/tag_data')
     if os.path.exists('ROD/request_url'):
-        shutil.copytree('ROD/request_url', 'ROD_history/' + dir_name + '/request_url')
+        shutil.copytree('ROD/request_url', dst_dir + '/request_url')
     if os.path.exists('ROD/link_host'):
-        shutil.copytree('ROD/link_host', 'ROD_history/' + dir_name + '/link_host')
+        shutil.copytree('ROD/link_host', dst_dir + '/link_host')
     if os.path.exists('ROD/iframe_src'):
-        shutil.copytree('ROD/iframe_src', 'ROD_history/' + dir_name + '/iframe_src')
+        shutil.copytree('ROD/iframe_src', dst_dir + '/iframe_src')
     if os.path.exists('ROD/idf_dict'):
-        shutil.copytree('ROD/idf_dict', 'ROD_history/' + dir_name + '/idf_dict')
+        shutil.copytree('ROD/idf_dict', dst_dir + '/idf_dict')
     if os.path.exists('ROD/frequent_word_100'):
-        shutil.copytree('ROD/frequent_word_100', 'ROD_history/' + dir_name + '/frequent_word_100')
+        shutil.copytree('ROD/frequent_word_100', dst_dir + '/frequent_word_100')
 
 
 def main():

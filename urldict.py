@@ -14,7 +14,7 @@ class UrlDict:
         self.url_dict3 = dict()      # url : タグ順番保存
 
     def load_url_dict(self, path):
-        copy_flag = False
+        copy_flag = ''
         data_dir = '../../../../RAD'
         if path is None:
             path = data_dir + '/url_hash_json/' + self.host + '.json'
@@ -27,7 +27,7 @@ class UrlDict:
                     self.url_dict = json.load(f)
                 except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
                     f.close()
-                    copy_flag = True
+                    copy_flag = 'url_hash'
                     # RODから持ってくる
                     copyfile('../../../../ROD/url_hash_json/' + self.host + '.json',
                              data_dir + '/url_hash_json/' + self.host + '.json')
@@ -40,8 +40,19 @@ class UrlDict:
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
                 f = open(path, 'r')
-                self.url_dict3 = json.load(f)
-                f.close()
+                try:
+                    self.url_dict3 = json.load(f)
+                except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
+                    f.close()
+                    copy_flag += ' tag_data'
+                    # RODから持ってくる
+                    copyfile('../../../../ROD/tag_data/' + self.host + '.json',
+                             data_dir + '/tag_data/' + self.host + '.json')
+                    f = open(path, 'r')
+                    self.url_dict = json.load(f)
+                    f.close()
+                else:
+                    f.close()
         return copy_flag
 
     def save_url_dict(self):

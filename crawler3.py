@@ -81,20 +81,20 @@ def init(host, screenshots):
             iframe_src_set = deepcopy(data_temp['iframe'])
             if 'link_host' in data_temp:
                 link_set = deepcopy(data_temp['link_host'])
-    # 今までのクローリングで集めた、このサーバの全request_url(のホスト部)をロード
-    path = '../../../../ROD/request_url/' + f_name + '.json'
+    # 今までのクローリングで集めた、この組織の全request_url(のネットワーク部)をロード
+    path = '../../../../ROD/request_url/matome.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             request_url_host_set_pre = set(data_temp)
-    # 今までのクローリングで集めた、このサーバの全iframeタグのsrc属性(のホスト部)をロード
-    path = '../../../../ROD/iframe_src/' + f_name + '.json'
+    # 今までのクローリングで集めた、この組織の全iframeタグのsrc属性(のネットワーク部)をロード
+    path = '../../../../ROD/iframe_src/matome.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             iframe_src_set_pre = set(data_temp)
-    # 今までのクローリングで集めた、このサーバのリンクURL(のホスト部)をロード
-    path = '../../../../ROD/link_host/' + f_name + '.json'
+    # 今までのクローリングで集めた、この組織のリンクURL(のネットワーク部)をロード
+    path = '../../../../ROD/link_host/matome.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
@@ -120,7 +120,7 @@ def init(host, screenshots):
     urlDict = UrlDict(f_name)
     copy_flag = urlDict.load_url_dict(path=None)
     if copy_flag:
-        wa_file('../../notice.txt', host + ' : copy url_hash_json data from ROD, because JSON data is broken.\n')
+        wa_file('../../notice.txt', host + ' : copy ' + copy_flag + ' data from ROD, because JSON data is broken.\n')
 
 
 # クローリングして得たページの情報を外部ファイルに記録
@@ -386,11 +386,18 @@ def parser(parse_args_dic):
                 # 上位50個と比較し、頻出単語に含まれていなかった単語の数を保存
                 # (frequent_word_listには、サイトの頻出単語が上位100個まで保存されているが、50個で十分と判断)
                 max_num = min(len(frequent_word_list), n)  # 保存されている単語数がn個未満のサーバがあるため
-                and_ = set(word_tf_dict.keys()).intersection(set(frequent_word_list[0:max_num]))
+                and_set = set(word_tf_dict.keys()).intersection(set(frequent_word_list[0:max_num]))
+
+                # このページにある単語から頻出単語リストの単語を引き、その数を調べる
+                diff_set = set(word_tf_dict.keys()).difference(set(frequent_word_list[0:max_num]))
+                update_write_file_dict('result', 'and_diff_of_word_in_new_page.csv',
+                                       ['URL,and,diff,per', page.url + ',' + str(len(and_set)) + ',' +
+                                        str(len(diff_set)) + ',' + str(len(diff_set)/len(word_tf_dict.keys()))])
+
                 # 新しく見つかったURLで、ANDの単語(このページの単語と今までの頻出単語top50とのAND)が5個以下なら
-                if len(and_) < 6 and page.new_page:
+                if len(and_set) < 6 and page.new_page:
                     update_write_file_dict('alert', 'new_page_without_frequent_word.csv',
-                                           ['URL,words', page.url + ',' + str(and_)])
+                                           ['URL,words', page.url + ',' + str(and_set)])
 
     # iframeの検査
     iframe_result = iframe_inspection(soup)     # iframeがなければFalse
@@ -665,7 +672,11 @@ def crawler_main(args_dic):
                     if request_url_host_set_pre:
                         diff = set(page.request_url_host).difference(request_url_host_set_pre)
                         if diff:
-                            update_write_file_dict('alert', 'new_request_url.txt', content=page.url + ',' + str(diff))
+                            str_t = ''
+                            for t in diff:
+                                str_t += ',' + t
+                            update_write_file_dict('alert', 'new_request_url.csv',
+                                                   content=['URL,request_url', page.url + str_t])
                 if test:
                     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
 
@@ -723,7 +734,7 @@ def crawler_main(args_dic):
 
         # 検索結果数をインクリメント
         num_of_achievement += 1
-        if not (num_of_achievement % 100):  # 300URLをクローリングごとに保存して終了
+        if not (num_of_achievement % 100):  # 100URLをクローリングごとに保存して終了
             print(host + ' : achievement have reached ' + str(num_of_achievement))
             while threadId_set:
                 print(host + ' : wait 3sec for thread end.')

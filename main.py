@@ -440,7 +440,11 @@ def make_url_list(now_time):
     del_list = list()
     for thread in thread_set:
         if type(thread.result) is not int:     # そのスレッドが最後まで実行されたか
+            if thread.url_tuple[0] == 'http://www.ritsumeikan-trust.jp/publicinfo/disclosure/uji/':
+                print('main :::::::: ' + str(thread.url_tuple))
             if thread.result is True:
+                if thread.url_tuple[0] == 'http://www.ritsumeikan-trust.jp/publicinfo/disclosure/uji/':
+                    print('main??????? ' + str(thread.url_tuple))
                 # ritsumei_url.add(thread.url_tuple[0])   # 立命館URL集合に追加
                 url_db[thread.url_tuple[0]] = 'True,' + str(nth)
                 url_list.append((thread.url_tuple[0], thread.url_tuple[1]))    # URLのタプルを検索リストに追加
@@ -621,7 +625,7 @@ def receive():
                         if int(n) != nth:
                             url_db[url_tuple[0]] = flag + ',' + str(nth)
                             if flag == 'True':
-                                url_list.append(url_tuple)    # 今回はまだ割り当てていないため割り当て待ちリストに入れる
+                                url_list.append((url_tuple[0], url_tuple[1]))    # 今回はまだ割り当てていないため割り当て待ちリストに入れる
                             elif flag == 'False':
                                 waiting_list.append(url_tuple)  # 前回はFalseだが、今回もう一度チェックする(ipアドレスの取得に失敗したものもFalseのため)
 
