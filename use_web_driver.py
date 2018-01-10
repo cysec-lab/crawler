@@ -22,14 +22,12 @@ def driver_get(screenshots):
     # PhantomJSのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     try:
         t = DriverGetThread(des_cap)
-        # t.daemon = True
         t.start()
         t.join(10)
     except Exception:
         sleep(10)
         try:
             t = DriverGetThread(des_cap)
-            # t.daemon = True
             t.start()
             t.join(10)
         except Exception:
@@ -53,18 +51,17 @@ def driver_get(screenshots):
 def set_html(page, driver):
     try:
         t = PhantomGetThread(driver, page.url)
-        # t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
         t.start()
         t.join(timeout=60)   # 60秒のロード待機時間
     except Exception:
+        # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
         sleep(10)
         try:
             t = PhantomGetThread(driver, page.url)
-            # t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
             t.start()
             t.join(timeout=60)  # 60秒のロード待機時間
         except Exception as e:
-            return ['Error_phantom', page.url + '\n' + str(e)]
+            return ['makeThreadError_phantom', page.url + '\n' + str(e)]
 
     re = True
     if t.re is False:
@@ -83,7 +80,7 @@ def set_html(page, driver):
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
         if page.html:
-            return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
+            return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている場合がある.全ファイルのロードができてないだけ？
         else:
             return ['infoGetError_phantom', page.url + '\n']
 

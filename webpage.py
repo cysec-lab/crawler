@@ -12,15 +12,15 @@ class Page:
     def __init__(self, url, src):
         self.url_initial = url         # 親プロセスから送られてきたURL
         self.src = src                 # このURLが貼られていたリンク元URL
-        self.url_urlopen = None       # urlopenで接続したURL
-        self.content_type = None      # このURLのcontent-type。urlopen時のヘッダから取得
-        self.content_length = None    # ファイルサイズ。urlopen時にヘッダから取得
+        self.url_urlopen = None        # urlopenで接続したURL
+        self.content_type = None       # このURLのcontent-type。urlopen時のヘッダから取得
+        self.content_length = None     # ファイルサイズ。urlopen時にヘッダから取得
         self.encoding = 'utf-8'        # 文字コード。urlopen時のヘッダから取得(使っていない
-        self.html_urlopen = None      # urlopenで取得したHTMLソースコード(使っていない
+        self.html_urlopen = None       # urlopenで取得したHTMLソースコード(使っていない
         self.url = url                 # current_url。urlopen、phantomsJSで接続した後にそれぞれ更新
-        self.html = None              # HTMLソースコード。urlopen、phantomsJSで接続した後にそれぞれ更新
-        self.hostName = None          # urlopen、phantomsJSで接続した後にそれぞれ更新
-        self.scheme = None            # 上と同じ
+        self.html = None               # HTMLソースコード。urlopen、phantomsJSで接続した後にそれぞれ更新
+        self.hostName = None           # urlopen、phantomsJSで接続した後にそれぞれ更新
+        self.scheme = None             # 上と同じ
         self.links = set()             # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
         self.normalized_links = set()  # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
         self.request_url = list()              # このページをロードするために行ったリクエストのURLのリスト。PhantomJSのログから
@@ -29,33 +29,39 @@ class Page:
         self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
 
-    def set_html_and_content_type_urlopen(self, url):
+    def set_html_and_content_type_urlopen(self, url, time_out):
+        # レスポンスのtimeoutを決める(適当)
+        if time_out > 40:
+            res_time_out = time_out - 30
+        else:
+            res_time_out = 10
+        # requestを投げる
         try:
-            content = urlopen(url=url, timeout=10)   # レスポンスのtimeoutは10秒
-            sleep(1)
+            content = urlopen(url=url, timeout=res_time_out)
         except UnicodeEncodeError as e:   # URLに日本語が混ざっている場合にたまになる
+            sleep(1)
             if self.loop_escape:
                 return ['unicodeEncodeError_urlopen', self.url + '\n' + str(e)]    # utf-8でもだめならあきらめる
             url_temp = quote(url, safe=':/', encoding='utf-8')    # utf-8で変えてもう一度すると接続できるときがある
             self.loop_escape = True
-            return self.set_html_and_content_type_urlopen(url_temp)
+            return self.set_html_and_content_type_urlopen(url_temp, time_out)
         except Exception as e:
+            sleep(1)
             return ['Error_urlopen', self.url + '\n' + str(e)]
         else:
+            sleep(1)
             try:
                 t = UrlOpenReadThread(content)
-                # t.daemon = True
                 t.start()
-                t.join(timeout=60)  # 60秒のread待機時間
-            except Exception:
+                t.join(timeout=time_out)  # time_out秒のread待機時間
+            except Exception:  # thread生成時の run time errorが起きたら
                 sleep(10)
                 try:
                     t = UrlOpenReadThread(content)
-                    # t.daemon = True
                     t.start()
-                    t.join(timeout=60)  # 60秒のread待機時間
+                    t.join(timeout=time_out)  # time_out秒のread待機時間
                 except Exception as e:
-                    return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + str(e)]
+                    return ['makeThreadError_urlopen', self.url + ',' + self.src + ',' + str(e)]
 
             if t.re is False:
                 return ['infoGetError_urlopen', self.url + ',' + self.src + ',' + 'time out']
@@ -187,7 +193,7 @@ class Page:
                 checked_url = o.scheme + '://' + o.netloc + o.path.replace('//', '/')
                 o = urlparse(checked_url)
 
-            # ?&は?に置き換える(いくつかのサイトで「http://www.ac.jp/?&変数=値」のような書き方がある(apu))
+            # ?&は?に置き換える(いくつかのサイト(apu)で「http://www.ac.jp/?&変数=値」のような書き方がある)
             if '?&' in checked_url:
                 checked_url = checked_url.replace('?&', '?')
 

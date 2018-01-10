@@ -16,6 +16,7 @@ class UrlDict:
     def load_url_dict(self, path):
         copy_flag = ''
         data_dir = '../../../../RAD'
+        # url_hashのロード
         if path is None:
             path = data_dir + '/url_hash_json/' + self.host + '.json'
         else:
@@ -27,15 +28,32 @@ class UrlDict:
                     self.url_dict = json.load(f)
                 except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
                     f.close()
-                    copy_flag = 'url_hash'
+                    copy_flag = ' url_hash'
                     # RODから持ってくる
-                    copyfile('../../../../ROD/url_hash_json/' + self.host + '.json',
-                             data_dir + '/url_hash_json/' + self.host + '.json')
-                    f = open(path, 'r')
-                    self.url_dict = json.load(f)
-                    f.close()
+                    src = '../../../../ROD/url_hash_json/' + self.host + '.json'
+                    if os.path.exists(src):
+                        copyfile(src, path)
+                        f = open(path, 'r')
+                        try:
+                            self.url_dict = json.load(f)
+                        except json.decoder.JSONDecodeError:   # RODも破損していた場合
+                            f.close()
+                            # 過去のRODから持ってくる
+                            if os.path.exists('../../../../ROD_history'):
+                                rod_lis = os.listdir('../../../../ROD_history')
+                                latest_rod = sorted(rod_lis, reverse=True,
+                                                    key=lambda dir_name: int(dir_name[dir_name.find('_') + 1:]))[0]
+                                copy_flag += '_from(' + latest_rod + ')'
+                                src = '../../../../ROD_history/' + latest_rod + '/url_hash_json/' + self.host + '.json'
+                                if os.path.exists(src):
+                                    copyfile(src, path)
+                                    with open(path, 'r') as f:
+                                        self.url_dict = json.load(f)
+                        else:
+                            f.close()
                 else:
                     f.close()
+        # tag_dataのロード
         path = data_dir + '/tag_data/' + self.host + '.json'
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
@@ -46,11 +64,29 @@ class UrlDict:
                     f.close()
                     copy_flag += ' tag_data'
                     # RODから持ってくる
-                    copyfile('../../../../ROD/tag_data/' + self.host + '.json',
-                             data_dir + '/tag_data/' + self.host + '.json')
-                    f = open(path, 'r')
-                    self.url_dict = json.load(f)
-                    f.close()
+                    src = '../../../../ROD/tag_data/' + self.host + '.json'
+                    if os.path.exists(src):
+                        copyfile(src, path)
+                        f = open(path, 'r')
+                        try:
+                            self.url_dict3 = json.load(f)
+                        except json.decoder.JSONDecodeError:  # RODも破損していた場合
+                            f.close()
+                            # 過去のRODから持ってくる
+                            if os.path.exists('../../../../ROD_history'):
+                                rod_lis = os.listdir('../../../../ROD_history')
+                                latest_rod = sorted(rod_lis, reverse=True,
+                                                    key=lambda dir_name: int(dir_name[dir_name.find('_') + 1:]))[0]
+                                copy_flag += '_from(' + latest_rod + ')'
+                                src = '../../../../ROD_history/' + latest_rod + '/tag_data/' + self.host + '.json'
+                                if os.path.exists(src):
+                                    copyfile(src, path)
+                                    with open(path, 'r') as f:
+                                        self.url_dict3 = json.load(f)
+                                else:
+                                    copy_flag += '_but not found'
+                        else:
+                            f.close()
                 else:
                     f.close()
         return copy_flag
