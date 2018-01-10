@@ -6,6 +6,7 @@ from multiprocessing import Process, set_start_method, get_context
 import os
 import subprocess
 import shutil
+from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
 
 
 def get_user_input(queue):
@@ -34,6 +35,9 @@ def dealing_after_fact(dir_name):
     # コピー先を削除
     shutil.rmtree('ROD/url_hash_json')
     shutil.rmtree('ROD/tag_data')
+
+    # 偽サイトの情報を削除
+    del_falsification_RAD()
 
     # 移動
     print('copy to ROD from RAD : ', end='')
@@ -76,34 +80,21 @@ def dealing_after_fact(dir_name):
     # main_cr.pyの実行
     del_and_make_achievement(path)
 
+    # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
+    copy_ROD_from_cysec()
+
 
 def save_rod(dir_name):
     if not os.path.exists('ROD_history'):
         os.mkdir('ROD_history')
 
-    dst_dir = 'ROD_history/' + dir_name
-    os.mkdir(dst_dir)
+    dst_dir = 'ROD_history/ROD_' + dir_name
+    shutil.copytree('ROD', dst_dir)
     with open(dst_dir + '/read.txt', 'w') as f:
-        f.writelines('This ROD directory is used by ' + dir_name + ' crawling.')
-    shutil.copytree('ROD/url_hash_json', dst_dir + '/url_hash_json')
-    shutil.copyfile('ROD/url_db', dst_dir + '/url_db')
-    if os.path.exists('ROD/tag_data'):
-        shutil.copytree('ROD/tag_data', dst_dir + '/tag_data')
-    if os.path.exists('ROD/request_url'):
-        shutil.copytree('ROD/request_url', dst_dir + '/request_url')
-    if os.path.exists('ROD/link_host'):
-        shutil.copytree('ROD/link_host', dst_dir + '/link_host')
-    if os.path.exists('ROD/iframe_src'):
-        shutil.copytree('ROD/iframe_src', dst_dir + '/iframe_src')
-    if os.path.exists('ROD/idf_dict'):
-        shutil.copytree('ROD/idf_dict', dst_dir + '/idf_dict')
-    if os.path.exists('ROD/frequent_word_100'):
-        shutil.copytree('ROD/frequent_word_100', dst_dir + '/frequent_word_100')
+        f.writelines('This ROD directory is used by ' + dir_name + "'th crawling.")
 
 
 def main():
-    print(get_context())
-
     if not os.path.exists('check_result/result'):
         os.mkdir('check_result/result')
     dir_name = len(os.listdir('check_result/result')) + 1

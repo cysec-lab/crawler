@@ -49,7 +49,7 @@ class CheckSearchedUrlThread(Thread):
                 if [crawling_domain for crawling_domain in self.domain_list if host_name.endswith(crawling_domain)]:
                     crawling_flag = True
                     break
-                # IPアドレスが登録されているもので始まるかどうか(立命では検索はしない
+                # IPアドレスが登録されているもので始まるかどうか
                 if self.IPAddress_list:
                     try:
                         o = socket.getaddrinfo(host_name, 80, 0, 0, proto=socket.IPPROTO_TCP)

@@ -3,7 +3,6 @@ import json
 from math import log
 import pickle
 from collections import Counter
-import shutil
 
 """
 クローリング後にサーバごとの
@@ -31,9 +30,14 @@ def make_idf_dict_frequent_word_dict():
     for df_dict_dir in dir_list:
         json_file_list = os.listdir('ROD/df_dicts/' + df_dict_dir)
         for json_file in json_file_list:
-            f = open('ROD/df_dicts/' + df_dict_dir + '/' + json_file, 'r')
-            dic = json.load(f)   # df辞書ロード
-            f.close()
+            # 途中からpickleファイルに変更したのでjsonとpickleの2パターン
+            if json_file.endswith('.json'):
+                with open('ROD/df_dicts/' + df_dict_dir + '/' + json_file, 'r') as f:
+                    dic = json.load(f)   # df辞書ロード
+            elif json_file.endswith('.pickle'):
+                with open('ROD/df_dicts/' + df_dict_dir + '/' + json_file, 'rb') as f:
+                    dic = pickle.load(f)   # df辞書ロード
+
             if len(dic) == 0:  # 中身がなければ次へ
                 continue
             if json_file not in df_dict:
@@ -57,9 +61,10 @@ def make_idf_dict_frequent_word_dict():
     lis = os.listdir('RAD/df_dict')
     c = 0
     for server in lis:
+
         idf_dict = dict()
-        with open('RAD/df_dict/' + server, 'r') as f:
-            dic = json.load(f)
+        with open('RAD/df_dict/' + server, 'rb') as f:
+            dic = pickle.load(f)
         if len(dic) == 0:
             continue
         N = dic['NumOfPages']  # NumOfPageはそのサーバで辞書を更新した回数 = そのサーバのページ数
@@ -134,14 +139,14 @@ def make_request_url_iframeSrc_link_host_set():
     request_url = set()
     iframe_url = set()
     link_url = set()
-    file_name_set = set()  # 今回のクローリングで見つからなかったサーバはtempにないため、RODデータに保存されないので、それを防ぐため
+    file_name_set = set()  # 今回のクローリングで見つからなかったサーバはtempになくてRODデータに保存されないので、それらもmatome.jsonにいれるため
     for file in lis:
         with open('RAD/temp/' + file, 'rb') as f:
             pick = pickle.load(f)
         file = file[file.find('_') + 1:file.find('.')] + '.json'
         file_name_set.add(file)
 
-        # ネットワーク名 : URL = ホスト部 + ネットワーク部 + ファイル位置　としたときの、ネットワーク部のところ
+        # ネットワーク名 : URL = スキーマ(?) + ホスト部 + ネットワーク部 + ファイル位置　としたときの、ネットワーク部のところ
 
         # ページをロードするために行ったrequestURL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
         if os.path.exists('ROD/request_url/' + file):
@@ -183,6 +188,7 @@ def make_request_url_iframeSrc_link_host_set():
                 json.dump(list(url_set), f)
 
     # 今回見つからなかったが、過去に回ったことのあるサーバのRODデータをmatome.jsonに入れるため
+    file_name_set.add('falsification-cysec-cs-ritsumei-ac-jp.json')  # 偽サイト情報はmatome.jsonに入れない
     # request_url
     file_names = os.listdir('ROD/request_url')
     for file_name in file_names:
@@ -193,12 +199,12 @@ def make_request_url_iframeSrc_link_host_set():
                 tmp = json.load(f)
             request_url.update(set(tmp))
     # iframe_src
-    file_names = os.listdir('ROD/iframe_url')
+    file_names = os.listdir('ROD/iframe_src')
     for file_name in file_names:
         if 'matome.json' in file_name:
             continue
         if file_name not in file_name_set:
-            with open('ROD/iframe_url/' + file_name, 'r') as f:
+            with open('ROD/iframe_src/' + file_name, 'r') as f:
                 tmp = json.load(f)
             iframe_url.update(set(tmp))
     # link_host
@@ -212,6 +218,7 @@ def make_request_url_iframeSrc_link_host_set():
             link_url.update(set(tmp))
 
     # 全サーバの情報をまとめた集合を保存、クローリング時にはこれを使う
+    # このjsonファイルにないサーバ(ネットワーク)へ要求が出るものは、過去にはなかった通信になる
     with open('ROD/request_url/matome.json', 'w') as f:
         json.dump(list(request_url), f)
     with open('ROD/iframe_src/matome.json', 'w') as f:

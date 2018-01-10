@@ -112,24 +112,24 @@ def init(host, screenshots):
             with open(path, 'r') as f:
                 word_idf_dict = json.load(f)
     # df辞書をロード
-    path = '../../../../RAD/df_dict/' + f_name + '.json'
+    path = '../../../../RAD/df_dict/' + f_name + '.pickle'
     if os.path.exists(path):
         if os.path.getsize(path) > 0:
-            with open(path, 'r') as f:
-                word_df_dict = json.load(f)
+            with open(path, 'rb') as f:
+                word_df_dict = pickle.load(f)
     urlDict = UrlDict(f_name)
     copy_flag = urlDict.load_url_dict(path=None)
     if copy_flag:
-        wa_file('../../notice.txt', host + ' : copy ' + copy_flag + ' data from ROD, because JSON data is broken.\n')
+        wa_file('../../notice.txt', host + ' : copy' + copy_flag + ' because JSON data is broken.\n')
 
 
 # クローリングして得たページの情報を外部ファイルに記録
 def save_result():
     urlDict.save_url_dict()
     if word_df_dict:
-        path = '../../../../RAD/df_dict/' + f_name + '.json'
-        with open(path, 'w') as f:
-            json.dump(word_df_dict, f)
+        path = '../../../../RAD/df_dict/' + f_name + '.pickle'
+        with open(path, 'wb') as f:
+            pickle.dump(word_df_dict, f)
     if num_of_achievement:
         with open('../../../../RAD/temp/progress_' + f_name + '.pickle', 'wb') as f:
             pickle.dump({'num': num_of_achievement, 'cache': url_cache, 'request': request_url_host_set,
@@ -466,6 +466,8 @@ def parser(parse_args_dic):
                 for link_host in diff:   # ページのリンク集から、ホスト名に特定のネットワーク部を含むURLを取ってくる
                     temp.extend([url for url in page.normalized_links if link_host in urlparse(url).netloc])
                 for i in temp:
+                    if host == urlparse(i).netloc:  # 自分自身のサーバへのリンクURLの場合
+                        continue
                     update_write_file_dict('alert', 'link_to_new_server.csv', content=['URL,link', page.url + ',' + i])
 
     # スレッド集合から削除
@@ -502,13 +504,13 @@ def del_thread(host):
                 print(host + ' : del_thread-function KeyError :' + str(e))
 
 
-# 10秒間受信キューに何も入っていなければFalseを返す
-def receive(recv_r, send_r):
+# 5秒間受信キューに何も入っていなければFalseを返す
+# 送られてくるのは、(URL, src)　か　'nothing'
+def receive(recv_r):
     try:
-        temp_r = recv_r.get(block=True, timeout=10)
+        temp_r = recv_r.get(block=True, timeout=5)
     except Exception:
         return False
-    send_to_parent(send_r, 'receive')
     return temp_r
 
 
@@ -588,15 +590,30 @@ def crawler_main(args_dic):
         except Exception:
             pass
 
+        # 親プロセスにURLを要求
+        send_to_parent(sendq=q_send, data='plz')
         # クローリングするURLを取得
-        search_tuple = receive(q_recv, q_send)      # URLが10秒間届かなければFalse
+        search_tuple = receive(q_recv)      # 3秒間何も届かなければFalse
         if search_tuple is False:
-            if threadId_set:   # 実行中のパーススレッドがあるならば
+            while threadId_set:   # 実行中のパーススレッドがあるならば
                 print(host + ' : wait 3sec because the queue is empty.')
-                sleep(3)   # 3秒待って、もう一度受信キューを確認する
-                continue
-            else:   # パーススレッドが全て終わっていれば、メインループを抜ける
+                sleep(3)
+            break
+        elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
+            while threadId_set:
+                print(host + ' : wait 3sec for finishing parse thread')
+                sleep(3)
+            # 3秒待機後、もう一度要求する
+            sleep(3)
+            send_to_parent(sendq=q_send, data='plz')   # plz要求
+            search_tuple = receive(q_recv)             # 応答確認
+            if type(search_tuple) is tuple:
+                send_to_parent(q_send, 'receive')
+            else:
+                # ２回目もFalse or nothingだったらメインを抜ける
                 break
+        else:    # それ以外(URLのタプル)
+            send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
         url, url_src = search_tuple  # 親から送られてくるURLは、(URL, リンク元URL)のタプル
@@ -607,13 +624,18 @@ def crawler_main(args_dic):
         page = Page(url, url_src)
 
         # urlopenで接続
-        urlopen_result = page.set_html_and_content_type_urlopen(page.url)
-        if type(urlopen_result) == list:  # istが返るとエラー
-            update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1])
-            continue
-        if page.url in url_cache:   # urlopenでurlが変わっている可能性があるため再度チェック
-            continue
-
+        urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+        if type(urlopen_result) is list:  # listが返るとエラー
+            # URLがこのサーバの中でひとつ目だった場合
+            if num_of_achievement:
+                update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1])
+                continue
+            # ひとつ目のURLだった場合、もう一度やってみる
+            update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1] + ', and try again')
+            urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=90)  # 次は90秒待機する
+            if type(urlopen_result) is list:  # それでも無理なら諦める
+                update_write_file_dict('host', urlopen_result[0] + '.txt', content=urlopen_result[1])
+                continue
         # リダイレクトのチェック
         redirect = check_redirect(page, host)
         if redirect is True:   # 別サーバへリダイレクトしていればTrue
@@ -622,12 +644,16 @@ def crawler_main(args_dic):
         if redirect == "same":    # 同じホスト内のリダイレクトの場合、処理の続行を親プロセスに通知
             send_to_parent(sendq=q_send, data=(page.url, "redirect"))
 
+        # urlopenでurlが変わっている可能性があるため再度チェック
+        if page.url in url_cache:
+            continue
+
         # content-typeからウェブページ(str)かその他ファイル(False)かを判断
         file_type = page_or_file(page)
         update_write_file_dict('host', 'content-type.csv', ['content-type,url,src',
                                                             page.content_type + ',' + page.url + ',' + page.src])  # 記録
 
-        if type(file_type) == str:   # ウェブページの場合
+        if type(file_type) is str:   # ウェブページの場合
             img_name = False
             if phantomjs:
                 # phantomJSでURLに再接続。関数内で接続後１秒待機
@@ -642,8 +668,6 @@ def crawler_main(args_dic):
                         phantom_result = set_html(page=page, driver=driver)   # もっかい接続を試してみる
                         if type(phantom_result) == list:                # ２回目もエラーなら次のURLへ(諦める)
                             continue
-                if page.url in url_cache:     # phantomJSでurlが変わっている可能性があるため再度チェック
-                    continue
                 # リダイレクトのチェック
                 redirect = check_redirect(page, host)
                 if redirect is True:    # リダイレクトでサーバが変わっていれば
@@ -652,6 +676,10 @@ def crawler_main(args_dic):
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
                     send_to_parent(sendq=q_send, data=(page.url, "redirect"))
+
+                # phantomJSでurlが変わっている可能性があるため再度チェック
+                if page.url in url_cache:
+                    continue
                 """
                 # javascript実行し、PhantomJSで自動ダウンロードチェック
                 t = threading.Thread(target=download_check, args=(page.url_urlopen, page.url, host,),)
@@ -674,9 +702,12 @@ def crawler_main(args_dic):
                         if diff:
                             str_t = ''
                             for t in diff:
+                                if t in host:   # 自分自身のサーバへのリクエストURLの場合
+                                    continue
                                 str_t += ',' + t
-                            update_write_file_dict('alert', 'new_request_url.csv',
-                                                   content=['URL,request_url', page.url + str_t])
+                            if str_t != '':
+                                update_write_file_dict('alert', 'new_request_url.csv',
+                                                       content=['URL,request_url', page.url + str_t])
                 if test:
                     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
 
@@ -745,7 +776,10 @@ def crawler_main(args_dic):
         url_cache.add(page.url_initial)  # 親から送られてきたURL
         url_cache.add(page.url_urlopen)  # urlopenで得たURL
         url_cache.add(page.url)          # 最終的にパースしたURL
+
+    # q_send.put('save')
     save_result()
+    # q_send.put('done_save')
     print(host + ' saved.')
     quit_driver(driver)  # headless browser終了して
     os._exit(0)
