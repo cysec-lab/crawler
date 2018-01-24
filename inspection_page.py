@@ -10,7 +10,11 @@ def ston(string):
         for s in string:
             if not s.isdigit():
                 break
-        return int(string[0:string.find(s)])
+        re = string[0:string.find(s)]
+        if re.isdigit():
+            return int(re)
+        else:
+            return 0
     elif type(string) is int:
         return string
     elif type(string) is None:

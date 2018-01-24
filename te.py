@@ -16,13 +16,15 @@ def fun(tup):
     dic[tup[0]] = tup
 
 
+
+
 if __name__ == '__main__':
 
     from webpage import Page
     from crawler3 import check_redirect
-    url = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/aceess'
+    url = 'http://www.ritsumei.ac.jp/acd/re/k-rsc/kikou/2006/20060916ohshima.htm'
+    url = 'https://sites.google.com/site/cidllaboratory/'
     host_name = urlparse(url).netloc
-    print(host_name)
 
     # Pageオブジェクトを作成
     page = Page(url, 'tes')
@@ -34,20 +36,12 @@ if __name__ == '__main__':
     redirect = check_redirect(page, host_name)
     print(redirect)
 
-    from use_web_driver import driver_get, set_html
+    from use_web_driver import driver_get, set_html, quit_driver
     driver = driver_get(False)
     phantom_result = set_html(page=page, driver=driver)
     print(page.url)
+    print(page.html)
     redirect = check_redirect(page, host_name)
     print(redirect)
 
-    from file_rw import r_file
-    data_temp = r_file('ROD/LIST/REDIRECT_LIST.txt')
-    after_redirect_list = data_temp.split('\n')
-    if '' in after_redirect_list:
-        after_redirect_list.remove('')
-    redirect_host = urlparse(page.url).netloc
-    if not [white for white in after_redirect_list if redirect_host.endswith(white)]:
-        print('alert')
-    else:
-        print('no alert')
+    quit_driver(driver)

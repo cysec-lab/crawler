@@ -4,14 +4,14 @@ import json
 
 
 def del_falsification_RAD():
-    if os.path.exists('RAD/df_dict/falsification-cysec-cs-ristumei-ac-jp.json'):
-        os.remove('RAD/df_dict/falsification-cysec-cs-ristumei-ac-jp.json')
-    if os.path.exists('RAD/tag_data/falsification-cysec-cs-ristumei-ac-jp.json'):
-        os.remove('RAD/tag_data/falsification-cysec-cs-ristumei-ac-jp.json')
-    if os.path.exists('RAD/url_hash_json/falsification-cysec-cs-ristumei-ac-jp.json'):
-        os.remove('RAD/url_hash_json/falsification-cysec-cs-ristumei-ac-jp.json')
-    if os.path.exists('RAD/temp/progress_falsification-cysec-cs-ristumei-ac-jp.pickle'):
-        os.remove('RAD/temp/progress_falsification-cysec-cs-ristumei-ac-jp.pickle')
+    if os.path.exists('RAD/df_dict/falsification-cysec-cs-ritsumei-ac-jp.json'):
+        os.remove('RAD/df_dict/falsification-cysec-cs-ritsumei-ac-jp.json')
+    if os.path.exists('RAD/tag_data/falsification-cysec-cs-ritsumei-ac-jp.json'):
+        os.remove('RAD/tag_data/falsification-cysec-cs-ritsumei-ac-jp.json')
+    if os.path.exists('RAD/url_hash_json/falsification-cysec-cs-ritsumei-ac-jp.json'):
+        os.remove('RAD/url_hash_json/falsification-cysec-cs-ritsumei-ac-jp.json')
+    if os.path.exists('RAD/temp/progress_falsification-cysec-cs-ritsumei-ac-jp.pickle'):
+        os.remove('RAD/temp/progress_falsification-cysec-cs-ritsumei-ac-jp.pickle')
 
 
 def copy_ROD_from_cysec():

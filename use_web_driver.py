@@ -72,6 +72,12 @@ def set_html(page, driver):
     try:
         wait = WebDriverWait(driver, 5)
         wait.until(expected_conditions.presence_of_all_elements_located)   # ロード完了まで最大5秒待つ(たぶんロードは完了しているのでいらない)
+        # SSL認証で失敗するとabout:blankになる
+        # SSL認証で失敗していないのにabout:blankは5秒待つ
+        log_content = driver.get_log('har')[0]['message']
+        if driver.current_url == 'about:blank':
+            if '"statusText":"(ssl failure)"' not in log_content:
+                sleep(5)
         page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = driver.page_source   # htmlソースを更新
     except Exception as e:

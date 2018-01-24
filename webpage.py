@@ -16,7 +16,7 @@ class Page:
         self.content_type = None       # このURLのcontent-type。urlopen時のヘッダから取得
         self.content_length = None     # ファイルサイズ。urlopen時にヘッダから取得
         self.encoding = 'utf-8'        # 文字コード。urlopen時のヘッダから取得(使っていない
-        self.html_urlopen = None       # urlopenで取得したHTMLソースコード(使っていない
+        self.html_urlopen = None       # urlopenで取得したHTMLソースコードのバイト列(使っていない
         self.url = url                 # current_url。urlopen、phantomsJSで接続した後にそれぞれ更新
         self.html = None               # HTMLソースコード。urlopen、phantomsJSで接続した後にそれぞれ更新
         self.hostName = None           # urlopen、phantomsJSで接続した後にそれぞれ更新

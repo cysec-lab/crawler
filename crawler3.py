@@ -154,7 +154,11 @@ def save_result():
                 text += i[1] + '\n'
             else:
                 text += i + '\n'
-        wa_file('../../' + file_name, text)
+        # 偽サイトの結果ファイルはresultディレに書かない
+        if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
+            wa_file(file_name, text)
+        else:
+            wa_file('../../' + file_name, text)
     for file_name, value in write_file_to_alertdir.items():
         text = ''
         for i in value:
@@ -164,7 +168,11 @@ def save_result():
                 text += i[1] + '\n'
             else:
                 text += i + '\n'
-        wa_file('../../../alert/' + file_name, text)
+        # 偽サイトの結果ファイルはalertディレに書かない
+        if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
+            wa_file(file_name, text)
+        else:
+            wa_file('../../../alert/' + file_name, text)
 
 
 # クローリングの結果を外部ファイルに出力したいが、毎度していてはディスク書き込みが頻発するため
@@ -668,6 +676,14 @@ def crawler_main(args_dic):
                         phantom_result = set_html(page=page, driver=driver)   # もっかい接続を試してみる
                         if type(phantom_result) == list:                # ２回目もエラーなら次のURLへ(諦める)
                             continue
+                # about:blankなら以降の処理はしない
+                if page.url == "about:blank":
+                    update_write_file_dict('alert', 'about_blank_url.csv',
+                                           content=['URL,src', page.url_initial + ',' + page.src])
+                    with open('blank_file_' + str(num_of_achievement) + '.html_b', mode='wb') as f:
+                        f.write(page.html_urlopen)
+                    continue
+
                 # リダイレクトのチェック
                 redirect = check_redirect(page, host)
                 if redirect is True:    # リダイレクトでサーバが変わっていれば
