@@ -42,7 +42,7 @@ write_file_to_hostdir = dict()    # server/www.ac.jp/の中に作るファイル
 wfth_lock = threading.Lock()      # write_file_to_hostdir更新の際のlock
 write_file_to_resultdir = dict()  # result/result_*/の中に作るファイルの内容。{file名 : [内容, 内容, ...], file名 : []}
 wftr_lock = threading.Lock()      # write_file_to_maindir更新の際のlock
-write_file_to_alertdir = dict()   # result/alert/の中に作るファイルの内容。{file名 : [内容, 内容, ...], file名 : []}
+write_file_to_alertdir = list()   # result/alert/の中に作るファイルの内容。辞書のリスト
 wfta_lock = threading.Lock()      # write_file_to_alertdir更新の際のlock
 
 
@@ -57,10 +57,8 @@ def init(host, screenshots):
         html_special_char.append(tuple(line))
     html_special_char.append(('\r', ''))
     html_special_char.append(('\n', ''))
-    try:
+    if not os.path.exists('server'):
         os.mkdir('server')
-    except FileExistsError:
-        pass
     dir_name = host.replace(':', '-')
     f_name = dir_name.replace('.', '-')
     if not os.path.exists('server/' + dir_name):
@@ -68,7 +66,6 @@ def init(host, screenshots):
     if screenshots:
         if not os.path.exists('../../RAD/screenshots/' + dir_name):
             os.mkdir('../../RAD/screenshots/' + dir_name)
-
     os.chdir('server/' + dir_name)
 
     # 途中保存をロード
@@ -124,7 +121,7 @@ def init(host, screenshots):
 
 
 # クローリングして得たページの情報を外部ファイルに記録
-def save_result():
+def save_result(alert_process_q):
     urlDict.save_url_dict()
     if word_df_dict:
         path = '../../../../RAD/df_dict/' + f_name + '.pickle'
@@ -159,20 +156,21 @@ def save_result():
             wa_file(file_name, text)
         else:
             wa_file('../../' + file_name, text)
-    for file_name, value in write_file_to_alertdir.items():
-        text = ''
-        for i in value:
-            if type(i) == list:
-                if not os.path.exists('../../../alert/' + file_name):
-                    text += i[0] + '\n'
-                text += i[1] + '\n'
-            else:
-                text += i + '\n'
-        # 偽サイトの結果ファイルはalertディレに書かない
-        if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
-            wa_file(file_name, text)
-        else:
-            wa_file('../../../alert/' + file_name, text)
+    for data_dict in write_file_to_alertdir:
+        alert_process_q.put(data_dict)
+        # text = ''
+        # for i in value:
+        #     if type(i) == list:
+        #         if not os.path.exists('../../../alert/' + file_name):
+        #             text += i[0] + '\n'
+        #         text += i[1] + '\n'
+        #     else:
+        #         text += i + '\n'
+        # # 偽サイトの結果ファイルはalertディレに書かない
+        # if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
+        #     wa_file(file_name, text)
+        # else:
+        #     wa_file('../../../alert/' + file_name, text)
 
 
 # クローリングの結果を外部ファイルに出力したいが、毎度していてはディスク書き込みが頻発するため
@@ -188,20 +186,22 @@ def update_write_file_dict(dic_type, key, content):
         dic = write_file_to_resultdir
         lock = wftr_lock
     elif dic_type == 'alert':
-        dic = write_file_to_alertdir
-        lock = wfta_lock
+        return 0
+        # dic = write_file_to_alertdir
+        # lock = wfta_lock
     # 各辞書は、ファイル名：[内容, 内容, ...]になるように
+    # alertディレだけ、ファイル名：[辞書, 辞書, ...]  (summarize_alertプロセスに渡すため)
     with lock:
         if key.endswith('.csv'):         # csvファイルの場合、contentはリストで[ヘッダ, 内容]となっている
             if key not in dic:
                 dic[key] = [content]     # csvファイルの一行目はヘッダも入れる
             else:
                 dic[key].append(content[1])   # 1行目以降は、内容だけ入れる
-        else:
+        else:   # textファイルの場合
             if key not in dic:
                 dic[key] = [content]
             else:
-                dic[key].append(content)   # textファイルの場合は、contentがlistではないため
+                dic[key].append(content)
 
 
 # 親プロセスにdataを送信する
@@ -343,7 +343,16 @@ def parser(parse_args_dic):
             if hack_level == 1:
                 update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
             else:
-                update_write_file_dict('alert', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
+                data_temp = dict()
+                data_temp['url'] = page.url
+                data_temp['src'] = page.src
+                data_temp['file_name'] = 'hack_word_Lv' + str(hack_level) + '.csv'
+                data_temp['content'] = page.url + ',' + page.src
+                data_temp['label'] = 'URL,SOURCE'
+                with wfta_lock:
+                    write_file_to_alertdir.append(data_temp)
+                # update_write_file_dict('alert', 'hack_word_Lv' + str(hack_level) + '.txt',
+                #                        content=['URL,SOURCE', page.url + ',' + page.src])
         if word_tf_dict is not False:
             with word_df_lock:
                 word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
@@ -351,15 +360,23 @@ def parser(parse_args_dic):
                 word_tfidf = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
                 top10 = get_top10_tfidf(tfidf_dict=word_tfidf)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
                 # ハッシュ値が異なるため、重要単語を比較
-                #if num_of_days is not True:
+                # if num_of_days is not True:
                 if True:  # 実験のため毎回比較
                     pre_top10 = urlDict.get_top10_from_url_dict(url=page.url)    # 前回のtop10を取得
                     if pre_top10 is not None:
                         symmetric_difference = set(top10) ^ set(pre_top10)         # 排他的論理和
                         if len(symmetric_difference) > 16:
-                            update_write_file_dict('alert', 'change_important_word.csv',
-                                                   content=['URL,top10,pre', page.url + ',' + str(top10) + ','
-                                                            + str(pre_top10)])
+                            data_temp = dict()
+                            data_temp['url'] = page.url
+                            data_temp['src'] = page.src
+                            data_temp['file_name'] = 'change_important_word.csv'
+                            data_temp['content'] = page.url + ',' + str(top10) + ',' + str(pre_top10)
+                            data_temp['label'] = 'URL,TOP10,PRE'
+                            with wfta_lock:
+                                write_file_to_alertdir.append(data_temp)
+                            # update_write_file_dict('alert', 'change_important_word.csv',
+                            #                        content=['URL,TOP10,PRE',
+                            #                                 page.url + ',' + str(top10) + ',' + str(pre_top10)])
                             if screenshots_svc_q is not False:
                                 data_dic = {'host': dir_name, 'url': page.url, 'img_name': img_name,
                                             'num_diff_word': len(symmetric_difference)}
@@ -404,8 +421,16 @@ def parser(parse_args_dic):
 
                 # 新しく見つかったURLで、ANDの単語(このページの単語と今までの頻出単語top50とのAND)が5個以下なら
                 if len(and_set) < 6 and page.new_page:
-                    update_write_file_dict('alert', 'new_page_without_frequent_word.csv',
-                                           ['URL,words', page.url + ',' + str(and_set)])
+                    data_temp = dict()
+                    data_temp['url'] = page.url
+                    data_temp['src'] = page.src
+                    data_temp['file_name'] = 'new_page_without_frequent_word.csv'
+                    data_temp['content'] = page.url + ',' + str(and_set)
+                    data_temp['label'] = 'URL,WORDS'
+                    with wfta_lock:
+                        write_file_to_alertdir.append(data_temp)
+                    # update_write_file_dict('alert', 'new_page_without_frequent_word.csv',
+                    #                        ['URL,words', page.url + ',' + str(and_set)])
 
     # iframeの検査
     iframe_result = iframe_inspection(soup)     # iframeがなければFalse
@@ -416,8 +441,19 @@ def parser(parse_args_dic):
             if iframe_src_set_pre:   # 前回のクローリング時のiframeのsrcデータがあれば
                 diff = set(iframe_result['iframe_src_list']).difference(iframe_src_set_pre)   # 差をとる
                 if diff:   # 前回のクローリング時に確認されなかったサーバのiframeが使われているならば
+                    content_str = ''
                     for i in diff:
-                        update_write_file_dict('alert', 'new_iframeSrc.csv', ['URL,iframe_src', page.url + ',' + i])
+                        content_str += ',' + i
+                        # update_write_file_dict('alert', 'new_iframeSrc.csv', ['URL,iframe_src', page.url + ',' + i])
+                    data_temp = dict()
+                    data_temp['url'] = page.url
+                    data_temp['src'] = page.src
+                    data_temp['file_name'] = 'new_iframeSrc.csv'
+                    data_temp['content'] = page.url + content_str
+                    data_temp['label'] = 'URL,iframe_src'
+                    with wfta_lock:
+                        write_file_to_alertdir.append(data_temp)
+
         if iframe_result['invisible_iframe_list']:
             update_write_file_dict('result', 'invisible_iframe.csv', content=['URL', page.url])
 
@@ -473,10 +509,21 @@ def parser(parse_args_dic):
                 temp = list()
                 for link_host in diff:   # ページのリンク集から、ホスト名に特定のネットワーク部を含むURLを取ってくる
                     temp.extend([url for url in page.normalized_links if link_host in urlparse(url).netloc])
+                content_str = ''
                 for i in temp:
                     if host == urlparse(i).netloc:  # 自分自身のサーバへのリンクURLの場合
                         continue
-                    update_write_file_dict('alert', 'link_to_new_server.csv', content=['URL,link', page.url + ',' + i])
+                    content_str += ',' + i
+                    # update_write_file_dict('alert', 'link_to_new_server.csv', content=['URL,link', page.url + ',' + i])
+                if content_str:
+                    data_temp = dict()
+                    data_temp['url'] = page.url
+                    data_temp['src'] = page.src
+                    data_temp['file_name'] = 'link_to_new_server.csv'
+                    data_temp['content'] = page.url + content_str
+                    data_temp['label'] = 'URL,LINK'
+                    with wfta_lock:
+                        write_file_to_alertdir.append(data_temp)
 
     # スレッド集合から削除
     try:
@@ -562,6 +609,7 @@ def crawler_main(args_dic):
     phantomjs = args_dic['phantomjs']
     use_mecab = args_dic['mecab']
     mysql = args_dic['mysql']
+    alert_process_q = args_dic['alert_process_q']
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
@@ -678,8 +726,16 @@ def crawler_main(args_dic):
                             continue
                 # about:blankなら以降の処理はしない
                 if page.url == "about:blank":
-                    update_write_file_dict('alert', 'about_blank_url.csv',
-                                           content=['URL,src', page.url_initial + ',' + page.src])
+                    data_temp = dict()
+                    data_temp['url'] = page.url_initial
+                    data_temp['src'] = page.src
+                    data_temp['file_name'] = 'about_blank_url.csv'
+                    data_temp['content'] = page.url_initial + ',' + page.src
+                    data_temp['label'] = 'URL,src'
+                    with wfta_lock:
+                        write_file_to_alertdir.append(data_temp)
+                    # update_write_file_dict('alert', 'about_blank_url.csv',
+                    #                        content=['URL,src', page.url_initial + ',' + page.src])
                     with open('blank_file_' + str(num_of_achievement) + '.html_b', mode='wb') as f:
                         f.write(page.html_urlopen)
                     continue
@@ -722,8 +778,16 @@ def crawler_main(args_dic):
                                     continue
                                 str_t += ',' + t
                             if str_t != '':
-                                update_write_file_dict('alert', 'new_request_url.csv',
-                                                       content=['URL,request_url', page.url + str_t])
+                                data_temp = dict()
+                                data_temp['url'] = page.url
+                                data_temp['src'] = page.src
+                                data_temp['file_name'] = 'new_request_url.csv'
+                                data_temp['content'] = page.url + str_t
+                                data_temp['label'] = 'URL,request_url'
+                                with wfta_lock:
+                                    write_file_to_alertdir.append(data_temp)
+                                # update_write_file_dict('alert', 'new_request_url.csv',
+                                #                        content=['URL,request_url', page.url + str_t])
                 if test:
                     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
 
@@ -794,7 +858,7 @@ def crawler_main(args_dic):
         url_cache.add(page.url)          # 最終的にパースしたURL
 
     # q_send.put('save')
-    save_result()
+    save_result(alert_process_q)
     # q_send.put('done_save')
     print(host + ' saved.')
     quit_driver(driver)  # headless browser終了して

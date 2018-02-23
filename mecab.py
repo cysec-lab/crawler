@@ -41,7 +41,7 @@ def detect_hack(text):
             h = text.find('H')
             if h == -1:
                 break
-        h_area = text[h:h+10].lower()   # 'h'又は'H'が見つかってから10文字を取り、小文字にする
+        h_area = text[h:h+30].lower()   # 'h'又は'H'が見つかってから30文字を取り、小文字にする
         if 'hackedby' in h_area:
             result = 3
         elif 'hacked' in h_area:

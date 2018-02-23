@@ -14,7 +14,7 @@ iframeのsrc先URLの集合
 
 
 def make_idf_dict_frequent_word_dict():
-    df_dict = dict()   # {server : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
+    df_dict = dict()   # {file名(server.json) : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
     try:
         os.mkdir('ROD/idf_dict')
     except FileExistsError:
@@ -28,42 +28,40 @@ def make_idf_dict_frequent_word_dict():
 
     dir_list = os.listdir('ROD/df_dicts/')  # このフォルダ以下の全てのdfフォルダをマージしてidf辞書を作る
     for df_dict_dir in dir_list:
-        json_file_list = os.listdir('ROD/df_dicts/' + df_dict_dir)
-        for json_file in json_file_list:
-            # 途中からpickleファイルに変更したのでjsonとpickleの2パターン
-            if json_file.endswith('.json'):
-                with open('ROD/df_dicts/' + df_dict_dir + '/' + json_file, 'r') as f:
-                    dic = json.load(f)   # df辞書ロード
-            elif json_file.endswith('.pickle'):
-                with open('ROD/df_dicts/' + df_dict_dir + '/' + json_file, 'rb') as f:
-                    dic = pickle.load(f)   # df辞書ロード
+        pickle_file_list = os.listdir('ROD/df_dicts/' + df_dict_dir)
+        for pickle_file in pickle_file_list:
+            # 途中からpickleファイルに変更した
+            with open('ROD/df_dicts/' + df_dict_dir + '/' + pickle_file, 'rb') as f:
+                dic = pickle.load(f)   # df辞書ロード
 
             if len(dic) == 0:  # 中身がなければ次へ
                 continue
-            if json_file not in df_dict:
-                df_dict[json_file] = dict()
-            df_dict[json_file] = dict(Counter(df_dict[json_file]) + Counter(dic))   # 既存の辞書と同じキーの要素を足す
+            # df_dictはpickleファイルだが、頻出単語ファイルはjsonにするため
+            file_name_json = pickle_file[0:pickle_file.find('.pickle')] + '.json'
+            if file_name_json not in df_dict:
+                df_dict[file_name_json] = dict()
+            df_dict[file_name_json] = dict(Counter(df_dict[file_name_json]) + Counter(dic))   # 既存の辞書と同じキーの要素を足す
     # この時点で、df辞書のマージ終わり(同じ単語の出現文書数を足し合わせた)
 
     # 頻出単語辞書の作成
-    for server, dic in df_dict.items():
+    for file_name, dic in df_dict.items():
         frequent_words = list()
         for word, df in sorted(dic.items(), key=lambda x: x[1], reverse=True):
             if word != 'NumOfPages':
                 frequent_words.append(word)
             if len(frequent_words) == n:
                 break
-        with open('ROD/frequent_word_' + str(n) + '/' + server, 'w') as f:
+        with open('ROD/frequent_word_' + str(n) + '/' + file_name, 'w') as f:
             json.dump(frequent_words, f)
 
     # idf辞書の作成
     # 前回データからのみ
-    lis = os.listdir('RAD/df_dict')
+    pickle_files = os.listdir('RAD/df_dict')
     c = 0
-    for server in lis:
+    for pickle_file in pickle_files:
 
         idf_dict = dict()
-        with open('RAD/df_dict/' + server, 'rb') as f:
+        with open('RAD/df_dict/' + pickle_file, 'rb') as f:
             dic = pickle.load(f)
         if len(dic) == 0:
             continue
@@ -79,9 +77,10 @@ def make_idf_dict_frequent_word_dict():
         idf_dict['NULLnullNULL'] = idf
 
         if idf_dict:
-            f = open('ROD/idf_dict/' + server, 'w')
-            json.dump(idf_dict, f)
-            f.close()
+            # df_dictはpickleファイルだが、idfファイルはjsonにするため
+            file_name_json = pickle_file[0:pickle_file.find('.pickle')] + '.json'
+            with open('ROD/idf_dict/' + file_name_json, 'w') as f:
+                json.dump(idf_dict, f)
         c += 1
     """
     # 過去すべてのdfデータから計算
