@@ -7,41 +7,95 @@ import webpage
 from collections import deque
 import socket
 from urllib.parse import urlparse
+from file_rw import r_file
 
 dic = dict()
 
 
-def fun(tup):
-    print(id(tup))
-    dic[tup[0]] = tup
-
-
+def fun(i):
+    print(i, 'start')
+    if 'tfidf' not in i:
+        return 0
+    with open('../' + i, 'r') as f:
+        content = f.read()
+    s = content
+    tfidf_json = list()
+    while True:
+        if s.find(')') == -1:
+            break
+        if s.find(',') == -1:
+            break
+        tfidf = s[s.find(',') + 2: s.find(')')]
+        s = s[s.find(')'):]
+        s = s[s.find('('):]
+        try:
+            tfidf_json.append(float(tfidf))
+        except Exception as e:
+            print(e, tfidf)
+    import json
+    with open('../' + i + '.json', 'w') as f:
+        json.dump(tfidf_json, f)
+    print(i, 'end')
 
 
 if __name__ == '__main__':
 
-    from webpage import Page
-    from crawler3 import check_redirect
-    url = 'http://www.ritsumei.ac.jp/acd/re/k-rsc/kikou/2006/20060916ohshima.htm'
-    url = 'https://sites.google.com/site/cidllaboratory/'
-    host_name = urlparse(url).netloc
+    # from use_web_driver import driver_get, set_html
+    # from webpage import Page
+    # from bs4 import BeautifulSoup
+    # driver = driver_get(False)
+    # url = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/research'
+    # page = Page(url, 'test')
+    #
+    # urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+    # soup = BeautifulSoup(page.html, 'lxml')
+    # print(soup.prettify())
+    #
+    # print('------------------------')
+    # phantom_result = set_html(page=page, driver=driver)
+    # soup = BeautifulSoup(page.html, 'lxml')
+    # print(soup.prettify())
 
-    # Pageオブジェクトを作成
-    page = Page(url, 'tes')
+    # import os
+    # from multiprocessing import Pool
+    # lis = os.listdir('..')
+    # print(lis)
+    # p = Pool(8)
+    #
+    # p.map(fun, lis)
 
-    # urlopenで接続
-    urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
-    print(page.url)
+    import matplotlib.pyplot as plt
+    lis = os.listdir('..')
+    print(lis)
+    plt.style.use('ggplot')
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
 
-    redirect = check_redirect(page, host_name)
-    print(redirect)
+    for i in lis:
+        if i.endswith('.json'):
+            with open('../' + i, 'r') as f:
+                json_file = json.load(f)
+        else:
+            continue
+        M = max(json_file)
 
-    from use_web_driver import driver_get, set_html, quit_driver
-    driver = driver_get(False)
-    phantom_result = set_html(page=page, driver=driver)
-    print(page.url)
-    print(page.html)
-    redirect = check_redirect(page, host_name)
-    print(redirect)
+        print(len(json_file))
+        y = [round(tmp, 4) for tmp in json_file if round(tmp, 4) < 0.05]
+        print(len(y))
+        x = range(len(y))
 
-    quit_driver(driver)
+        # 折れ線グラフの用意
+        ax.scatter(x, y, label="y points")
+
+        # タイトルを用意
+        ax.set_title("Title")
+        ax.set_ylabel("Y1 and Y2")
+        ax.set_xlabel("X")
+
+        # 凡例を付ける
+        ax.legend()
+
+        # グラフを描く
+        plt.show()
+
+        break

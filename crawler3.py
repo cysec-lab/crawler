@@ -58,14 +58,23 @@ def init(host, screenshots):
     html_special_char.append(('\r', ''))
     html_special_char.append(('\n', ''))
     if not os.path.exists('server'):
-        os.mkdir('server')
+        try:
+            os.mkdir('server')
+        except FileExistsError:
+            pass
     dir_name = host.replace(':', '-')
     f_name = dir_name.replace('.', '-')
     if not os.path.exists('server/' + dir_name):
-        os.mkdir('server/' + dir_name)
+        try:
+            os.mkdir('server/' + dir_name)
+        except FileExistsError:
+            pass
     if screenshots:
         if not os.path.exists('../../RAD/screenshots/' + dir_name):
-            os.mkdir('../../RAD/screenshots/' + dir_name)
+            try:
+                os.mkdir('../../RAD/screenshots/' + dir_name)
+            except FileExistsError:
+                pass
     os.chdir('server/' + dir_name)
 
     # 途中保存をロード
@@ -304,6 +313,7 @@ def parser(parse_args_dic):
     mysql = parse_args_dic['mysql']
     screenshots_svc_q = parse_args_dic['screenshots_svc_q']
     img_name = parse_args_dic['img_name']
+    nth = parse_args_dic['nth']
 
     # スクレイピングするためのsoup
     try:
@@ -339,6 +349,8 @@ def parser(parse_args_dic):
     if use_mecab:
         # このページの各単語のtf値を計算、df辞書を更新
         hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と"hacked by"検索
+        if 'falsification' in host:
+            wa_file('hacked.csv', page.url + ',' + str(hack_level) + '\n')
         if hack_level:    # hackの文字が入っていると0以外が返ってくる
             if hack_level == 1:
                 update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
@@ -358,7 +370,7 @@ def parser(parse_args_dic):
                 word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
             if word_idf_dict:
                 word_tfidf = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
-                top10 = get_top10_tfidf(tfidf_dict=word_tfidf)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
+                top10 = get_top10_tfidf(tfidf_dict=word_tfidf, nth=nth)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
                 # ハッシュ値が異なるため、重要単語を比較
                 # if num_of_days is not True:
                 if True:  # 実験のため毎回比較
@@ -610,6 +622,7 @@ def crawler_main(args_dic):
     use_mecab = args_dic['mecab']
     mysql = args_dic['mysql']
     alert_process_q = args_dic['alert_process_q']
+    nth = args_dic['nth']
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
@@ -799,7 +812,7 @@ def crawler_main(args_dic):
 
                 # 別窓やタブが開いた場合、そのURLを取得
                 try:
-                    window_url_list = get_window_url(page, driver)
+                    window_url_list = get_window_url(driver)
                 except Exception as e:
                     wa_file('../../window_url_get_error.txt', data=page.url + '\n' + str(e) + '\n')
                 else:
@@ -811,7 +824,7 @@ def crawler_main(args_dic):
 
             # スレッドを作成してパース開始(phantomJSで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-                                      'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab,
+                                      'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab, 'nth': nth,
                                       'mysql': mysql, 'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()

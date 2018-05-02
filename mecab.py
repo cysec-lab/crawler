@@ -19,7 +19,7 @@ def getNavigableStrings(soup):
     if isinstance(soup, NavigableString):
         if type(soup) not in (Comment, Declaration, Doctype) and soup.strip():   # ここにDoctypeを追加
             yield soup
-    elif soup.name not in ('script', 'style'):
+    elif soup.name not in ('script', 'style', 'title'):
         for c in soup.contents:
             for g in getNavigableStrings(c):
                 if not ('<iframe' in g):
@@ -55,7 +55,7 @@ def detect_hack(text):
 
 
 def get_tf_dict_by_mecab(soup):
-    # HTML文のタグを除去
+    # HTML文のタグを除去(タイトルのcontentも削除)
     text = '\n'.join(getNavigableStrings(soup))
     text = normalizeText(text)
     # hacked byの文字列を探す。「hack」が見つかれば1、「hacked」が見つかれば2、「hacked by」が見つかれば3とする。
@@ -124,15 +124,25 @@ def get_tf_dict_by_mecab(soup):
         return hack_level, False
 
 
-def get_top10_tfidf(tfidf_dict):
+def get_top10_tfidf(tfidf_dict, nth):
     tfidf_list = sorted(tfidf_dict.items(), key=lambda x: x[0], reverse=False)   # 文字でソートする
     tfidf_list = sorted(tfidf_list, key=lambda x: x[1], reverse=True)            # tfidf値でソートし直す
     # 以上の処理で、tfidf値が高いもの順で、値が同じの場合は文字でソートされたリストが出来る
     top10 = list()
+    tmp = list()
     for i in range(len(tfidf_list)):
         if i >= 10:
             break
+
+        tmp.append(tfidf_list[i])
         top10.append(tfidf_list[i][0])
+
+    with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
+        try:
+            f.write(str(tmp)[1:-1])
+        except Exception:
+            pass
+
     return top10
 
 

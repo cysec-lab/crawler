@@ -40,7 +40,7 @@ def dealing_after_fact(dir_name):
     del_falsification_RAD()
 
     # 移動
-    print('copy to ROD from RAD : ', end='')
+    print('copy file to ROD from RAD : ', end='')
     shutil.copytree('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
     shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
     shutil.move('RAD/tag_data', 'ROD/tag_data')
@@ -106,7 +106,7 @@ def main():
         p.join()
         exitcode = p.exitcode
         if (exitcode == 255) or (exitcode < 0):  # エラー落ちの場合?
-            print('operate_main end with crawler error')
+            print('operate_main ended by crawler error')
             break
         print('crawling has finished.')
 

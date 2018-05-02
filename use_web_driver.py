@@ -69,6 +69,13 @@ def set_html(page, driver):
     elif t.re is not True:
         return ['Error_phantom', page.url + '\n' + str(t.re)]
     sleep(1)
+
+    # i = 1
+    # while i:
+    #     print(i)
+    #     sleep(1)
+    #     i -= 1
+
     try:
         wait = WebDriverWait(driver, 5)
         wait.until(expected_conditions.presence_of_all_elements_located)   # ロード完了まで最大5秒待つ(たぶんロードは完了しているのでいらない)
@@ -130,13 +137,13 @@ def set_request_url(page, driver):
     return re
 
 
-def get_window_url(page, driver):
+def get_window_url(driver):
     url_list = list()
     try:
         windows = driver.window_handles
         for window in windows[1:]:
             driver.switch_to.window(window)
-            url_list.append((driver.current_url, page.src, page.url, 'new_window_url'))
+            url_list.append(driver.current_url)
             driver.close()
         driver.switch_to.window(windows[0])
     except:

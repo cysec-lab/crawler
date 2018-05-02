@@ -490,6 +490,7 @@ def make_process(host_name, setting_dict, conn, n):
             args_dic['mysql'] = {'conn': conn, 'n': str(n)}
         else:
             args_dic['mysql'] = False
+        args_dic['nth'] = str(n)
         args_dic['phantomjs'] = setting_dict['phantomjs']
         args_dic['mecab'] = setting_dict['mecab']
         args_dic['screenshots'] = setting_dict['screenshots']
@@ -614,6 +615,7 @@ def receive_and_send(not_send=False):
                                 waiting_list.append(url_tuple)  # 前回はFalseだが、今回もう一度チェックする(ipアドレスの取得に失敗したものもFalseのため)
 
 
+# url_tupleのリンクURLをクローリングするための辞書に登録する
 def allocate_to_host_remaining(url_tuple):
     host_name = urlparse(url_tuple[0]).netloc
     if host_name not in hostName_remaining:
@@ -703,7 +705,7 @@ def crawler_host(n=None):
     if run_count == 0:
         if os.path.exists('RAD'):
             print('RAD directory exists.')
-            print('If this running is at first time, please delete this dire.')
+            print('If this running is at first time, please delete this one.')
             print('Else, you should check the run_count in SETTING.txt.')
             os._exit(255)
         os.mkdir('RAD')
