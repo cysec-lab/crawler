@@ -2,7 +2,8 @@ import os
 import shutil
 
 
-def del_temp(path, j, k):
+# result/result_*の中の途中保存jsonファイルとpickleファイルを削除する(waitingリストなど)
+def del_temp_file(path, j, k):
     if j == 0 and k == 0:
         lis = os.listdir(path)
         for i in lis:
@@ -14,6 +15,11 @@ def del_temp(path, j, k):
         temp_lis = os.listdir(path + '/result_' + str(i))
         for tempppp in temp_lis:
             if tempppp.endswith('.json'):
+                try:
+                    os.remove(path + '/result_' + str(i) + '/' + tempppp)
+                except:
+                    pass
+            elif tempppp.endswith('.pickle'):
                 try:
                     os.remove(path + '/result_' + str(i) + '/' + tempppp)
                 except:
@@ -32,6 +38,8 @@ def del_pickle(path):
                     pass
 
 
+# path内のresult_*ディレクトリ内のclamdとserver以外のディレクトリを削除する
+# TEMPディレクトリだけ削除？
 def del_dir(path, j, k):
     if j == 0 and k == 0:
         lis = os.listdir(path)

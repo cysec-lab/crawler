@@ -2,7 +2,7 @@
 import os
 from file_rw import r_json, w_json, wa_file, r_file, w_file
 import shutil
-from check_result.normalize_dir import del_temp, del_pickle, del_dir
+from check_result.normalize_dir import del_temp_file, del_pickle, del_dir
 
 
 def print_url_tuple():
@@ -30,14 +30,13 @@ def print_url_tuple():
 
 
 def make_achievement(dire):
-    now_dir = os.path.dirname(os.path.abspath(__file__))  # 現在位置を絶対パスで取得
+    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(check_resultディレクトリ)を絶対パスで取得
 
     file_dic = dict()
     os.chdir(dire)
     lis = os.listdir()
     lis.sort()
     os.mkdir('achievement')
-    os.mkdir('achievement/clamd_files')
     run_time = 0
     all_achievement = 0
     iframe_count = 0
@@ -53,6 +52,8 @@ def make_achievement(dire):
             elif result_list[j] == 'clamd_files':
                 temp = os.listdir('clamd_files')
                 if temp:
+                    if not os.path.exists('../achievement/clamd_files'):
+                        os.mkdir('../achievement/clamd_files')
                     for k in temp:
                         shutil.copyfile('clamd_files/' + k, '../achievement/clamd_files/' + str(len(os.listdir('../achievement/clamd_files/'))) + '.clamd')
                 continue
@@ -181,8 +182,7 @@ def print_changed_important_word():
 
 
 def del_and_make_achievement(path):
-    del_pickle(path)
-    del_temp(path, 0, 0)
+    del_temp_file(path, 0, 0)
     del_dir(path, 0, 0)
     make_achievement(path)
 
@@ -190,8 +190,8 @@ def del_and_make_achievement(path):
 if __name__ == '__main__':
     s = os.path.dirname(os.path.abspath(__file__))
     print(s)
-    del_and_make_achievement(path='check_result/result/1111')
     """
+    del_and_make_achievement(path='result/1')
     
     #os.chdir('../result/result_4')
     #print_url_tuple()
