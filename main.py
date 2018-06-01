@@ -106,7 +106,7 @@ def get_setting_dict(path):
                     setting['MAX_process'] = None
                 else:
                     if value == 0:
-                        setting['MAX_process'] = cpu_count()
+                        setting['MAX_process'] = cpu_count() - 1
                     else:
                         setting['MAX_process'] = value
             elif variable in bool_variable_list:   # True or Falseの2値しか取らない設定はまとめている
@@ -187,26 +187,30 @@ def import_file(path):             # 実行でディレクトリは「crawler」
 
 
 # 必要なディレクトリを作成
-def make_dir(screenshots):          # 実行ディレクトリは「crawler」
-    if not os.path.exists('ROD/url_hash_json'):
-        os.mkdir('ROD/url_hash_json')
-    if not os.path.exists('ROD/tag_data'):
-        os.mkdir('ROD/tag_data')
-    if not os.path.exists('ROD/df_dicts'):
-        os.mkdir('ROD/df_dicts')
+def make_dir(org_path, screenshots):          # 実行ディレクトリは「crawler」
+    # RODの中に必要なディレクトリがなければ作る
+    if not os.path.exists(org_path + '/ROD/url_hash_json'):
+        os.mkdir(org_path + '/ROD/url_hash_json')
+    if not os.path.exists(org_path + '/ROD/tag_data'):
+        os.mkdir(org_path + '/ROD/tag_data')
+    if not os.path.exists(org_path + '/ROD/df_dicts'):
+        os.mkdir(org_path + '/ROD/df_dicts')
 
-    if not os.path.exists('RAD/df_dict'):
-        os.mkdir('RAD/df_dict')
-    if not os.path.exists('RAD/temp'):
-        os.mkdir('RAD/temp')
-    if not os.path.exists('result'):
-        os.mkdir('result')
+    # RADの中に必要なディレクトリを作る
+    if not os.path.exists(org_path + '/RAD/df_dict'):
+        os.mkdir(org_path + '/RAD/df_dict')
+    if not os.path.exists(org_path + '/RAD/temp'):
+        os.mkdir(org_path + '/RAD/temp')
+    if screenshots:
+        if not os.path.exists(org_path + '/RAD/screenshots'):
+            os.mkdir(org_path + '/RAD/screenshots')
+
+    # resultディレクトリを作る(今回のクローリング結果を保存する場所)
+    if not os.path.exists(org_path + '/result'):
+        os.mkdir(org_path + '/result')
+
     # if not os.path.exists('result/alert'):
     #     os.mkdir('result/alert')
-
-    if screenshots:
-        if not os.path.exists('RAD/screenshots'):
-            os.mkdir('RAD/screenshots')
 
 
 # いろいろと最初の処理
@@ -228,7 +232,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
             waiting_list.append((ini, 'START'))
     else:
         if not os.path.exists('result_' + str(first_time)):
-            print('init : result_' + str(first_time) + 'that is the result of previous crawling is not found.')
+            print('init : result_' + str(first_time) + ' that is the result of previous crawling is not found.')
             return False
         # 総達成数
         data_temp = r_json('result_' + str(first_time) + '/all_achievement')
@@ -527,6 +531,7 @@ def get_alive_child_num():
 
 # 子プロセスからの情報を受信する、plzを受け取るとURLを送信する
 # 受信したリストの中のURLはwaiting_list(クローリングするURLかのチェック待ちリスト)に追加する。
+# not_send=Trueのとき、子プロセスにはURLを送信しない。子プロセスからのデータを受け取りたいだけの時に使う。
 def receive_and_send(not_send=False):
     # 受信する型は、辞書、タプル、文字列の3種類
     # {'type': '文字列', 'url_tuple_list': [(url, src), (url, src),...]}の辞書
@@ -546,12 +551,17 @@ def receive_and_send(not_send=False):
                 else:
                     if hostName_remaining[host_name]['URL_list']:
                         # クローリングするurlを送信
-                        url_tuple = hostName_remaining[host_name]['URL_list'].popleft()
-                        hostName_remaining[host_name]['update_flag'] = True
-                        if url_tuple[0] not in assignment_url_set:  # 一度送ったURLは送らない
-                            assignment_url_set.add(url_tuple[0])
-                            queue['parent_send'].put(url_tuple)
-                            send_num += 1
+                        while True:
+                            url_tuple = hostName_remaining[host_name]['URL_list'].popleft()
+                            hostName_remaining[host_name]['update_flag'] = True
+                            if url_tuple[0] not in assignment_url_set:  # 一度送ったURLは送らない
+                                assignment_url_set.add(url_tuple[0])
+                                queue['parent_send'].put(url_tuple)
+                                send_num += 1
+                                break
+                            if not hostName_remaining[host_name]['URL_list']:  # 待機リストが空になるとbreak
+                                queue['parent_send'].put('nothing')
+                                break
                     else:
                         # もうURLが残ってないことを教える
                         queue['parent_send'].put('nothing')
@@ -673,24 +683,26 @@ def del_child(now):
         del hostName_queue[host_name]
 
 
-def crawler_host(n=None):
+def crawler_host(org_arg=None):
     global nth
-    # spawnで子プロセスを生成するように(windowsではデフォ、unixではforkがデフォ)
+    # spawnで子プロセスを生成しているかチェック(windowsではデフォ、unixではforkがデフォ)
     print(get_context())
 
-    # n : 何回目のクローリングか
-    if n is None:
+    if org_arg is None:
         os._exit(255)
-    nth = n
+
+    nth = org_arg['result_no']       # result_noは、resultディレクトリの数(何回目のクローリングか)
+    org_path = org_arg['org_path']   # org_pathは、組織ごとのディレクトリパス。設定ファイルや結果を保存するところ
+
     global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, hostName_time, fewest_host
     global waiting_list, url_list, assignment_url_set, thread_set
     global remaining, send_num, recv_num, all_achievement
     start = int(time())
 
     # 設定データを読み込み
-    setting_dict = get_setting_dict(path='ROD/LIST')
+    setting_dict = get_setting_dict(path=org_path + '/ROD/LIST')
     if None in setting_dict.values():
-        print('main : check the SETTING.txt')
+        print(' main : check the SETTING.txt in ' + org_path + '/ROD/LIST')
         os._exit(255)
     assign_or_achievement = setting_dict['assignOrAchievement']
     max_process = setting_dict['MAX_process']
@@ -703,46 +715,51 @@ def crawler_host(n=None):
 
     # 一回目の実行の場合
     if run_count == 0:
-        if os.path.exists('RAD'):
+        if os.path.exists(org_path + '/RAD'):
             print('RAD directory exists.')
             print('If this running is at first time, please delete this one.')
             print('Else, you should check the run_count in SETTING.txt.')
             os._exit(255)
-        os.mkdir('RAD')
-        make_dir(screenshots)
-        copytree('ROD/url_hash_json', 'RAD/url_hash_json')
-        copytree('ROD/tag_data', 'RAD/tag_data')
-        if os.path.exists('ROD/url_db'):
-            copyfile('ROD/url_db', 'RAD/url_db')
-        with open('RAD/READ.txt', 'w') as f:
-            f.writelines("This directory's files are read and written.\n")
-            f.writelines("On the other hand, ROD directory's files are not written, Read only.\n\n")
+        os.mkdir(org_path + '/RAD')
+        make_dir(org_path=org_path, screenshots=screenshots)
+        copytree(org_path + '/ROD/url_hash_json', org_path + '/RAD/url_hash_json')
+        copytree(org_path + '/ROD/tag_data', org_path + '/RAD/tag_data')
+        if os.path.exists(org_path + '/ROD/url_db'):
+            copyfile(org_path + '/ROD/url_db', org_path + '/RAD/url_db')
+        with open(org_path + '/RAD/READ.txt', 'w') as f:
+            f.writelines("This directory's files can be read and written.\n")
+            f.writelines("On the other hand, ROD directory's files are not written, Read Only Data.\n\n")
             f.writelines('------------------------------------\n')
             f.writelines('When crawling is finished, you should overwrite the ROD/...\n')
             f.writelines('tag_data/, url_hash_json/\n')
             f.writelines("... by this directory's ones for next crawling by yourself.\n")
             f.writelines('Then, you move df_dict in this directory to ROD/df_dicts/ to calculate idf_dict.\n')
             f.writelines('After you done these, you may delete this(RAD) directory.\n')
-            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.")
+            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.\n")
+            f.writelines('------------------------------------\n')
+            f.writelines('Above mentioned comment can be ignored.\n')
+            f.writelines('Because it is automatically carried out.')
 
     # 必要なリストを読み込む
-    import_file(path='ROD/LIST')
+    import_file(path=org_path + '/ROD/LIST')
 
+    # org_path + /result　に移動
     try:
-        os.chdir('result')
+        os.chdir(org_path + '/result')
     except FileNotFoundError:
-        print('You should check the run_count in setting file.')
+        print('You should check the run_count in setting file.')   # もういらないと思うけど...
 
     # databaseに必要なテーブルを作成、コネクターとカーソルを取得
+    # nthは何度目のクローリングかなので、あったほうが情報を保存するときにいいかなって
     if mysql:
         conn = get_connector()
-        if not make_tables(conn=conn, n=n):
+        if not make_tables(conn=conn, n=nth):
             print('cannot make tables')
             os._exit(255)
     else:
         conn = None
 
-    # メインループを回すループ(save_timeが設定されていなければ、一周しかしない)
+    # メインループを回すループ(save_timeが設定されていなければ、途中保存しないため一周しかしない。一周で全て周り切る)
     while True:
         save = False
         remaining = 0
@@ -762,6 +779,7 @@ def crawler_host(n=None):
         current_start_time = int(time())
         pre_time = current_start_time
 
+        # init()から返ってきたとき、実行ディレクトリは result からその中の result/result_* に移動している
         if not init(first_time=run_count, setting_dict=setting_dict):
             os._exit(255)
 
@@ -783,7 +801,7 @@ def crawler_host(n=None):
                 if now - start >= max_time:
                     forced_termination()
                     break
-            if assign_or_achievement:  # 指定数URLを達成したら
+            if assign_or_achievement:   # 指定数URLをアサインしたら
                 if len(assignment_url_set) >= max_page:
                     print('num of assignment reached MAX')
                     while not (get_alive_child_num() == 0):
@@ -792,7 +810,7 @@ def crawler_host(n=None):
                             if temp.is_alive():
                                 print(temp)
                     break
-            else:   # 指定数URLをアサインしたら
+            else:    # 指定数URLを達成したら
                 if (all_achievement + current_achievement) >= max_page:
                     print('num of achievement reached MAX')
                     forced_termination()
@@ -842,7 +860,7 @@ def crawler_host(n=None):
                     # 一番待機URLが少ないプロセスを1つ作る
                     fewest = tmp_list[-1][0]
                     if fewest_host is None:
-                        make_process(fewest, setting_dict, conn, n)
+                        make_process(fewest, setting_dict, conn, nth)
                         num_of_process -= 1
                         fewest_host = fewest
                     else:
@@ -850,7 +868,7 @@ def crawler_host(n=None):
                             if hostName_process[fewest_host].is_alive():
                                 pass
                             else:
-                                make_process(fewest, setting_dict, conn, n)
+                                make_process(fewest, setting_dict, conn, nth)
                                 num_of_process -= 1
                                 fewest_host = fewest
                     # 多い順に作る
@@ -862,7 +880,7 @@ def crawler_host(n=None):
                             if host in hostName_process:
                                 if hostName_process[host].is_alive():
                                     continue   # プロセスが活動中なら、次に多いホストを
-                            make_process(host, setting_dict, conn, n)
+                            make_process(host, setting_dict, conn, nth)
                             num_of_process -= 1
 
         # メインループを抜け、結果表示＆保存
@@ -915,5 +933,7 @@ def crawler_host(n=None):
             run_count += 1
             os.chdir('..')
         else:
-            print('main : End')
+            os.chdir('..')
             break
+
+    print('main : End')

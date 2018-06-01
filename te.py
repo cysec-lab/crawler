@@ -38,7 +38,44 @@ def fun(i):
     print(i, 'end')
 
 
+def return_children(my_pid):
+    try:
+        children = subprocess.check_output(['ps', '--ppid', str(my_pid), '--no-heading', '-o', 'pid'])
+    except subprocess.CalledProcessError:
+        print('Non children')
+        return list()
+    else:
+        print('me : ', my_pid)
+        child_list = children.decode().replace(' ', '').split('\n')
+        try:
+            child_list.remove('')
+        except ValueError:
+            pass
+        return child_list
+
+
 if __name__ == '__main__':
+
+    import sys
+    import subprocess
+
+    # meより下の家族プロセスkillする
+    me = os.getpid()
+    me = 11943
+    family = return_children(me)
+    print(family)
+    i = 0
+    while True:
+        pid_ = family[i]
+        family.extend(return_children(pid_))
+        print(family)
+        i += 1
+        if len(family) == i:
+            break
+    for kill_pid in family:
+        os.system("kill " + kill_pid)
+
+
 
     # from use_web_driver import driver_get, set_html
     # from webpage import Page
@@ -64,38 +101,38 @@ if __name__ == '__main__':
     #
     # p.map(fun, lis)
 
-    import matplotlib.pyplot as plt
-    lis = os.listdir('..')
-    print(lis)
-    plt.style.use('ggplot')
-    fig = plt.figure()
-    ax = fig.add_subplot(1, 1, 1)
-
-    for i in lis:
-        if i.endswith('.json'):
-            with open('../' + i, 'r') as f:
-                json_file = json.load(f)
-        else:
-            continue
-        M = max(json_file)
-
-        print(len(json_file))
-        y = [round(tmp, 4) for tmp in json_file if round(tmp, 4) < 0.05]
-        print(len(y))
-        x = range(len(y))
-
-        # 折れ線グラフの用意
-        ax.scatter(x, y, label="y points")
-
-        # タイトルを用意
-        ax.set_title("Title")
-        ax.set_ylabel("Y1 and Y2")
-        ax.set_xlabel("X")
-
-        # 凡例を付ける
-        ax.legend()
-
-        # グラフを描く
-        plt.show()
-
-        break
+    # import matplotlib.pyplot as plt
+    # lis = os.listdir('..')
+    # print(lis)
+    # plt.style.use('ggplot')
+    # fig = plt.figure()
+    # ax = fig.add_subplot(1, 1, 1)
+    #
+    # for i in lis:
+    #     if i.endswith('.json'):
+    #         with open('../' + i, 'r') as f:
+    #             json_file = json.load(f)
+    #     else:
+    #         continue
+    #     M = max(json_file)
+    #
+    #     print(len(json_file))
+    #     y = [round(tmp, 4) for tmp in json_file if round(tmp, 4) < 0.05]
+    #     print(len(y))
+    #     x = range(len(y))
+    #
+    #     # 折れ線グラフの用意
+    #     ax.scatter(x, y, label="y points")
+    #
+    #     # タイトルを用意
+    #     ax.set_title("Title")
+    #     ax.set_ylabel("Y1 and Y2")
+    #     ax.set_xlabel("X")
+    #
+    #     # 凡例を付ける
+    #     ax.legend()
+    #
+    #     # グラフを描く
+    #     plt.show()
+    #
+    #     break

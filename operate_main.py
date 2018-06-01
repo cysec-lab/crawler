@@ -7,6 +7,13 @@ import os
 import subprocess
 import shutil
 from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
+import sys
+from datetime import datetime
+from time import sleep
+
+
+# 実行ディレクトリはcrawler_srcじゃないと、main_cr.pyのmake_achievement()のchdirでバグる?
+# 例： python3 operate_main.py 立命館
 
 
 def get_user_input(queue):
@@ -27,24 +34,65 @@ def kill_python():
         os.system("kill " + py3)
 
 
+# phantomjsプロセスをkillする
 def kill_phantomjs():
     os.system("pkill -f 'phantomjs'")
 
 
-def dealing_after_fact(dir_name):
+# 子プロセスを返す
+def return_children(my_pid):
+    try:
+        children = subprocess.check_output(['ps', '--ppid', str(my_pid), '--no-heading', '-o', 'pid'])
+    except subprocess.CalledProcessError:
+        print('Non children')
+        return list()
+    else:
+        print('me : ', my_pid)
+        child_list = children.decode().replace(' ', '').split('\n')
+        try:
+            child_list.remove('')
+        except ValueError:
+            pass
+        return child_list
+
+
+# meより下の家族プロセスkillする
+def kill_family():
+    me = os.getpid()
+    family = return_children(me)
+    print(family)
+    i = 0
+    while True:
+        pid_ = family[i]
+        family.extend(return_children(pid_))
+        print(family)
+        i += 1
+        if len(family) == i:
+            break
+    family.reverse()
+    for kill_pid in family:
+        os.system("kill " + kill_pid)
+
+
+def dealing_after_fact(org_arg):
+    dir_name = org_arg['result_no']
+    org_path = org_arg['org_path']
+
     # コピー先を削除
-    shutil.rmtree('ROD/url_hash_json')
-    shutil.rmtree('ROD/tag_data')
+    shutil.rmtree(org_path + '/ROD/url_hash_json')
+    shutil.rmtree(org_path + '/ROD/tag_data')
 
     # 偽サイトの情報を削除
-    del_falsification_RAD()
+    if org_path == '../organization/立命館':
+        del_falsification_RAD(org_path=org_path)
 
     # 移動
     print('copy file to ROD from RAD : ', end='')
-    shutil.copytree('RAD/df_dict', 'ROD/df_dicts/' + str(len(os.listdir('ROD/df_dicts/')) + 1))
-    shutil.move('RAD/url_hash_json', 'ROD/url_hash_json')
-    shutil.move('RAD/tag_data', 'ROD/tag_data')
-    shutil.move('RAD/url_db', 'ROD/url_db')
+    shutil.copytree(org_path + '/RAD/df_dict', org_path + '/ROD/df_dicts/' +
+                    str(len(os.listdir(org_path + '/ROD/df_dicts/')) + 1))
+    shutil.move(org_path + '/RAD/url_hash_json', org_path + '/ROD/url_hash_json')
+    shutil.move(org_path + '/RAD/tag_data', org_path + '/ROD/tag_data')
+    shutil.move(org_path + '/RAD/url_db', org_path + '/ROD/url_db')
     """
     if os.path.exists('RAD/screenshots'):
         # スクショを撮っていたら、0サイズの画像を削除
@@ -58,8 +106,8 @@ def dealing_after_fact(dir_name):
     """
     # tf_idf.pyの実行
     print('run function of tf_idf.py : ', end='')
-    p = Process(target=make_idf_dict_frequent_word_dict)
-    p2 = Process(target=make_request_url_iframeSrc_link_host_set)
+    p = Process(target=make_idf_dict_frequent_word_dict, args=(org_path,))
+    p2 = Process(target=make_request_url_iframeSrc_link_host_set, args=(org_path,))
     p.start()
     p2.start()
     p.join()
@@ -68,40 +116,64 @@ def dealing_after_fact(dir_name):
 
     # RADの削除
     print('delete RAD : ', end='')
-    shutil.rmtree('RAD')
+    shutil.rmtree(org_path + '/RAD')
     print('done')
 
     # resultの移動
     print('move result to check_result : ', end='')
-    path = 'check_result/result/' + dir_name
-    shutil.move(src='result', dst=path)
+    path = org_path + '/result_history/' + dir_name
+    shutil.move(src=org_path + '/result', dst=path)
     print('done')
 
     # main_cr.pyの実行
     del_and_make_achievement(path)
 
     # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
-    copy_ROD_from_cysec()
+    if org_path == '../organization/立命館':
+        copy_ROD_from_cysec(org_path=org_path)
 
 
-def save_rod(dir_name):
-    if not os.path.exists('ROD_history'):
-        os.mkdir('ROD_history')
+def save_rod(org_arg):
+    dir_name = org_arg['result_no']
+    org_path = org_arg['org_path']
 
-    dst_dir = 'ROD_history/ROD_' + dir_name
-    shutil.copytree('ROD', dst_dir)
+    if not os.path.exists(org_path + '/ROD_history'):
+        os.mkdir(org_path + '/ROD_history')
+
+    dst_dir = org_path + '/ROD_history/ROD_' + dir_name
+    shutil.copytree(org_path + '/ROD', dst_dir)
     with open(dst_dir + '/read.txt', 'w') as f:
         f.writelines('This ROD directory is used by ' + dir_name + "'th crawling.")
 
 
-def main():
-    if not os.path.exists('check_result/result'):
-        os.mkdir('check_result/result')
-    dir_name = len(os.listdir('check_result/result')) + 1
+def main(organization):
+    # 以下のwhileループ内で
+    # このファイル位置のパスを取ってきてchdirする
+    # 実行ディレクトリはこのファイル位置じゃないとバグるかも(全て相対パスだから)
+    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(check_resultディレクトリ)を絶対パスで取得
+    os.chdir(now_dir)
+
+    org_path = '../organization/' + organization
+    if not os.path.exists(org_path):
+        print('You should check existing the ' + organization + ' directory in ../organization/')
+        return 0
+
+    if not os.path.exists(org_path + '/result_history'):
+        os.mkdir(org_path + '/result_history')
+    dir_name = str(len(os.listdir(org_path + '/result_history')) + 1)
+
+    org_arg = {'result_no': dir_name, 'org_path': org_path}
 
     while True:
-        print('---' + str(dir_name) + ' th crawling---')
-        p = Process(target=crawler_host, args=(dir_name,))
+        # 実行ディレクトリ移動
+        os.chdir(now_dir)
+
+        # # 実行日を記憶(クローリング終了後に参照する)
+        # run_date = datetime.now().day
+
+        # クローラを実行
+        print('--- ' + organization + ' : ' + org_arg['result_no'] + ' th crawling---')
+        p = Process(target=crawler_host, args=(org_arg,))
         p.start()
         p.join()
         exitcode = p.exitcode
@@ -110,24 +182,45 @@ def main():
             break
         print('crawling has finished.')
 
-        print('kill PhantomJS')
-        kill_phantomjs()
-
-        print('kill other python')
-        kill_python()
+        # ここなんとかしないといけない
+        # print('kill PhantomJS')
+        # kill_phantomjs()
+        # print('kill other python')
+        # kill_python()
+        kill_family()
 
         print('save used ROD before overwriting the ROD directory : ', end='')
-        save_rod(str(dir_name))
+        save_rod(org_arg)
         print('done')
 
         print('---dealing after fact---')
-        dealing_after_fact(str(dir_name))
+        dealing_after_fact(org_arg)
 
-        dir_name += 1
+        print('--- ' + organization + ' : ' + org_arg['result_no'] + ' th crawling DONE ---')
+        now = datetime.now()
+        print(now)
+        org_arg['result_no'] = str(int(org_arg['result_no']) + 1)
+        print(organization + ' : ' + org_arg['result_no'] + ' th crawling will start at 20:00')
+        # h = now.hour
+        # m = now.minute
+        # s = now.second
+        # sleep_time = 60-s
+        # sleep_time += 60*(60-(m+1))
+        # if h < 20:
+        #     sleep_time += 3600*(20-(h+1))  # 20:00までにクローリングが終わった場合、20:00まで待つ
+        # elif run_date == now.day:
+        #     sleep_time += 3600*(20+(h+1))  # 同日の24時までに終わった場合は次の日の20:00スタート
+        # else:
+        #     sleep_time = 0  # 20~24時の間に前のクローリングが終わった場合は、すぐに次のクローリングを始めることになる
+        # sleep(sleep_time)
 
 
 if __name__ == '__main__':
     # spawnで子プロセス生成
     set_start_method('spawn')
 
-    main()
+    args = sys.argv
+    if len(args) != 2:
+        print('need arg to choice organization.')
+
+    main(organization=args[1])

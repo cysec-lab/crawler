@@ -576,7 +576,8 @@ def del_thread(host):
 def receive(recv_r):
     try:
         temp_r = recv_r.get(block=True, timeout=5)
-    except Exception:
+    except Exception as e:
+        print(f_name + ' : ' + str(e), flush=True)
         return False
     return temp_r
 
@@ -646,7 +647,7 @@ def crawler_main(args_dic):
         if page is None:
             print(host + ' : main loop is running...')
         else:
-            print(host + ' : ' + str(page.url_initial))
+            print(host + ' : ' + str(page.url_initial) + '  :  DONE')
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -659,16 +660,17 @@ def crawler_main(args_dic):
         except Exception:
             pass
 
-        # 親プロセスにURLを要求
-        send_to_parent(sendq=q_send, data='plz')
         # クローリングするURLを取得
-        search_tuple = receive(q_recv)      # 3秒間何も届かなければFalse
+        send_to_parent(sendq=q_send, data='plz')   # 親プロセスにURLを要求
+        search_tuple = receive(q_recv)             # 5秒間何も届かなければFalse
         if search_tuple is False:
+            print(host + " : couldn't get data from main process.")
             while threadId_set:   # 実行中のパーススレッドがあるならば
                 print(host + ' : wait 3sec because the queue is empty.')
                 sleep(3)
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
+            print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             while threadId_set:
                 print(host + ' : wait 3sec for finishing parse thread')
                 sleep(3)
@@ -682,6 +684,7 @@ def crawler_main(args_dic):
                 # ２回目もFalse or nothingだったらメインを抜ける
                 break
         else:    # それ以外(URLのタプル)
+            print(host + ' : ' + search_tuple[0] + ' : RECEIVE')
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
@@ -719,8 +722,8 @@ def crawler_main(args_dic):
 
         # content-typeからウェブページ(str)かその他ファイル(False)かを判断
         file_type = page_or_file(page)
-        update_write_file_dict('host', 'content-type.csv', ['content-type,url,src',
-                                                            page.content_type + ',' + page.url + ',' + page.src])  # 記録
+        update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', page.content_type.replace(',', ':')
+                                                            + ',' + page.url + ',' + page.src])  # 記録
 
         if type(file_type) is str:   # ウェブページの場合
             img_name = False
