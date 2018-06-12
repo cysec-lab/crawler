@@ -164,6 +164,7 @@ def main(organization):
         print(organization + "'s site is crawled now.")
         return 0
     else:
+        # 実行途中ではない場合、ファイルを作って実行中であることを示す
         f = open('../organization/' + organization + '/running.tmp', 'w', encoding='utf-8')
         start_time = datetime.now().strftime('%Y/%m/%d, %H:%M:%S')
         f.write(start_time)
@@ -176,9 +177,6 @@ def main(organization):
     org_arg = {'result_no': dir_name, 'org_path': org_path}
 
     while True:
-        # 実行ディレクトリ移動
-        os.chdir(now_dir)
-
         # # 実行日を記憶(クローリング終了後に参照する)
         # run_date = datetime.now().day
 
@@ -224,7 +222,14 @@ def main(organization):
         # else:
         #     sleep_time = 0  # 20~24時の間に前のクローリングが終わった場合は、すぐに次のクローリングを始めることになる
         # sleep(sleep_time)
+
+        # 実行ディレクトリ移動
+        os.chdir(now_dir)
         break
+
+    # 実行中であることを示すファイルを削除する
+    if os.path.exists('../organization/' + organization + '/running.tmp'):
+        os.remove('../organization/' + organization + '/running.tmp')
 
 
 if __name__ == '__main__':
