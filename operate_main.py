@@ -13,7 +13,7 @@ from time import sleep
 
 
 # 実行ディレクトリはcrawler_srcじゃないと、main_cr.pyのmake_achievement()のchdirでバグる?
-# 例： python3 operate_main.py 立命館
+# 例： python3 operate_main.py ritsumeikan
 
 
 def get_user_input(queue):
@@ -83,7 +83,7 @@ def dealing_after_fact(org_arg):
     shutil.rmtree(org_path + '/ROD/tag_data')
 
     # 偽サイトの情報を削除
-    if org_path == '../organization/立命館':
+    if org_path == '../organization/ritsumeikan':
         del_falsification_RAD(org_path=org_path)
 
     # 移動
@@ -129,7 +129,7 @@ def dealing_after_fact(org_arg):
     del_and_make_achievement(path)
 
     # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
-    if org_path == '../organization/立命館':
+    if org_path == '../organization/ritsumeikan':
         copy_ROD_from_cysec(org_path=org_path)
 
 
@@ -153,10 +153,21 @@ def main(organization):
     now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(check_resultディレクトリ)を絶対パスで取得
     os.chdir(now_dir)
 
+    # 引数として与えられた組織名のディレクトリが存在するか
     org_path = '../organization/' + organization
     if not os.path.exists(org_path):
-        print('You should check existing the ' + organization + ' directory in ../organization/')
+        print('You should check existing ' + organization + ' directory in ../organization/')
         return 0
+
+    # 既に実行中ではないか
+    if os.path.exists('../organization/' + organization + '/running.tmp'):
+        print(organization + "'s site is crawled now.")
+        return 0
+    else:
+        f = open('../organization/' + organization + '/running.tmp', 'w', encoding='utf-8')
+        start_time = datetime.now().strftime('%Y/%m/%d, %H:%M:%S')
+        f.write(start_time)
+        f.close()
 
     if not os.path.exists(org_path + '/result_history'):
         os.mkdir(org_path + '/result_history')
@@ -213,6 +224,7 @@ def main(organization):
         # else:
         #     sleep_time = 0  # 20~24時の間に前のクローリングが終わった場合は、すぐに次のクローリングを始めることになる
         # sleep(sleep_time)
+        break
 
 
 if __name__ == '__main__':
