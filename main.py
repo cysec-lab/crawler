@@ -264,6 +264,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
     summarize_alert_q['recv'] = recvq  # 子プロセスが受け取る用のキュー
     summarize_alert_q['send'] = sendq  # 子プロセスから送信する用のキュー
     p = Process(target=summarize_alert_main, args=(recvq, sendq, nth))
+    p.daemon = True
     p.start()
     summarize_alert_q['process'] = p
 
@@ -274,6 +275,7 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         clamd_q['recv'] = recvq   # clamdプロセスが受け取る用のキュー
         clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
         p = Process(target=clamd_main, args=(recvq, sendq))
+        p.daemon = True
         p.start()
         clamd_q['process'] = p
         if sendq.get(block=True):
@@ -502,6 +504,7 @@ def make_process(host_name, setting_dict, conn, n):
 
         # プロセス作成
         p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
+        #p.daemon = True   # 親が死ぬと子も死ぬ
         p.start()    # スタート
 
         # いろいろ保存
@@ -510,11 +513,13 @@ def make_process(host_name, setting_dict, conn, n):
         if host_name not in hostName_achievement:
             hostName_achievement[host_name] = 0
         print('main : ' + host_name + " 's process start. " + 'pid = ' + str(p.pid))
+        print('main : ' + host_name + " 's process is alive? -> " + str(p.is_alive()))
     else:
         del hostName_process[host_name]
         print('main : ' + host_name + ' is not alive.')
         # プロセス作成
         p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
+        #p.daemon = True     # 親が死ぬと子も死ぬ
         p.start()   # スタート
         hostName_process[host_name] = p   # プロセスを指す辞書だけ更新する
         print('main : ' + host_name + " 's process start. " + 'pid =' + str(p.pid))

@@ -629,6 +629,7 @@ def crawler_main(args_dic):
     if phantomjs:
         driver = driver_get(screenshots)
         if driver is False:
+            print(host + ' : cannot make PhantomJS process', flush=True)
             os._exit(0)
 
     page = None

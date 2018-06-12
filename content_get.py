@@ -13,7 +13,8 @@ class DriverGetThread(Thread):
         import selenium.common
         from os import path
         try:
-            self.driver = webdriver.PhantomJS(desired_capabilities=self.des_cap, service_log_path=path.devnull)
+            self.driver = webdriver.PhantomJS(desired_capabilities=self.des_cap, service_log_path=path.devnull,
+                                              executable_path='/usr/local/bin/phantomjs')
         except selenium.common.exceptions.WebDriverException:
             self.driver = False
         except LookupError:
