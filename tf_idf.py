@@ -103,17 +103,24 @@ def make_idf_dict_frequent_word_dict(org_path):
 
 
 def make_request_url_iframeSrc_link_host_set(org_path):
-    if not os.path.exists(org_path + '/ROD/request_url'):
-        os.mkdir(org_path + '/ROD/request_url')
-    if not os.path.exists(org_path + '/ROD/iframe_src'):
-        os.mkdir(org_path + '/ROD/iframe_src')
-    if not os.path.exists(org_path + '/ROD/link_host'):
-        os.mkdir(org_path + '/ROD/link_host')
+    object_list = ['request', 'iframe', 'link', 'script']
+    for obj in object_list:
+        if not os.path.exists(org_path + '/ROD/' + obj + '_url'):
+            os.mkdir(org_path + '/ROD/' + obj + '_url')
+    # if not os.path.exists(org_path + '/ROD/request_url'):
+    #     os.mkdir(org_path + '/ROD/request_url')
+    # if not os.path.exists(org_path + '/ROD/iframe_url'):
+    #     os.mkdir(org_path + '/ROD/iframe_url')
+    # if not os.path.exists(org_path + '/ROD/link_url'):
+    #     os.mkdir(org_path + '/ROD/link_url')
+    # if not os.path.exists(org_path + '/ROD/script_url'):
+    #     os.mkdir(org_path + '/ROD/script_url')
 
     lis = os.listdir(org_path + '/RAD/temp')
     request_url = set()  # matome.jsonに保存する内容
-    iframe_url = set()   # matome.jsonに保存する内容
-    link_url = set()     # matome.jsonに保存する内容
+    iframe_url = set()
+    link_url = set()
+    script_url = set()
     file_name_set = set()  # 今回のクローリングで見つからなかったサーバはtempになくてRODデータに保存されないので、それらもmatome.jsonにいれるため
 
     for file in lis:
@@ -123,91 +130,118 @@ def make_request_url_iframeSrc_link_host_set(org_path):
         file_name_set.add(file)
 
         # ネットワーク名 : URL = スキーマ(?) + ホスト部 + ネットワーク部 + ファイル位置　としたときの、ネットワーク部のところ
+        # iframeとscriptタグのsrc値は、URLを全て保存することに
 
-        # ページをロードするために行ったrequestURL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
-        if os.path.exists(org_path + '/ROD/request_url/' + file):
-            with open(org_path + '/ROD/request_url/' + file, 'r') as f:
-                url_set = set(json.load(f))
-        else:
-            url_set = set()
-        if 'request' in pick and pick['request']:
-            url_set.update(pick['request'])
-        if url_set:
-            request_url.update(url_set)
-            with open(org_path + '/ROD/request_url/' + file, 'w') as f:
-                json.dump(list(url_set), f)
+        # それぞれのデータを過去のデータとマージしてjsonで保存
+        for obj in object_list:
+            if os.path.exists(org_path + '/ROD/' + obj + '_url/' + file):
+                with open(org_path + '/ROD/' + obj + '_url/' + file, 'r') as f:
+                    url_set = set(json.load(f))
+            else:
+                url_set = set()
+            if obj in pick and pick[obj]:
+                url_set.update(pick[obj])
+            if url_set:
+                exec(obj + "_url.update(url_set)")
+                with open(org_path + '/ROD/' + obj + '_url/' + file, 'w') as f:
+                    json.dump(list(url_set), f)
 
-        # iframeのsrc先URL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
-        if os.path.exists(org_path + '/ROD/iframe_src/' + file):
-            with open(org_path + '/ROD/iframe_src/' + file, 'r') as f:
-                url_set = set(json.load(f))
-        else:
-            url_set = set()
-        if 'iframe' in pick and pick['iframe']:
-            url_set.update(pick['iframe'])
-        if url_set:
-            iframe_url.update(url_set)
-            with open(org_path + '/ROD/iframe_src/' + file, 'w') as f:
-                json.dump(list(url_set), f)
-
-        # リンクURL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
-        if os.path.exists(org_path + '/ROD/link_host/' + file):
-            with open(org_path + '/ROD/link_host/' + file, 'r') as f:
-                url_set = set(json.load(f))
-        else:
-            url_set = set()
-        if 'link_host' in pick and pick['link_host']:
-            url_set.update(pick['link_host'])
-        if url_set:
-            link_url.update(url_set)
-            with open(org_path + '/ROD/link_host/' + file, 'w') as f:
-                json.dump(list(url_set), f)
+        # # ページをロードするために行ったrequestURL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
+        # if os.path.exists(org_path + '/ROD/request_url/' + file):
+        #     with open(org_path + '/ROD/request_url/' + file, 'r') as f:
+        #         url_set = set(json.load(f))
+        # else:
+        #     url_set = set()
+        # if 'request' in pick and pick['request']:
+        #     url_set.update(pick['request'])
+        # if url_set:
+        #     request_url.update(url_set)
+        #     with open(org_path + '/ROD/request_url/' + file, 'w') as f:
+        #         json.dump(list(url_set), f)
+        #
+        # # iframeのsrc先URL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
+        # if os.path.exists(org_path + '/ROD/iframe_src/' + file):
+        #     with open(org_path + '/ROD/iframe_src/' + file, 'r') as f:
+        #         url_set = set(json.load(f))
+        # else:
+        #     url_set = set()
+        # if 'iframe' in pick and pick['iframe']:
+        #     url_set.update(pick['iframe'])
+        # if url_set:
+        #     iframe_url.update(url_set)
+        #     with open(org_path + '/ROD/iframe_src/' + file, 'w') as f:
+        #         json.dump(list(url_set), f)
+        #
+        # # リンクURL(のネットワーク名)の集合を今までのデータとマージして、jsonとして保存
+        # if os.path.exists(org_path + '/ROD/link_host/' + file):
+        #     with open(org_path + '/ROD/link_host/' + file, 'r') as f:
+        #         url_set = set(json.load(f))
+        # else:
+        #     url_set = set()
+        # if 'link_host' in pick and pick['link_host']:
+        #     url_set.update(pick['link_host'])
+        # if url_set:
+        #     link_url.update(url_set)
+        #     with open(org_path + '/ROD/link_host/' + file, 'w') as f:
+        #         json.dump(list(url_set), f)
 
     # 今回見つからなかったが、過去に回ったことのあるサーバのRODデータをmatome.jsonに入れるためにそれぞれの集合に追加する
     # 上記の処理では、tempディレクトリを参考にしているため、今回のクローリングで見つからなかったサーバのデータは
-    # それぞれの集合(request_urlとiframe_urlとlink_url)に入っていないため追加する
-    if org_path == '../organization/立命館':
+    # それぞれの集合(request_urlとiframe_urlとlink_url)に入っていないため、過去の情報を追加する
+    if org_path == '../organization/ritsumeikan':
         file_name_set.add('falsification-cysec-cs-ritsumei-ac-jp.json')  # 偽サイト情報はmatome.jsonに入れない
-    # request_url
-    file_names = os.listdir(org_path + '/ROD/request_url')
-    for file_name in file_names:
-        # matome.jsonは参照しない
-        if 'matome.json' in file_name:
-            continue
-        # matome.json以外で今回
-        if file_name not in file_name_set:
-            with open(org_path + '/ROD/request_url/' + file_name, 'r') as f:
-                tmp = json.load(f)
-            request_url.update(set(tmp))
-    # iframe_src
-    file_names = os.listdir(org_path + '/ROD/iframe_src')
-    for file_name in file_names:
-        if 'matome.json' in file_name:
-            continue
-        if file_name not in file_name_set:
-            with open(org_path + '/ROD/iframe_src/' + file_name, 'r') as f:
-                tmp = json.load(f)
-            iframe_url.update(set(tmp))
-    # link_host
-    file_names = os.listdir(org_path + '/ROD/link_host')
-    for file_name in file_names:
-        if 'matome.json' in file_name:
-            continue
-        if file_name not in file_name_set:
-            with open(org_path + '/ROD/link_host/' + file_name, 'r') as f:
-                tmp = json.load(f)
-            link_url.update(set(tmp))
+
+    # request, iframe, script, linkのそれぞれに対する処理をまとめた
+    for obj in object_list:
+        file_names = os.listdir(org_path + '/ROD/' + obj + '_url')
+        for file_name in file_names:
+            # matome.jsonは参照しない
+            if 'matome.json' in file_name:
+                continue
+            # matome.json以外で、過去に見つけていたが今回見つからなかったサーバの情報を追加
+            if file_name not in file_name_set:
+                with open(org_path + '/ROD/' + obj + '_url/' + file_name, 'r') as f:
+                    tmp = json.load(f)
+                exec(obj + "_url.update(set(tmp))")
+        # 全サーバの情報をまとめた集合を保存、クローリング時にはこれを使う
+        # このjsonファイルにないサーバ(ネットワーク)へ要求が出るものは、過去にはなかった通信になる
+        with open(org_path + '/ROD/' + obj + '_url/matome.json', 'w') as f:
+            exec("json.dump(list(" + obj + "_url), f)")
+    # # request_url
+    # file_names = os.listdir(org_path + '/ROD/request_url')
+    # for file_name in file_names:
+    #     # matome.jsonは参照しない
+    #     if 'matome.json' in file_name:
+    #         continue
+    #     # matome.json以外で今回
+    #     if file_name not in file_name_set:
+    #         with open(org_path + '/ROD/request_url/' + file_name, 'r') as f:
+    #             tmp = json.load(f)
+    #         request_url.update(set(tmp))
+    # # iframe_src
+    # file_names = os.listdir(org_path + '/ROD/iframe_src')
+    # for file_name in file_names:
+    #     if 'matome.json' in file_name:
+    #         continue
+    #     if file_name not in file_name_set:
+    #         with open(org_path + '/ROD/iframe_src/' + file_name, 'r') as f:
+    #             tmp = json.load(f)
+    #         iframe_url.update(set(tmp))
+    # # link_host
+    # file_names = os.listdir(org_path + '/ROD/link_host')
+    # for file_name in file_names:
+    #     if 'matome.json' in file_name:
+    #         continue
+    #     if file_name not in file_name_set:
+    #         with open(org_path + '/ROD/link_host/' + file_name, 'r') as f:
+    #             tmp = json.load(f)
+    #         link_url.update(set(tmp))
 
     # 全サーバの情報をまとめた集合を保存、クローリング時にはこれを使う
     # このjsonファイルにないサーバ(ネットワーク)へ要求が出るものは、過去にはなかった通信になる
-    with open(org_path + '/ROD/request_url/matome.json', 'w') as f:
-        json.dump(list(request_url), f)
-    with open(org_path + '/ROD/iframe_src/matome.json', 'w') as f:
-        json.dump(list(iframe_url), f)
-    with open(org_path + '/ROD/link_host/matome.json', 'w') as f:
-        json.dump(list(link_url), f)
-
-
-if __name__ == '__main__':
-    make_idf_dict_frequent_word_dict()     # 次回クローリングのためのidf値を計算する
-    make_request_url_iframeSrc_link_host_set()  # 次回クローリングのための...
+    # with open(org_path + '/ROD/request_url/matome.json', 'w') as f:
+    #     json.dump(list(request_url), f)
+    # with open(org_path + '/ROD/iframe_src/matome.json', 'w') as f:
+    #     json.dump(list(iframe_url), f)
+    # with open(org_path + '/ROD/link_host/matome.json', 'w') as f:
+    #     json.dump(list(link_url), f)

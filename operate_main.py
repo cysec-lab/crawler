@@ -16,29 +16,6 @@ from time import sleep
 # 例： python3 operate_main.py ritsumeikan
 
 
-def get_user_input(queue):
-    while True:
-        end = input('enter "end" to end : ')
-        if end == 'end':
-            queue.put(True)
-            break
-
-
-# 自分以外のpythonプロセスをkillする
-def kill_python():
-    re = subprocess.check_output(['pgrep', 'python'])
-    me = os.getpid()
-    re = re.decode().split('\n')
-    re.remove(str(me))
-    for py3 in re:
-        os.system("kill " + py3)
-
-
-# phantomjsプロセスをkillする
-def kill_phantomjs():
-    os.system("pkill -f 'phantomjs'")
-
-
 # 子プロセスを返す
 def return_children(my_pid):
     try:
@@ -71,7 +48,12 @@ def kill_family():
             break
     family.reverse()
     for kill_pid in family:
-        os.system("kill " + kill_pid)
+        os.system("kill -9 " + kill_pid)
+
+
+# PPIDが1のphantomJSをkillする(クローラが動かしているphantomjsのppidは1以外なので、ppid=1のphantomjsはゾンビ的な)
+def kill_phantomjs():
+    os.system("pkill -KILL -P 1 -f 'phantomjs'")
 
 
 def dealing_after_fact(org_arg):
@@ -177,9 +159,6 @@ def main(organization):
     org_arg = {'result_no': dir_name, 'org_path': org_path}
 
     while True:
-        # # 実行日を記憶(クローリング終了後に参照する)
-        # run_date = datetime.now().day
-
         # クローラを実行
         print('--- ' + organization + ' : ' + org_arg['result_no'] + ' th crawling---')
         p = Process(target=crawler_host, args=(org_arg,))
@@ -191,12 +170,9 @@ def main(organization):
             break
         print('crawling has finished.')
 
-        # ここなんとかしないといけない
-        # print('kill PhantomJS')
-        # kill_phantomjs()
-        # print('kill other python')
-        # kill_python()
+        # 子プロセスが残る可能性がある?
         kill_family()
+        kill_phantomjs()  # 特にPhantomJSは念入りに
 
         print('save used ROD before overwriting the ROD directory : ', end='')
         save_rod(org_arg)
@@ -210,18 +186,6 @@ def main(organization):
         print(now)
         org_arg['result_no'] = str(int(org_arg['result_no']) + 1)
         print(organization + ' : ' + org_arg['result_no'] + ' th crawling will start at 20:00')
-        # h = now.hour
-        # m = now.minute
-        # s = now.second
-        # sleep_time = 60-s
-        # sleep_time += 60*(60-(m+1))
-        # if h < 20:
-        #     sleep_time += 3600*(20-(h+1))  # 20:00までにクローリングが終わった場合、20:00まで待つ
-        # elif run_date == now.day:
-        #     sleep_time += 3600*(20+(h+1))  # 同日の24時までに終わった場合は次の日の20:00スタート
-        # else:
-        #     sleep_time = 0  # 20~24時の間に前のクローリングが終わった場合は、すぐに次のクローリングを始めることになる
-        # sleep(sleep_time)
 
         # 実行ディレクトリ移動
         os.chdir(now_dir)

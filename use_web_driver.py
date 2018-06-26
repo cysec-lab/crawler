@@ -70,12 +70,6 @@ def set_html(page, driver):
         return ['Error_phantom', page.url + '\n' + str(t.re)]
     sleep(1)
 
-    # i = 1
-    # while i:
-    #     print(i)
-    #     sleep(1)
-    #     i -= 1
-
     try:
         wait = WebDriverWait(driver, 5)
         wait.until(expected_conditions.presence_of_all_elements_located)   # ロード完了まで最大5秒待つ(たぶんロードは完了しているのでいらない)
@@ -106,6 +100,7 @@ def set_request_url(page, driver):
     temp = set()   # ページをロードするのにリクエストしたurlを入れる集合
     re = list()    # GETとPOST以外のメソッドがあれば入る
     # GETとPOSTのメソッドのURLをpageの属性に保存
+    log_content2 = log_content
     while True:
         get = log_content.find('"method":')
         if get == -1:
@@ -125,6 +120,20 @@ def set_request_url(page, driver):
             re.append(url_2)
         log_content = log_content[end:]
     page.request_url = deepcopy(temp)
+
+    # temp2はログの中に出てきたURLを全て取り出す
+    # temp2 = set()
+    # while True:
+    #     get = log_content2.find('"http')
+    #     if get == -1:
+    #         break
+    #     if '://' in log_content2[get: get+9]:
+    #         end = log_content2[get + 1:].find('"')
+    #         url_2 = log_content2[get+1: get + 1 + end]
+    #         temp2.add(url_2)
+    #     else:
+    #         end = get + 3
+    #     log_content2 = log_content2[end:]
 
     # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
     for url in page.request_url:

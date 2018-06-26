@@ -24,7 +24,7 @@ def ston(string):
 
 
 # widthとheightが設定されていなかったiframeの中から、さらにstyleにwidthとheightが設定されていないものを選ぶ
-# visibilityというのもあるが...
+# visibilityというのもあるが...無視する
 def check_style(iframe_list):
     inv = set()
     for iframe in iframe_list:
@@ -69,30 +69,34 @@ def invisible(iframe_list):
         return False
 
 
-# iframe_listのsrc属性値のURLのネットワーク部のリスト
-def get_src_iframe(iframe_list):
+# tagsのsrc属性値のURLのリストを返す
+# src値がなければFalse
+def get_src_of_tag(tags):
     src_list = list()
-    for iframe in iframe_list:
-        src = iframe.get('src')
+    for tag in tags:
+        src = tag.get('src')
         if src:
-            url_domain = urlparse(src).netloc
-            if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
-                url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-            src_list.append(url_domain)
+            # url_domain = urlparse(src).netloc
+            # if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
+            #     url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+            # src_list.append(url_domain)
+            src_list.append(src)   # iframeとscriptタグのsrc値はURLをそのまま保存することにした
     if src_list:
         return sorted(src_list)
     else:
         return False
 
 
-# False　か [iframeのsrcのリスト or False]と[枠が0のiframeのリスト or False]が返る
+# iframeタグの検査
+# iframeタグが見つからなければ、False
+# 見つかれば、[iframeのsrcのリスト or False]と[枠の設定が0のiframeのリスト or False]が返る
 def iframe_inspection(soup):
-    iframe_list = soup.findAll('iframe')
-    if len(iframe_list) == 0:
+    iframe_tags = soup.findAll('iframe')
+    if len(iframe_tags) == 0:
         return False
     result = dict()
-    result['iframe_src_list'] = get_src_iframe(iframe_list)
-    result['invisible_iframe_list'] = invisible(iframe_list)
+    result['iframe_src_list'] = get_src_of_tag(iframe_tags)
+    result['invisible_iframe_list'] = invisible(iframe_tags)
     return result
 
 
@@ -144,37 +148,28 @@ def get_meta_refresh_url(meta_refresh_list, page):
     return meta_refresh_url_list
 
 
-# スクリプトのsrc先のファイル名が1文字や特定ファイル名の場合、そのスクリプト名を返す
-def script_name_inspection(script_tag):
-    script_src = script_tag.get('src')
-    if script_src:
-        slash = script_src.rfind('/')
-        period = script_src.rfind('.')
-        if period:
-            script_name = script_src[slash + 1:period]
-        else:
-            script_name = script_src[slash + 1:]
-        if len(script_name) < 2:
-            return script_name
-        if script_name == 'ngg':
-            return script_name
-        if script_name == 'script':
-            return script_name
-        if script_name == 'js':
-            return script_name
-        if script_name == 'ri':
-            return script_name
-    return False
-
-
-def script_inspection(soup):
+# スクリプトのsrc先のファイル名が1文字や特定ファイル名の場合、そのスクリプト名とscriptタグのリストを返す
+# 怪しいスクリプト名がなければ、Falseを返す
+def script_name_inspection(script_tags):
+    suspicious_names = {'ngg', 'script', 'js', 'ri'}   # 特定スクリプト名は関連研究の論文より参考
     script_names = list()
-    script_tags = soup.find_all('script')
     for script_tag in script_tags:
-        name = script_name_inspection(script_tag)
-        if name is not False:
-            script_names.append((name, script_tag))
-    return script_names
+        script_src = script_tag.get('src')
+        if script_src:
+            slash = script_src.rfind('/')
+            period = script_src.rfind('.')
+            if period:
+                script_name = script_src[slash + 1:period]
+            else:
+                script_name = script_src[slash + 1:]
+            if len(script_name) < 2:
+                script_names.append((script_name, str(script_tag)))   # スクリプト名が一文字
+            if script_name in suspicious_names:
+                script_names.append((script_name, str(script_tag)))   # スクリプト名が怪しい
+    if script_names:
+        return script_names
+    else:
+        return False
 
 
 # titleタグ内にscriptタグが含まれているかどうか
@@ -187,3 +182,17 @@ def title_inspection(soup):
             else:
                 return False
     return False
+
+
+# scriptタグの検査
+# scriptタグが見つからなければ、Falseが返る
+# 見つかれば、
+def script_inspection(soup):
+    script_tags = soup.find_all('script')
+    if len(script_tags) == 0:
+        return False
+    result = dict()
+    result['script_in_title'] = title_inspection(soup)   # titleにscriptが含まれていると怪しい (関連研究より
+    result['suspicious_script_name'] = script_name_inspection(script_tags)   # script名の検査
+    result['script_src_list'] = get_src_of_tag(script_tags)    # scriptのsrcURLを取得
+    return result

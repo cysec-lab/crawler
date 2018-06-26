@@ -38,68 +38,43 @@ def fun(i):
     print(i, 'end')
 
 
-def return_children(my_pid):
-    try:
-        children = subprocess.check_output(['ps', '--ppid', str(my_pid), '--no-heading', '-o', 'pid'])
-    except subprocess.CalledProcessError:
-        print('Non children')
-        return list()
-    else:
-        print('me : ', my_pid)
-        child_list = children.decode().replace(' ', '').split('\n')
-        try:
-            child_list.remove('')
-        except ValueError:
-            pass
-        return child_list
-
-
 if __name__ == '__main__':
 
-    import sys
-    import subprocess
-
-    # meより下の家族プロセスkillする
-    me = os.getpid()
-    me = 11943
-    family = return_children(me)
-    print(family)
-    i = 0
-    while True:
-        pid_ = family[i]
-        family.extend(return_children(pid_))
-        print(family)
-        i += 1
-        if len(family) == i:
-            break
-    for kill_pid in family:
-        os.system("kill " + kill_pid)
+    from use_web_driver import driver_get, set_html, set_request_url
+    from webpage import Page
+    from bs4 import BeautifulSoup
+    driver = driver_get(False)
+    url = 'http://www.ritsumei.ac.jp'
+    page = Page(url, 'test')
 
 
-
-    # from use_web_driver import driver_get, set_html
-    # from webpage import Page
-    # from bs4 import BeautifulSoup
-    # driver = driver_get(False)
-    # url = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/research'
-    # page = Page(url, 'test')
-    #
+    # urlopenとphantomjsそれぞれでJSによるリンク生成に対応できているかのテスト
     # urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+    # print(urlopen_result)
     # soup = BeautifulSoup(page.html, 'lxml')
-    # print(soup.prettify())
-    #
-    # print('------------------------')
-    # phantom_result = set_html(page=page, driver=driver)
-    # soup = BeautifulSoup(page.html, 'lxml')
-    # print(soup.prettify())
-
-    # import os
-    # from multiprocessing import Pool
-    # lis = os.listdir('..')
-    # print(lis)
-    # p = Pool(8)
-    #
-    # p.map(fun, lis)
+    # #print(soup.prettify())
+    # st = str(soup.prettify())
+    # with open('urlopen.html', 'w', encoding='utf-8') as f:
+    #     f.write(st)
+    # page.make_links_html(soup)
+    # url_open = page.links
+    # print(url_open)
+    print('------------------------')
+    phantom_result = set_html(page=page, driver=driver)
+    soup = BeautifulSoup(page.html, 'lxml')
+    #print(soup.prettify())
+    st = str(soup.prettify())
+    with open('phantom.html', 'w', encoding='utf-8') as f:
+        f.write(st)
+    page.make_links_html(soup)
+    phantomjs = page.links
+    print(phantomjs)
+    re, temp2 = set_request_url(page, driver)
+    print(re)
+    print(temp2)
+    print(len(temp2))
+    print(len(page.request_url))
+    print(temp2.difference(page.request_url))
 
     # import matplotlib.pyplot as plt
     # lis = os.listdir('..')

@@ -209,9 +209,6 @@ def make_dir(org_path, screenshots):          # 実行ディレクトリは「cr
     if not os.path.exists(org_path + '/result'):
         os.mkdir(org_path + '/result')
 
-    # if not os.path.exists('result/alert'):
-    #     os.mkdir('result/alert')
-
 
 # いろいろと最初の処理
 def init(first_time, setting_dict):    # 実行ディレクトリは「result」、最後の方に「result_*」に移動
@@ -321,7 +318,7 @@ def get_achievement_amount():
     return achievement
 
 
-# 5秒ごとに途中経過表示、メインループが動いてることの確認のため、スレッド化していない
+# 10秒ごとに途中経過表示、メインループが動いてることの確認のため、スレッド化していない
 def print_progress(run_time_pp, current_achievement):
     global send_num, recv_num
     alive_count = get_alive_child_num()
@@ -333,11 +330,12 @@ def print_progress(run_time_pp, current_achievement):
         if remaining_num == 0:
             count += 1    # URL待機リストが空のホスト数をカウント
         else:
-            if host in hostName_process:
-                print('main : ' + host + "'s remaining is " + str(remaining_num) +
-                      '\t active = ' + str(hostName_process[host].is_alive()))
-            else:
-                print('main : ' + host + "'s remaining is " + str(remaining_num) + "\t active = isn't made")
+            None
+            # if host in hostName_process:
+            #     print('main : ' + host + "'s remaining is " + str(remaining_num) +
+            #           '\t active = ' + str(hostName_process[host].is_alive()))
+            # else:
+            #     print('main : ' + host + "'s remaining is " + str(remaining_num) + "\t active = isn't made")
     print('main : remaining=0 is ' + str(count))
     print('main : run time = ' + str(run_time_pp) + 's.')
     print('main : recv-URL : send-URL = ' + str(recv_num) + ' : ' + str(send_num))
@@ -439,8 +437,6 @@ def make_url_list(now_time):
                         data_temp['content'] = thread.url_tuple[2] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[0]
                         data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                         summarize_alert_q['recv'].put(data_temp)
-                        # wa_file('../alert/after_redirect_check.csv',
-                        #         thread.url_tuple[0] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[2] + '\n')
                     # 一応すべて外部出力
                     wa_file('after_redirect.csv',
                             thread.url_tuple[0] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[2] + '\n')
@@ -513,7 +509,6 @@ def make_process(host_name, setting_dict, conn, n):
         if host_name not in hostName_achievement:
             hostName_achievement[host_name] = 0
         print('main : ' + host_name + " 's process start. " + 'pid = ' + str(p.pid))
-        print('main : ' + host_name + " 's process is alive? -> " + str(p.is_alive()))
     else:
         del hostName_process[host_name]
         print('main : ' + host_name + ' is not alive.')
@@ -589,7 +584,6 @@ def receive_and_send(not_send=False):
                     data_temp['content'] = url_tuple[0] + ',' + url_tuple[1]
                     data_temp['label'] = 'NEW_WINDOW_URL,URL'
                     summarize_alert_q['recv'].put(data_temp)
-                    # wa_file('../alert/new_window_url.csv', url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
             elif received_data['type'] == 'redirect':
                 url_tuple = received_data['url_tuple_list'][0]   # リダイレクトの場合、リストの要素数は１個だけ
                 if url_tuple[0] in url_db:
@@ -605,8 +599,6 @@ def receive_and_send(not_send=False):
                             data_temp['content'] = url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0]
                             data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                             summarize_alert_q['recv'].put(data_temp)
-                            # wa_file('../alert/after_redirect_check.csv',
-                            #         url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n')
                         wa_file('after_redirect.csv',
                                 url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0] + '\n')
 
@@ -796,7 +788,7 @@ def crawler_host(org_arg=None):
             now = int(time())
 
             # 途中経過表示
-            if now - pre_time >= 5:
+            if now - pre_time >= 10:
                 del_child(now)
                 print_progress(now - current_start_time, current_achievement)
                 pre_time = now
