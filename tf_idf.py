@@ -12,6 +12,11 @@ iframeのsrc先URLの集合
 をまとめて保存する
 """
 
+request_url = set()  # matome.jsonに保存する内容
+iframe_url = set()   # グローバル変数にしておかないと、exec()関数内で更新できない
+link_url = set()
+script_url = set()
+
 
 def make_idf_dict_frequent_word_dict(org_path):
     df_dict = dict()   # {file名(server.json) : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
@@ -107,20 +112,9 @@ def make_request_url_iframeSrc_link_host_set(org_path):
     for obj in object_list:
         if not os.path.exists(org_path + '/ROD/' + obj + '_url'):
             os.mkdir(org_path + '/ROD/' + obj + '_url')
-    # if not os.path.exists(org_path + '/ROD/request_url'):
-    #     os.mkdir(org_path + '/ROD/request_url')
-    # if not os.path.exists(org_path + '/ROD/iframe_url'):
-    #     os.mkdir(org_path + '/ROD/iframe_url')
-    # if not os.path.exists(org_path + '/ROD/link_url'):
-    #     os.mkdir(org_path + '/ROD/link_url')
-    # if not os.path.exists(org_path + '/ROD/script_url'):
-    #     os.mkdir(org_path + '/ROD/script_url')
 
     lis = os.listdir(org_path + '/RAD/temp')
-    request_url = set()  # matome.jsonに保存する内容
-    iframe_url = set()
-    link_url = set()
-    script_url = set()
+    global request_url, iframe_url, link_url, script_url
     file_name_set = set()  # 今回のクローリングで見つからなかったサーバはtempになくてRODデータに保存されないので、それらもmatome.jsonにいれるため
 
     for file in lis:

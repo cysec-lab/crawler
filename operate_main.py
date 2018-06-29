@@ -89,11 +89,15 @@ def dealing_after_fact(org_arg):
     # tf_idf.pyの実行
     print('run function of tf_idf.py : ', end='')
     p = Process(target=make_idf_dict_frequent_word_dict, args=(org_path,))
-    p2 = Process(target=make_request_url_iframeSrc_link_host_set, args=(org_path,))
+    if org_path == '../organization/ritsumeikan':
+        p2 = Process(target=make_request_url_iframeSrc_link_host_set, args=(org_path,))
+        p2.start()
+    else:
+        p2 = None
     p.start()
-    p2.start()
     p.join()
-    p2.join()
+    if p2 is not None:
+        p2.join()
     print('done')
 
     # RADの削除

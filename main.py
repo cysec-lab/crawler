@@ -747,7 +747,7 @@ def crawler_host(org_arg=None):
         print('You should check the run_count in setting file.')   # もういらないと思うけど...
 
     # databaseに必要なテーブルを作成、コネクターとカーソルを取得
-    # nthは何度目のクローリングかなので、あったほうが情報を保存するときにいいかなって
+    # nthは何度目のクローリングかなので、あったほうが情報を保存するときにいいかなって(mysqlはもう使ってないけど)
     if mysql:
         conn = get_connector()
         if not make_tables(conn=conn, n=nth):

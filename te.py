@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 from file_rw import r_file
 
 dic = dict()
+iframe_url = set()
 
 
 def fun(i):
@@ -38,27 +39,41 @@ def fun(i):
     print(i, 'end')
 
 
-if __name__ == '__main__':
+def tt():
 
-    from use_web_driver import driver_get, set_html, set_request_url
-    from webpage import Page
-    from bs4 import BeautifulSoup
-    driver = driver_get(False)
-    url = 'http://www.ritsumei.ac.jp'
-    page = Page(url, 'test')
+    global iframe_url
+    obj = 'iframe'
+    url_set = {'abc', 'ddf', 'eeff'}
+    print(iframe_url)
+    exec(obj + "_url.update(url_set)")
+    print(iframe_url)
+    import json
+    with open('tttt.json', 'w') as f:
+        exec("json.dump(list(" + obj + "_url), f)")
+
+
+if __name__ == '__main__':
+    tt()
+
+    # from use_web_driver import driver_get, set_html, set_request_url
+    # from webpage import Page
+    # from bs4 import BeautifulSoup
+    # driver = driver_get(False)
+    # url = 'http://192.168.0.232/home/redirect_start.html'
+    # page = Page(url, 'test')
 
 
     # urlopenとphantomjsそれぞれでJSによるリンク生成に対応できているかのテスト
-    # urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
-    # print(urlopen_result)
-    # soup = BeautifulSoup(page.html, 'lxml')
-    # #print(soup.prettify())
-    # st = str(soup.prettify())
-    # with open('urlopen.html', 'w', encoding='utf-8') as f:
-    #     f.write(st)
-    # page.make_links_html(soup)
-    # url_open = page.links
-    # print(url_open)
+    """urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+    print(urlopen_result)
+    soup = BeautifulSoup(page.html, 'lxml')
+    #print(soup.prettify())
+    st = str(soup.prettify())
+    with open('urlopen.html', 'w', encoding='utf-8') as f:
+        f.write(st)
+    page.make_links_html(soup)
+    url_open = page.links
+    print(url_open)
     print('------------------------')
     phantom_result = set_html(page=page, driver=driver)
     soup = BeautifulSoup(page.html, 'lxml')
@@ -75,39 +90,4 @@ if __name__ == '__main__':
     print(len(temp2))
     print(len(page.request_url))
     print(temp2.difference(page.request_url))
-
-    # import matplotlib.pyplot as plt
-    # lis = os.listdir('..')
-    # print(lis)
-    # plt.style.use('ggplot')
-    # fig = plt.figure()
-    # ax = fig.add_subplot(1, 1, 1)
-    #
-    # for i in lis:
-    #     if i.endswith('.json'):
-    #         with open('../' + i, 'r') as f:
-    #             json_file = json.load(f)
-    #     else:
-    #         continue
-    #     M = max(json_file)
-    #
-    #     print(len(json_file))
-    #     y = [round(tmp, 4) for tmp in json_file if round(tmp, 4) < 0.05]
-    #     print(len(y))
-    #     x = range(len(y))
-    #
-    #     # 折れ線グラフの用意
-    #     ax.scatter(x, y, label="y points")
-    #
-    #     # タイトルを用意
-    #     ax.set_title("Title")
-    #     ax.set_ylabel("Y1 and Y2")
-    #     ax.set_xlabel("X")
-    #
-    #     # 凡例を付ける
-    #     ax.legend()
-    #
-    #     # グラフを描く
-    #     plt.show()
-    #
-    #     break
+    """
