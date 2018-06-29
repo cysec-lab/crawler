@@ -48,6 +48,8 @@ def driver_get(screenshots):
     return driver
 
 
+# pageオブジェクトのプロパティに値を格納していく
+# エラーがでたらそれを返す
 def set_html(page, driver):
     try:
         t = PhantomGetThread(driver, page.url)
@@ -68,7 +70,18 @@ def set_html(page, driver):
         re = 'timeout'
     elif t.re is not True:
         return ['Error_phantom', page.url + '\n' + str(t.re)]
-    sleep(1)
+
+    # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
+    # sleep(1)
+    current_url = driver.current_url
+    relay_url = list()
+    for i in range(10):
+        if current_url != driver.current_url:     # 0.1秒ごとにURLを監視
+            current_url = driver.current_url
+            relay_url.append(current_url)
+        sleep(0.1)
+    if set(relay_url).difference(driver.current_url):   # 最後のURL以外に中継URLがあれば、保存
+        page.relay_url = deepcopy(relay_url)
 
     try:
         wait = WebDriverWait(driver, 5)

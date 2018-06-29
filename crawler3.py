@@ -483,7 +483,7 @@ def parser(parse_args_dic):
         while send_list:
             send_to_parent(q_send, {'type': 'redirect', 'url_tuple_list': [send_list.pop()]})
 
-    # scriptに関して
+    # scriptの検査
     # script名が特徴的かどうか。[(スクリプト名, そのスクリプトタグ),()...]となるリストを返す
     script_result = script_inspection(soup=soup)
     if script_result:
@@ -761,6 +761,17 @@ def crawler_main(args_dic):
                         phantom_result = set_html(page=page, driver=driver)   # もっかい接続を試してみる
                         if type(phantom_result) == list:                # ２回目もエラーなら次のURLへ(諦める)
                             continue
+                # リダイレクトが1秒以内に複数回行われていた場合
+                if page.relay_url:
+                    data_temp = dict()
+                    data_temp['url'] = page.url
+                    data_temp['src'] = page.src
+                    data_temp['file_name'] = 'relay_url_by_redirect.csv'
+                    data_temp['label'] = 'URL,src,relay_url'
+                    data_temp['content'] = page.url_initial + ',' + page.src + ',' + str(page.relay_url)[1:-1]
+                    with wfta_lock:
+                        write_file_to_alertdir.append(data_temp)
+
                 # about:blankなら以降の処理はしない
                 if page.url == "about:blank":
                     data_temp = dict()

@@ -28,6 +28,7 @@ class Page:
         self.request_url_same_server = list()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
         self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
+        self.relay_url = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。phantomjsでhtmlを取得するときに保存。
 
     def set_html_and_content_type_urlopen(self, url, time_out):
         # レスポンスのtimeoutを決める(適当)
