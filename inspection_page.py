@@ -23,8 +23,8 @@ def ston(string):
         return 0
 
 
-# widthとheightが設定されていなかったiframeの中から、さらにstyleにwidthとheightが設定されていないものを選ぶ
-# visibilityというのもあるが...無視する
+# widthとheightが設定されていなかったiframeの中から、
+# さらにstyleにwidthとheightが設定されていないもの、visibility:hidden、display:noneが設定されているものを探す
 def check_style(iframe_list):
     inv = set()
     for iframe in iframe_list:
@@ -32,6 +32,9 @@ def check_style(iframe_list):
         if style:
             style = style.replace(' ', '')
             if ('width' not in style) and ('height' not in style):   # styleの中にwidthとheightの両方がなければ
+                inv.add(iframe)
+                continue
+            elif ('visibility:hidden' in style) or ('display:none' in style):   # 見えないように設定されているか
                 inv.add(iframe)
                 continue
             temp = style.split(';')    # 分けてfor文で回す必要はないので改良の余地あり
