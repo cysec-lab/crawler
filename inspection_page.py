@@ -83,7 +83,9 @@ def get_src_of_tag(tags):
             # if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
             #     url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
             # src_list.append(url_domain)
-            src_list.append(src)   # iframeとscriptタグのsrc値はURLをそのまま保存することにした
+            o = urlparse(src)
+            tag_src_url = o.netloc + o.path
+            src_list.append(tag_src_url)     # iframeとscriptタグのsrc値は、queryとfragmentを削除したURLを保存
     if src_list:
         return sorted(src_list)
     else:

@@ -80,7 +80,7 @@ def set_html(page, driver):
             current_url = driver.current_url
             relay_url.append(current_url)
         sleep(0.1)
-    if set(relay_url).difference(driver.current_url):   # 最後のURL以外に中継URLがあれば、保存
+    if set(relay_url).difference({driver.current_url}):   # 最後のURL以外に中継URLがあれば、保存
         page.relay_url = deepcopy(relay_url)
 
     try:
