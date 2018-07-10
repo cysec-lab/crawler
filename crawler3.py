@@ -177,19 +177,6 @@ def save_result(alert_process_q):
             wa_file('../../' + file_name, text)
     for data_dict in write_file_to_alertdir:
         alert_process_q.put(data_dict)
-        # text = ''
-        # for i in value:
-        #     if type(i) == list:
-        #         if not os.path.exists('../../../alert/' + file_name):
-        #             text += i[0] + '\n'
-        #         text += i[1] + '\n'
-        #     else:
-        #         text += i + '\n'
-        # # 偽サイトの結果ファイルはalertディレに書かない
-        # if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
-        #     wa_file(file_name, text)
-        # else:
-        #     wa_file('../../../alert/' + file_name, text)
 
 
 # クローリングの結果を外部ファイルに出力したいが、毎度していてはディスク書き込みが頻発するため
@@ -385,7 +372,7 @@ def parser(parse_args_dic):
                     pre_top10 = urlDict.get_top10_from_url_dict(url=page.url)    # 前回のtop10を取得
                     if pre_top10 is not None:
                         symmetric_difference = set(top10) ^ set(pre_top10)         # 排他的論理和
-                        if len(symmetric_difference) > 16:
+                        if len(symmetric_difference) > ((len(top10) + len(pre_top10)) * 0.8):
                             data_temp = dict()
                             data_temp['url'] = page.url
                             data_temp['src'] = page.src
