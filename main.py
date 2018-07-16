@@ -591,7 +591,21 @@ def receive_and_send(not_send=False):
                     value = value[0:value.find(',')]
                     if value == 'False':
                         redirect_host = urlparse(url_tuple[0]).netloc
-                        if not [white for white in after_redirect_list if redirect_host.endswith(white)]:
+                        redirect_path = urlparse(url_tuple[0]).path
+                        w_alert_flag = True
+                        # リダイレクト後であった場合、ホスト名を見てあやしければ外部出力
+                        # if not [white for white in after_redirect_list if redirect_host.endswith(white)]:
+                        # ホスト名+パスの途中 までを見ることにしたので、上記の一行では判断できなくなった
+                        for white_redirect_url in after_redirect_list:
+                            if '+' in white_redirect_url:
+                                white_host = white_redirect_url[0:white_redirect_url.find('+')]
+                                white_path = white_redirect_url[white_redirect_url.find('+') + 1:]
+                            else:
+                                white_host = white_redirect_url
+                                white_path = ''
+                            if redirect_host.endswith(white_host) and redirect_path.startswith(white_path):
+                                w_alert_flag = False
+                        if w_alert_flag:
                             data_temp = dict()
                             data_temp['url'] = url_tuple[0]
                             data_temp['src'] = url_tuple[1]

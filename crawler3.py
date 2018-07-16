@@ -377,7 +377,7 @@ def parser(parse_args_dic):
                             data_temp['url'] = page.url
                             data_temp['src'] = page.src
                             data_temp['file_name'] = 'change_important_word.csv'
-                            data_temp['content'] = page.url + ',' + str(top10) + ',' + str(pre_top10)
+                            data_temp['content'] = page.url + ',' + str(top10)[1:-1] + ', ,' + str(pre_top10)[1:-1]
                             data_temp['label'] = 'URL,TOP10,PRE'
                             with wfta_lock:
                                 write_file_to_alertdir.append(data_temp)
@@ -387,8 +387,8 @@ def parser(parse_args_dic):
                                 screenshots_svc_q.put(data_dic)
                         update_write_file_dict('result', 'symmetric_diff_of_word.csv',
                                                content=['URL,length,top10,pre top10', page.url + ',' +
-                                                        str(len(symmetric_difference)) + ',' + str(top10) + ',' +
-                                                        str(pre_top10) + ',' + str(num_of_days)])
+                                                        str(len(symmetric_difference)) + ',' + str(top10)[1:-1] + ', ,'
+                                                        + str(pre_top10)[1:-1] + ',' + str(num_of_days)])
                 urlDict.add_top10_to_url_dict(url=page.url, top10=top10)          # top10を更新
 
             # ページにあった単語が今までの頻出単語にどれだけ含まれているか調査-------------------------------
