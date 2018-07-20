@@ -15,6 +15,8 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
 from use_mysql import execute_query, get_id_from_url, register_url
+from robotparser_new_kai import RobotFileParser
+import urllib.error
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 threadId_set = set()         # パーサーのスレッドid集合
@@ -41,6 +43,9 @@ link_set_pre = set()  # 今までのクローリング時のやつ
 link_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
 frequent_word_list = list()   # 今までこのサーバに出てきた頻出単語top50
 
+robots = None    # robots.txtを解析するクラス
+user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
+
 write_file_to_hostdir = dict()    # server/www.ac.jp/の中に作るファイルの内容。{file名 : [文字, 内容, ...], file名 : []}
 wfth_lock = threading.Lock()      # write_file_to_hostdir更新の際のlock
 write_file_to_resultdir = dict()  # result/result_*/の中に作るファイルの内容。{file名 : [内容, 内容, ...], file名 : []}
@@ -50,7 +55,7 @@ wfta_lock = threading.Lock()      # write_file_to_alertdir更新の際のlock
 
 
 def init(host, screenshots):
-    global html_special_char, script_src_set, script_src_set_pre
+    global html_special_char, script_src_set, script_src_set_pre, robots
     global num_of_achievement, dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, frequent_word_list
     global request_url_host_set, request_url_host_set_pre, iframe_src_set, iframe_src_set_pre, link_set, link_set_pre
     data_temp = r_file('../../ROD/LIST/HTML_SPECHAR.txt')
@@ -89,8 +94,18 @@ def init(host, screenshots):
             request_url_host_set = deepcopy(data_temp['request'])
             iframe_src_set = deepcopy(data_temp['iframe'])
             script_src_set = deepcopy(data_temp['script'])
+            robots = data_temp['robots']
             if 'link_host' in data_temp:
                 link_set = deepcopy(data_temp['link_host'])
+
+    # robots.txtがNoneのままだった場合
+    if robots is None:
+        robots = RobotFileParser(url='http://' + host + '/robots.txt')
+        try:
+            robots.read()
+        except urllib.error.URLError:   # サーバに届かなかったらエラーが出る。
+            robots = None               # robots.txtがなかったら、全てTrueを出すようになる。
+
     # 今までのクローリングで集めた、この組織の全request_url(のネットワーク部)をロード
     path = '../../../../ROD/request_url/matome.json'
     if os.path.exists(path):
@@ -149,7 +164,8 @@ def save_result(alert_process_q):
     if num_of_achievement:
         with open('../../../../RAD/temp/progress_' + f_name + '.pickle', 'wb') as f:
             pickle.dump({'num': num_of_achievement, 'cache': url_cache, 'request': request_url_host_set,
-                         'iframe': iframe_src_set, 'link_host': link_set, 'script': script_src_set}, f)
+                         'iframe': iframe_src_set, 'link_host': link_set, 'script': script_src_set,
+                         'robots': robots}, f)
     w_file('achievement.txt', str(num_of_achievement))
     for file_name, value in write_file_to_hostdir.items():
         text = ''
@@ -634,7 +650,7 @@ def crawler_main(args_dic):
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
-        driver = driver_get(screenshots)
+        driver = driver_get(screenshots, user_agent=user_agent)
         if driver is False:
             print(host + ' : cannot make PhantomJS process', flush=True)
             os._exit(0)
@@ -704,6 +720,9 @@ def crawler_main(args_dic):
         page = Page(url, url_src)
 
         # urlopenで接続
+        if robots is not None:
+            if robots.can_fetch(useragent=user_agent, url=page.url) is False:
+                continue
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
         if type(urlopen_result) is list:  # listが返るとエラー
             # URLがこのサーバの中でひとつ目だった場合
@@ -737,11 +756,14 @@ def crawler_main(args_dic):
             img_name = False
             if phantomjs:
                 # phantomJSでURLに再接続。関数内で接続後１秒待機
+                if robots is not None:
+                    if robots.can_fetch(useragent=user_agent, url=page.url) is False:
+                        continue
                 phantom_result = set_html(page=page, driver=driver)
                 if type(phantom_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', phantom_result[0] + '.txt', content=phantom_result[1])
                     quit_driver(driver)    # headless browser終了して
-                    driver = driver_get(screenshots)  # 再取得
+                    driver = driver_get(screenshots, user_agent=user_agent)  # 再取得
                     if driver is False:
                         os._exit(0)
                     else:
