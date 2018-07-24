@@ -41,51 +41,25 @@ def fun(i):
 
 if __name__ == '__main__':
 
-    """
-    from use_web_driver import driver_get, set_html, set_request_url
+    from use_web_driver_chrome import driver_get, set_html, get_window_url
     from webpage import Page
     from bs4 import BeautifulSoup
-    driver = driver_get(False)
-    url = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/papers'
+
+    user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)'
+
+    driver = driver_get(False, user_agent=user_agent)
+    url = 'http://www.ritsumei.ac.jp/tanq/352217/'
+    url = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/whatsnew/20131216dfckeynote'
     page = Page(url, 'test')
-
-    # 重要単語のテスト
-    from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
-    from urldict import UrlDict
-    f_name = 'falsification-cysec-cs-ritsumei-ac-jp'
-    urlDict = UrlDict(f_name)
-    urlDict.load_url_dict(path='../organization/ritsumeikan/ROD/url_hash_json/')
-    print(urlDict.url_dict[url])
-    path = '../organization/ritsumeikan/ROD/idf_dict/' + f_name + '.json'
-    if os.path.exists(path):
-        if os.path.getsize(path) > 0:
-            with open(path, 'r') as f:
-                word_idf_dict = json.load(f)
-
     phantom_result = set_html(page=page, driver=driver)
-    soup = BeautifulSoup(page.html, 'lxml')
-    hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)
-    print(word_tf_dict)
-    if word_tf_dict is not False:
-        word_tfidf = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
-        top10 = get_top10_tfidf(tfidf_dict=word_tfidf, nth='6')  # top10を取得。ページ内に単語がなかった場合は空リストが返る
-        # ハッシュ値が異なるため、重要単語を比較
-        pre_top10 = urlDict.get_top10_from_url_dict(url=page.url)  # 前回のtop10を取得
-        top10 = ['ため', 'hacked']
-        print(top10)
-        print(pre_top10)
-        if pre_top10 is not None:
-            symmetric_difference = set(top10) ^ set(pre_top10)  # 排他的論理和
-            print(symmetric_difference)
-            if len(symmetric_difference) > ((len(top10) + len(pre_top10)) * 0.8):
-                print(((len(top10) + len(pre_top10)) * 0.8))
-                print('changed')
-            else:
-                print('変わらず')
-    """
+    print(page.url)
+
+    window_url_list = get_window_url(driver)
+    print(window_url_list)
 
     # urlopenとphantomjsそれぞれでJSによるリンク生成に対応できているかのテスト
-    """urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+    """
+    urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
     print(urlopen_result)
     soup = BeautifulSoup(page.html, 'lxml')
     #print(soup.prettify())

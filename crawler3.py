@@ -4,7 +4,7 @@ from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
 from inspection_page import title_inspection, invisible
 from inspection_file import check_content_type
-from use_web_driver import driver_get, set_html, set_request_url, get_window_url, take_screenshots, quit_driver
+from use_web_driver_chrome import driver_get, set_html, set_request_url, get_window_url, take_screenshots, quit_driver
 import os
 from time import sleep, time
 from copy import deepcopy
@@ -668,10 +668,10 @@ def crawler_main(args_dic):
     # クローラプロセスメインループ
     while True:
         # 動いていることを確認
-        # if page is None:
-        #     print(host + ' : main loop is running...')
-        # else:
-        #     print(host + ' : ' + str(page.url_initial) + '  :  DONE')
+        if page is None:
+            print(host + ' : main loop is running...')
+        else:
+            print(host + ' : ' + str(page.url_initial) + '  :  DONE')
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -818,31 +818,31 @@ def crawler_main(args_dic):
                 """
 
                 # ページをロードする際にリクエストしたURLをpageオブジェ内に保存
-                try:
-                    test = set_request_url(page, driver)    # testにはGET、POSTメソッド以外のメソッドがあれば入る
-                except Exception:
-                    test = False
-                if page.request_url:
-                    request_url_host_set = request_url_host_set.union(set(page.request_url_host))
-                    if request_url_host_set_pre:
-                        diff = set(page.request_url_host).difference(request_url_host_set_pre)
-                        if diff:
-                            str_t = ''
-                            for t in diff:
-                                if t in host:   # 自分自身のサーバへのリクエストURLの場合
-                                    continue
-                                str_t += ',' + t
-                            if str_t != '':
-                                data_temp = dict()
-                                data_temp['url'] = page.url
-                                data_temp['src'] = page.src
-                                data_temp['file_name'] = 'new_request_url.csv'
-                                data_temp['content'] = page.url + str_t
-                                data_temp['label'] = 'URL,request_url'
-                                with wfta_lock:
-                                    write_file_to_alertdir.append(data_temp)
-                if test:
-                    wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
+                # try:
+                #     test = set_request_url(page, driver)    # testにはGET、POSTメソッド以外のメソッドがあれば入る
+                # except Exception:
+                #     test = False
+                # if page.request_url:
+                #     request_url_host_set = request_url_host_set.union(set(page.request_url_host))
+                #     if request_url_host_set_pre:
+                #         diff = set(page.request_url_host).difference(request_url_host_set_pre)
+                #         if diff:
+                #             str_t = ''
+                #             for t in diff:
+                #                 if t in host:   # 自分自身のサーバへのリクエストURLの場合
+                #                     continue
+                #                 str_t += ',' + t
+                #             if str_t != '':
+                #                 data_temp = dict()
+                #                 data_temp['url'] = page.url
+                #                 data_temp['src'] = page.src
+                #                 data_temp['file_name'] = 'new_request_url.csv'
+                #                 data_temp['content'] = page.url + str_t
+                #                 data_temp['label'] = 'URL,request_url'
+                #                 with wfta_lock:
+                #                     write_file_to_alertdir.append(data_temp)
+                # if test:
+                #     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
 
                 # スクショが欲しければ撮る
                 if screenshots:

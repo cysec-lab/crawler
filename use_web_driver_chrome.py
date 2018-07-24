@@ -1,33 +1,35 @@
-
 from selenium.webdriver.chrome.options import Options
 from time import sleep
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from urllib.parse import urlparse
 from copy import deepcopy
-from content_get_chrome import PhantomGetThread, DriverGetThread
+from content_get_chrome import ChromeGetThread, DriverGetThread
 
 
 # phantomJSを使うためのdriverを返す
-def driver_get(screenshots=False):
+def driver_get(screenshots=False, user_agent=''):
     # headless chromeの設定
     options = Options()
+    options.binary_location = "/usr/bin/google-chrome-stable"
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')
-    # エラーの許容
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--allow-running-insecure-content')
-    options.add_argument('--disable-web-security')
-    # headlessでは不要そうな機能
+    # # エラーの許容
+    # options.add_argument('--ignore-certificate-errors')
+    # options.add_argument('--allow-running-insecure-content')
+    # options.add_argument('--disable-web-security')
+    # headlessでは不要そうな機能?
     options.add_argument('--disable-desktop-notifications')
     options.add_argument("--disable-extensions")
     # user agent
-    ua = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
-    options.add_argument('--user-agent=' + ua)
+    if user_agent:
+        options.add_argument('--user-agent=' + user_agent)
+    # ウィンドウサイズ
+    options.add_argument('--window-size=1280,1024')
     # 言語
     options.add_argument('--lang=ja')
 
-    # PhantomJSのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
+    # Chromeのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     try:
         t = DriverGetThread(options)
         # t.daemon = True
@@ -49,30 +51,53 @@ def driver_get(screenshots=False):
         return False
     driver = t.driver
 
+    # ダウンロードできるようにするための設定
+    # 実際にダウンロードするためにはsleepで待つ必要がある
+    driver.command_executor._commands["send_command"] = ("POST", '/session/$sessionId/chromium/send_command')
+    driver.execute("send_command", {
+        'cmd': 'Page.setDownloadBehavior',
+        'params': {
+            'behavior': 'allow',
+            'downloadPath': '../DownloadByChrome/'  # ダウンロード先(ディレクトリがなければ作られるみたい)
+        }
+    })
+
     return driver
 
 
 def set_html(page, driver):
     try:
-        t = PhantomGetThread(driver, page.url)
-        t.daemon = True   # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
+        t = ChromeGetThread(driver, page.url)
         t.start()
         t.join(timeout=60)   # 60秒のロード待機時間
     except Exception:
+        # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
         sleep(10)
         try:
-            t = PhantomGetThread(driver, page.url)
-            t.daemon = True  # daemonにすることで、このスレッドが終わっていないことによるメインが終われない現象をなくす
+            t = ChromeGetThread(driver, page.url)
             t.start()
             t.join(timeout=60)  # 60秒のロード待機時間
         except Exception as e:
-            return ['Error_chrome', page.url + '\n' + str(e)]
+            return ['makeThreadError_chrome', page.url + '\n' + str(e)]
+
     re = True
     if t.re is False:
         re = 'timeout'
     elif t.re is not True:
         return ['Error_chrome', page.url + '\n' + str(t.re)]
-    sleep(1)
+
+    # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
+    # sleep(1)
+    current_url = driver.current_url
+    relay_url = list()
+    for i in range(10):
+        if current_url != driver.current_url:  # 0.1秒ごとにURLを監視
+            current_url = driver.current_url
+            relay_url.append(current_url)
+        sleep(0.1)
+    if set(relay_url).difference({driver.current_url}):  # 最後のURL以外に中継URLがあれば、保存
+        page.relay_url = deepcopy(relay_url)
+
     try:
         wait = WebDriverWait(driver, 5)
         wait.until(expected_conditions.presence_of_all_elements_located)   # ロード完了まで最大5秒待つ(たぶんロードは完了しているのでいらない)
@@ -131,13 +156,13 @@ def set_request_url(page, driver):
     return re
 
 
-def get_window_url(page, driver):
+def get_window_url(driver):
     url_list = list()
     try:
         windows = driver.window_handles
         for window in windows[1:]:
             driver.switch_to.window(window)
-            url_list.append((driver.current_url, page.src, page.url, 'new_window_url'))
+            url_list.append(driver.current_url)
             driver.close()
         driver.switch_to.window(windows[0])
     except:

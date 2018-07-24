@@ -588,8 +588,8 @@ def receive_and_send(not_send=False):
                 url_tuple = received_data['url_tuple_list'][0]   # リダイレクトの場合、リストの要素数は１個だけ
                 if url_tuple[0] in url_db:
                     value = url_db[url_tuple[0]].decode('utf-8')
-                    value = value[0:value.find(',')]
-                    if value == 'False':
+                    flag = value[0:value.find(',')]
+                    if flag == 'False':
                         redirect_host = urlparse(url_tuple[0]).netloc
                         redirect_path = urlparse(url_tuple[0]).path
                         w_alert_flag = True
@@ -609,7 +609,8 @@ def receive_and_send(not_send=False):
                             data_temp = dict()
                             data_temp['url'] = url_tuple[0]
                             data_temp['src'] = url_tuple[1]
-                            data_temp['file_name'] = 'after_redirect_check.csv'
+                            data_temp['file_name'] = 'after_redirect_check.csv'  # 同じ情報が二度このファイルに載ってしまうことがある。
+                            # url_dbにリダイレクト後のURLが登録されており、組織外だった場合、ここで記録される。二回目はmake_url_list()内で記録される。
                             data_temp['content'] = url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0]
                             data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                             summarize_alert_q['recv'].put(data_temp)
@@ -862,6 +863,13 @@ def crawler_host(org_arg=None):
                 allocate_to_host_remaining(url_tuple=url_tuple)
 
             # プロセス数が上限に達していなければ、プロセスを生成する
+            host = 'falsification.cysec.cs.ritsumei.ac.jp'
+            if host in hostName_process:
+                if not hostName_process[host].is_alive():
+                    make_process(host, setting_dict, conn, nth)
+            else:
+                make_process(host, setting_dict, conn, nth)
+
             num_of_process = max_process - get_alive_child_num()
             if num_of_process > 0:
                 # remainingリストの中で一番待機URL数が多い順プロセスを生成する
@@ -882,7 +890,7 @@ def crawler_host(org_arg=None):
                                 make_process(fewest, setting_dict, conn, nth)
                                 num_of_process -= 1
                                 fewest_host = fewest
-                    # 多い順に作る
+                    # 待機URLが多い順に作る
                     for host_url_list_tuple in tmp_list:
                         if num_of_process <= 0:
                             break

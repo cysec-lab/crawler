@@ -12,7 +12,7 @@ class DriverGetThread(Thread):
         from selenium import webdriver
         import selenium.common
         try:
-            self.driver = webdriver.Chrome(chrome_options=self.options)
+            self.driver = webdriver.Chrome(chrome_options=self.options, executable_path='/usr/local/bin/chromedriver')
         except selenium.common.exceptions.WebDriverException:
             self.driver = False
         except LookupError:
@@ -20,16 +20,16 @@ class DriverGetThread(Thread):
         self.re = True
 
 
-class PhantomGetThread(Thread):
-    def __init__(self, phantom_driver, url):
-        super(PhantomGetThread, self).__init__()
-        self.phantom_driver = phantom_driver
+class ChromeGetThread(Thread):
+    def __init__(self, chrome_driver, url):
+        super(ChromeGetThread, self).__init__()
+        self.chrome_driver = chrome_driver
         self.url = url
         self.re = False
 
     def run(self):
         try:
-            self.phantom_driver.get(self.url)
+            self.chrome_driver.get(self.url)
         except Exception as e:
             self.re = e
         else:

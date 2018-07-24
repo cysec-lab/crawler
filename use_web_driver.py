@@ -9,12 +9,10 @@ import signal
 
 
 # phantomJSを使うためのdriverを返す
-def driver_get(screenshots):
+def driver_get(screenshots, user_agent='*'):
     # PhantomJSの設定
     des_cap = dict(DesiredCapabilities.PHANTOMJS)
-    des_cap["phantomjs.page.settings.userAgent"] = (
-        'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
-    )
+    des_cap["phantomjs.page.settings.userAgent"] = user_agent
     if not screenshots:
         des_cap["phantomjs.page.settings.loadImages"] = False
     des_cap['phantomjs.page.settings.resourceTimeout'] = 60   # たぶん意味ない
@@ -194,6 +192,7 @@ def quit_driver(driver):
         return False
     else:
         return True
+
 
 """
 def set_content_type(self, driver):
