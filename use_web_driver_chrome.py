@@ -14,6 +14,7 @@ def driver_get(screenshots=False, user_agent=''):
     options.binary_location = "/usr/bin/google-chrome-stable"
     options.add_argument('--headless')
     options.add_argument('--disable-gpu')
+    options.add_argument('--no-sandbox')
     # # エラーの許容
     # options.add_argument('--ignore-certificate-errors')
     # options.add_argument('--allow-running-insecure-content')
@@ -28,6 +29,12 @@ def driver_get(screenshots=False, user_agent=''):
     options.add_argument('--window-size=1280,1024')
     # 言語
     options.add_argument('--lang=ja')
+
+    # dlに必要？
+    options.add_experimental_option('prefs', {
+        'download.default_directory': '../DownloadByChrome',
+        'download.prompt_for_download': False,   # ダウンロードの時に確認画面を出さない?
+    })
 
     # Chromeのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     try:
@@ -58,7 +65,7 @@ def driver_get(screenshots=False, user_agent=''):
         'cmd': 'Page.setDownloadBehavior',
         'params': {
             'behavior': 'allow',
-            'downloadPath': '../DownloadByChrome/'  # ダウンロード先(ディレクトリがなければ作られるみたい)
+            'downloadPath': '../DownloadByChrome'  # ダウンロード先(ディレクトリがなければ作られる)
         }
     })
 

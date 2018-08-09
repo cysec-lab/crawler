@@ -803,7 +803,7 @@ def crawler_host(org_arg=None):
             now = int(time())
 
             # 途中経過表示
-            if now - pre_time >= 10:
+            if now - pre_time > 10:
                 del_child(now)
                 print_progress(now - current_start_time, current_achievement)
                 pre_time = now

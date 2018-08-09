@@ -15,7 +15,8 @@ class DriverGetThread(Thread):
             self.driver = webdriver.Chrome(chrome_options=self.options, executable_path='/usr/local/bin/chromedriver')
         except selenium.common.exceptions.WebDriverException:
             self.driver = False
-        except LookupError:
+        except LookupError as e:
+            print(e)
             self.driver = False
         self.re = True
 

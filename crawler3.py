@@ -362,8 +362,6 @@ def parser(parse_args_dic):
     if use_mecab:
         # このページの各単語のtf値を計算、df辞書を更新
         hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と"hacked by"検索
-        if 'falsification' in host:
-            wa_file('hacked.csv', page.url + ',' + str(hack_level) + '\n')
         if hack_level:    # hackの文字が入っていると0以外が返ってくる
             if hack_level == 1:
                 update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
@@ -668,10 +666,12 @@ def crawler_main(args_dic):
     # クローラプロセスメインループ
     while True:
         # 動いていることを確認
-        if page is None:
-            print(host + ' : main loop is running...')
-        else:
-            print(host + ' : ' + str(page.url_initial) + '  :  DONE')
+        if 'falsification' in host:
+            pid = os.getpid()
+            if page is None:
+                print(host + '(' + str(pid) + ') : main loop is running...')
+            else:
+                print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE')
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -708,7 +708,8 @@ def crawler_main(args_dic):
                 # ２回目もFalse or nothingだったらメインを抜ける
                 break
         else:    # それ以外(URLのタプル)
-            #print(host + ' : ' + search_tuple[0] + ' : RECEIVE')
+            if 'falsification' in host:
+                print(host + ' : ' + search_tuple[0] + ' : RECEIVE')
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得

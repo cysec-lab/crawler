@@ -40,22 +40,35 @@ def fun(i):
 
 
 if __name__ == '__main__':
+    """
+    from operate_main import kill_chrome, kill_family
+    kill_chrome(process='chrome')
 
-    from use_web_driver_chrome import driver_get, set_html, get_window_url
+    """
+
+    from use_web_driver_chrome import driver_get, set_html, quit_driver
     from webpage import Page
     from bs4 import BeautifulSoup
 
     user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)'
-
     driver = driver_get(False, user_agent=user_agent)
-    url = 'http://www.ritsumei.ac.jp/tanq/352217/'
-    url = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/whatsnew/20131216dfckeynote'
-    page = Page(url, 'test')
-    phantom_result = set_html(page=page, driver=driver)
-    print(page.url)
 
-    window_url_list = get_window_url(driver)
-    print(window_url_list)
+    url_kouchi = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/whatsnew/20131219kouchi'
+    url = 'http://www.ritsumei.ac.jp/tanq/352217/'
+    url = 'file:///home/hiro/Desktop/falsification/test_site/home/whatsnew/20131219kouchi'
+    url = 'file:///home/hiro/Desktop/falsification/mal_site/mal_top.html'
+    url_autodl = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/members'
+
+    page = Page(url_autodl, 'test')
+    re = set_html(page, driver)
+    print(page.html)
+    # driver.find_element_by_id('dLoad2').click()
+    for i in range(50):
+        time.sleep(1)
+        print('{i}, '.format(i=i+1), end='', flush=True)
+    print(driver.current_url)
+    quit_driver(driver)
+
 
     # urlopenとphantomjsそれぞれでJSによるリンク生成に対応できているかのテスト
     """
@@ -85,4 +98,5 @@ if __name__ == '__main__':
     print(len(temp2))
     print(len(page.request_url))
     print(temp2.difference(page.request_url))
+    quit_driver(driver)
     """
