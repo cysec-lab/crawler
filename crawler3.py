@@ -4,7 +4,7 @@ from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
 from inspection_page import title_inspection, invisible
 from inspection_file import check_content_type
-from use_web_driver_chrome import driver_get, set_html, set_request_url, get_window_url, take_screenshots, quit_driver
+from use_browser import get_chrome_driver, set_html, set_request_url_chrome, get_window_url, take_screenshots, quit_driver
 import os
 from time import sleep, time
 from copy import deepcopy
@@ -105,6 +105,9 @@ def init(host, screenshots):
             robots.read()
         except urllib.error.URLError:   # サーバに届かなかったらエラーが出る。
             robots = None               # robots.txtがなかったら、全てTrueを出すようになる。
+        except Exception as e:    # 上記以外のエラーとして、http.client.RemoteDisconnected　というエラー落ちがあるかも
+            print(e)
+            robots = None
 
     # 今までのクローリングで集めた、この組織の全request_url(のネットワーク部)をロード
     path = '../../../../ROD/request_url/matome.json'
@@ -149,7 +152,7 @@ def init(host, screenshots):
             with open(path, 'rb') as f:
                 word_df_dict = pickle.load(f)
     urlDict = UrlDict(f_name)
-    copy_flag = urlDict.load_url_dict(path=None)
+    copy_flag = urlDict.load_url_dict()
     if copy_flag:
         wa_file('../../notice.txt', host + ' : copy' + copy_flag + ' because JSON data is broken.\n')
 
@@ -648,9 +651,9 @@ def crawler_main(args_dic):
 
     # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
     if phantomjs:
-        driver = driver_get(screenshots, user_agent=user_agent)
+        driver = get_chrome_driver(screenshots, user_agent=user_agent)
         if driver is False:
-            print(host + ' : cannot make PhantomJS process', flush=True)
+            print(host + ' : cannot make browser process', flush=True)
             os._exit(0)
 
     page = None
@@ -666,12 +669,11 @@ def crawler_main(args_dic):
     # クローラプロセスメインループ
     while True:
         # 動いていることを確認
-        if 'falsification' in host:
-            pid = os.getpid()
-            if page is None:
-                print(host + '(' + str(pid) + ') : main loop is running...')
-            else:
-                print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE')
+        # pid = os.getpid()
+        # if page is None:
+        #     print(host + '(' + str(pid) + ') : main loop is running...')
+        # else:
+        #     print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE')
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -708,8 +710,7 @@ def crawler_main(args_dic):
                 # ２回目もFalse or nothingだったらメインを抜ける
                 break
         else:    # それ以外(URLのタプル)
-            if 'falsification' in host:
-                print(host + ' : ' + search_tuple[0] + ' : RECEIVE')
+            #print(host + ' : ' + search_tuple[0] + ' : RECEIVE')
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
@@ -764,7 +765,7 @@ def crawler_main(args_dic):
                 if type(phantom_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', phantom_result[0] + '.txt', content=phantom_result[1])
                     quit_driver(driver)    # headless browser終了して
-                    driver = driver_get(screenshots, user_agent=user_agent)  # 再取得
+                    driver = get_chrome_driver(screenshots, user_agent=user_agent)  # 再取得
                     if driver is False:
                         os._exit(0)
                     else:
@@ -808,40 +809,31 @@ def crawler_main(args_dic):
                 # phantomJSでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
                     continue
-                """
-                # javascript実行し、PhantomJSで自動ダウンロードチェック
-                t = threading.Thread(target=download_check, args=(page.url_urlopen, page.url, host,),)
-                t.start()
-                threadId_set.add(t.ident)  # スレッド集合に追加
-                threadId_time[t.ident] = int(time())
-                # aタグで、href属性がなく、onclick属性があるものをクリックし、URLのジャンプを確認
-                click_a_tags(driver=driver, q_send=q_send, url_ini=page.url)
-                """
 
                 # ページをロードする際にリクエストしたURLをpageオブジェ内に保存
-                # try:
-                #     test = set_request_url(page, driver)    # testにはGET、POSTメソッド以外のメソッドがあれば入る
-                # except Exception:
-                #     test = False
-                # if page.request_url:
-                #     request_url_host_set = request_url_host_set.union(set(page.request_url_host))
-                #     if request_url_host_set_pre:
-                #         diff = set(page.request_url_host).difference(request_url_host_set_pre)
-                #         if diff:
-                #             str_t = ''
-                #             for t in diff:
-                #                 if t in host:   # 自分自身のサーバへのリクエストURLの場合
-                #                     continue
-                #                 str_t += ',' + t
-                #             if str_t != '':
-                #                 data_temp = dict()
-                #                 data_temp['url'] = page.url
-                #                 data_temp['src'] = page.src
-                #                 data_temp['file_name'] = 'new_request_url.csv'
-                #                 data_temp['content'] = page.url + str_t
-                #                 data_temp['label'] = 'URL,request_url'
-                #                 with wfta_lock:
-                #                     write_file_to_alertdir.append(data_temp)
+                try:
+                    set_request_url_chrome(page, driver)    # testにはGET、POSTメソッド以外のメソッドがあれば入る
+                except Exception:
+                    test = False
+                if page.request_url:
+                    request_url_host_set = request_url_host_set.union(set(page.request_url_host))
+                    if request_url_host_set_pre:
+                        diff = set(page.request_url_host).difference(request_url_host_set_pre)
+                        if diff:
+                            str_t = ''
+                            for t in diff:
+                                if t in host:   # 自分自身のサーバへのリクエストURLの場合
+                                    continue
+                                str_t += ',' + t
+                            if str_t != '':
+                                data_temp = dict()
+                                data_temp['url'] = page.url
+                                data_temp['src'] = page.src
+                                data_temp['file_name'] = 'new_request_url.csv'
+                                data_temp['content'] = page.url + str_t
+                                data_temp['label'] = 'URL,request_url'
+                                with wfta_lock:
+                                    write_file_to_alertdir.append(data_temp)
                 # if test:
                 #     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
 

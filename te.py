@@ -2,7 +2,6 @@ import dbm
 import time
 import os
 import json
-import use_web_driver
 import webpage
 from collections import deque
 import socket
@@ -46,27 +45,56 @@ if __name__ == '__main__':
 
     """
 
-    from use_web_driver_chrome import driver_get, set_html, quit_driver
+    from use_browser import get_chrome_driver, set_html, quit_driver, set_request_url_chrome
     from webpage import Page
     from bs4 import BeautifulSoup
 
     user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko)'
-    driver = driver_get(False, user_agent=user_agent)
+    driver = get_chrome_driver(False, user_agent=user_agent)
 
     url_kouchi = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/whatsnew/20131219kouchi'
-    url = 'http://www.ritsumei.ac.jp/tanq/352217/'
-    url = 'file:///home/hiro/Desktop/falsification/test_site/home/whatsnew/20131219kouchi'
-    url = 'file:///home/hiro/Desktop/falsification/mal_site/mal_top.html'
     url_autodl = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/members'
+    url = 'http://www.ritsumei.ac.jp/tanq/352217/'
+    url = 'file:///home/hiro/Desktop/falsification/test_site/home/redirect_start.html'
+    url = 'file:///home/hiro/Desktop/falsification/mal_site/mal_top.html'
+    url = 'file:///home/hiro/Desktop/falsification/test_site/home/whatsnew/20131219kouchi.html'
 
-    page = Page(url_autodl, 'test')
+    page = Page(url, 'test')
     re = set_html(page, driver)
-    print(page.html)
+    set_request_url_chrome(page, driver)
     # driver.find_element_by_id('dLoad2').click()
-    for i in range(50):
-        time.sleep(1)
-        print('{i}, '.format(i=i+1), end='', flush=True)
-    print(driver.current_url)
+    # for i in range(50):
+    #     print(driver.current_url)
+    #     time.sleep(1)
+    #     print('{i}, '.format(i=i+1), end='', flush=True)
+
+    # request_urls = set()
+    # receive_urls = set()
+    # i = 0
+    # import json
+    # performance_log = driver.get_log('driver')
+    #
+    # for log in performance_log:
+        # print("{} \t {}".format(log['level'], log['message']))
+        # # logのkeyは 'message' と "timestamp" のみ
+        # log_message = json.loads(log['message'])
+        # # log_messageのkeyは "message" と "webview" のみ(webviewの中身は謎のx16)
+        # message = log_message['message']
+        # print('{} \t {}'.format(message['method'], message['params']))
+        # # messageのkeyは "params" と "method"
+        # if message['method'] == 'Network.requestWillBeSent':
+        #     u = message['params']['request']['url']
+        #     request_urls.add(u)
+        # elif message['method'] == 'Network.responseReceived':
+        #     # print("RECEIVE \t {}".format(message['params']['response']))
+        #     u = message['params']['response']['url']
+        #     receive_urls.add(u)
+
+    # print(len(request_urls))
+    # print('request urls : {}'.format(request_urls))
+    # print(len(receive_urls))
+    # print('receive urls : {}'.format(receive_urls))
+
     quit_driver(driver)
 
 

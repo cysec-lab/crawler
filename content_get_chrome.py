@@ -2,9 +2,10 @@
 
 
 class DriverGetThread(Thread):
-    def __init__(self, options):
+    def __init__(self, options, d):
         super(DriverGetThread, self).__init__()
         self.options = options
+        self.d = d
         self.driver = False
         self.re = False
 
@@ -12,8 +13,10 @@ class DriverGetThread(Thread):
         from selenium import webdriver
         import selenium.common
         try:
-            self.driver = webdriver.Chrome(chrome_options=self.options, executable_path='/usr/local/bin/chromedriver')
-        except selenium.common.exceptions.WebDriverException:
+            self.driver = webdriver.Chrome(chrome_options=self.options, executable_path='/usr/local/bin/chromedriver',
+                                           service_log_path='/home/hiro/Desktop/log.txt', desired_capabilities=self.d)
+        except selenium.common.exceptions.WebDriverException as e:
+            print(e)
             self.driver = False
         except LookupError as e:
             print(e)

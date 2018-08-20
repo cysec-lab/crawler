@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions
 from urllib.parse import urlparse
 from copy import deepcopy
 from content_get_chrome import ChromeGetThread, DriverGetThread
+from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 
 
 # phantomJSを使うためのdriverを返す
@@ -16,12 +17,13 @@ def driver_get(screenshots=False, user_agent=''):
     options.add_argument('--disable-gpu')
     options.add_argument('--no-sandbox')
     # # エラーの許容
-    # options.add_argument('--ignore-certificate-errors')
-    # options.add_argument('--allow-running-insecure-content')
+    options.add_argument('--ignore-certificate-errors')   # 証明書エラーのページを出さない
+    options.add_argument('--allow-running-insecure-content')
     # options.add_argument('--disable-web-security')
     # headlessでは不要そうな機能?
     options.add_argument('--disable-desktop-notifications')
-    options.add_argument("--disable-extensions")
+    options.add_argument('--disable-hang-monitor')
+    options.add_argument('--disable-sync')
     # user agent
     if user_agent:
         options.add_argument('--user-agent=' + user_agent)
@@ -36,16 +38,25 @@ def driver_get(screenshots=False, user_agent=''):
         'download.prompt_for_download': False,   # ダウンロードの時に確認画面を出さない?
     })
 
+    # コンソールログを取得するために必要
+    d = DesiredCapabilities.CHROME
+    d['loggingPrefs'] = {'browser': 'ALL', 'driver': 'ALL'}
+
+    # テスト
+    options.add_argument('--log-level=0')
+    options.add_argument('--allow-file-access-from-files')
+    options.add_extension('/home/hiro/Desktop/NetworkWatcher.crx')
+
     # Chromeのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     try:
-        t = DriverGetThread(options)
+        t = DriverGetThread(options, d)
         # t.daemon = True
         t.start()
         t.join(10)
     except Exception:
         sleep(10)
         try:
-            t = DriverGetThread(options)
+            t = DriverGetThread(options, d)
             # t.daemon = True
             t.start()
             t.join(10)

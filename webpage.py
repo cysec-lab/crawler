@@ -2,7 +2,7 @@ from urllib.parse import urlparse, quote
 from urllib.request import urlopen
 from time import sleep
 from copy import deepcopy
-from content_get import UrlOpenReadThread
+from html_read_thread import UrlOpenReadThread
 
 
 # 一つのURLが持つ情報をまとめたもの
@@ -29,6 +29,7 @@ class Page:
         self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
         self.relay_url = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。phantomjsでhtmlを取得するときに保存。
+        self.download_url = set()  # 自動ダウンロードがされた場合、ここにリンクを保存する
 
     def set_html_and_content_type_urlopen(self, url, time_out):
         # レスポンスのtimeoutを決める(適当)
