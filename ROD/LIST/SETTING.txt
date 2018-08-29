@@ -26,9 +26,9 @@ run_count=0
 
 # MAX_process
 # 各サーバを担当する子プロセスの最大作成数。多すぎると重くなって結果が安定しない(てかフリーズする)。
-# 0は論理プロセッサ数を使用。
+# 0は論理プロセッサ数を使用。負数は論理プロセッサ数から引く。最低１。
 # 数値のみ
-MAX_process=0
+MAX_process=-3
 
 # screenshots
 # 各ページのスクリーンショットを撮るかどうか。スクショによる判別をする場合は必須。
@@ -50,23 +50,20 @@ machine_learning=False
 # TrueかFalseのみ
 screenshots_svc=False
 
-# phantomjs
-# ヘッドレスブラウザであるPhantomJSを使うかどうか。
+# headless_browser
+# ヘッドレスブラウザを使うかどうか。
+# Falseの場合、python標準ライブラリのみのクローリングをする。
 # TrueかFalseのみ
-phantomjs=True
+headless_browser=True
 
 # mecab
 # MeCabで形態素解析をして重要度の高い単語を抽出や文字列検索をするかどうか
 # TrueかFalseのみ
 mecab=True
 
-# mysql
-# mysqlにデータを保存するかどうか
-# 保存されるデータ：各URLごとの、html全文、リンク、content-type、リダイレクト後URL(あれば)、リクエストURL
-mysql=False
-
 # assignOrAchievement
 # MAX_pageで指定した数を達成したか、割り当てたかのどちらの判断基準を使うかどうか。
 # Trueは割り当て、Falseは達成。この2値のみ使用可能。
 # True(割り当て)にした場合、1つの子プロセスに多数が割り当てられ、終了に時間がかかる可能性が出る。
+# 開発用なのでもう使っていない
 assignOrAchievement=False
