@@ -342,8 +342,10 @@ def parser(parse_args_dic):
             data_temp['url'] = page.url
             data_temp['src'] = page.src
             data_temp['file_name'] = 'download_url.csv'
-            data_temp['content'] = page.url + "," + file_id + "," + info["StartTime"] + "," + info["FileName"] + "," + info["Danger"] + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"]) + "," + info["Mime"] + "," + info["URL"]
-            data_temp['label'] = 'URL,id,StartTime,FileName,Danger,FileSize,TotalBytes,Mime,URL'
+            data_temp['content'] = page.url + "," + file_id + "," + info["StartTime"] + "," + info["FileName"] + "," +\
+                                   info["Danger"] + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"]) + "," +\
+                                   info["Mime"] + "," + info["URL"] + "," + info["referrer"]
+            data_temp['label'] = 'URL,id,StartTime,FileName,Danger,FileSize,TotalBytes,Mime,URL,Referrer'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
 

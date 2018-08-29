@@ -45,7 +45,7 @@ class Page:
         # print("{}\n{}\n{}".format(self.url, self.request_url, len(self.request_url)), flush=True)
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
-        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime } それぞれ辞書型
+        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
         download_info = dict()
         for elm in download_tags:
             under = elm["id"].find("_")
