@@ -6,19 +6,21 @@ from copy import deepcopy
 from shutil import copyfile
 
 
-# url_dictの操作を行う。各サーバ毎に生成される。
+# url_dictの操作を行う。各Webサーバ毎に生成される。
+# jsonで保存するため、set集合はlistにしている
 class UrlDict:
     def __init__(self, host):
         self.host = host
-        self.url_dict = dict()       # url : そのURLの情報の辞書
+        self.url_dict = dict()      # url : そのURLの情報の辞書
         self.url_tags = dict()      # url : タグ順番保存
 
     def load_url_dict(self, path=None):
         copy_flag = ''
-        data_dir = '../../../../RAD'
+        rad_dir = '../../../../RAD'
+        rod_dir = '../../../../ROD'
         # url_hashのロード
         if path is None:
-            path = data_dir + '/url_hash_json/' + self.host + '.json'
+            path = rad_dir + '/url_hash_json/' + self.host + '.json'
         else:
             path += self.host + '.json'    # test用
         if os.path.exists(path):
@@ -29,7 +31,7 @@ class UrlDict:
                 except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
                     f.close()
                     # RODから持ってくる
-                    src = '../../../../ROD/url_hash_json/' + self.host + '.json'
+                    src = rod_dir + '/url_hash_json/' + self.host + '.json'
                     if os.path.exists(src):
                         copyfile(src, path)
                         f = open(path, 'r')
@@ -38,23 +40,31 @@ class UrlDict:
                         except json.decoder.JSONDecodeError:   # RODも破損していた場合
                             f.close()
                             # 過去のRODから持ってくる
-                            if os.path.exists('../../../../ROD_history'):
-                                rod_lis = os.listdir('../../../../ROD_history')
-                                latest_rod = sorted(rod_lis, reverse=True,
-                                                    key=lambda dir_name: int(dir_name[dir_name.find('_') + 1:]))[0]
-                                src = '../../../../ROD_history/' + latest_rod + '/url_hash_json/' + self.host + '.json'
-                                if os.path.exists(src):
-                                    copyfile(src, path)
-                                    with open(path, 'r') as f:
-                                        self.url_dict = json.load(f)
-                                    copy_flag += ' url_hash from(' + latest_rod + ').'
+                            if os.path.exists(rod_dir + '_history'):
+                                rod_lis = os.listdir(rod_dir + '_history')
+                                latest_rods = sorted(rod_lis, reverse=True,
+                                                     key=lambda dir_name: int(dir_name[dir_name.find('_') + 1:]))
+                                for latest_rod in latest_rods:
+                                    try:
+                                        src = rod_dir + '_history/' + latest_rod + '/url_hash_json/' + self.host + '.json'
+                                        if os.path.exists(src):
+                                            copyfile(src, path)
+                                            with open(path, 'r') as f:
+                                                self.url_dict = json.load(f)
+                                            copy_flag += ' url_hash from(' + latest_rod + ').'
+                                    except json.decoder.JSONDecodeError:
+                                        continue
+                                    else:
+                                        break
+                                if not self.url_dict:
+                                    copy_flag += ' url_hash has not loaded.'
                         else:
                             f.close()
                             copy_flag = ' url_hash from ROD.'
                 else:
                     f.close()
         # tag_dataのロード
-        path = data_dir + '/tag_data/' + self.host + '.json'
+        path = rad_dir + '/tag_data/' + self.host + '.json'
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
                 f = open(path, 'r')
@@ -63,7 +73,7 @@ class UrlDict:
                 except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
                     f.close()
                     # RODから持ってくる
-                    src = '../../../../ROD/tag_data/' + self.host + '.json'
+                    src = rod_dir + '/tag_data/' + self.host + '.json'
                     if os.path.exists(src):
                         copyfile(src, path)
                         f = open(path, 'r')
@@ -72,14 +82,13 @@ class UrlDict:
                         except json.decoder.JSONDecodeError:  # RODも破損していた場合
                             f.close()
                             # 過去のRODから持ってくる
-                            if os.path.exists('../../../../ROD_history'):
-                                rod_lis = os.listdir('../../../../ROD_history')
+                            if os.path.exists(rod_dir + '_history'):
+                                rod_lis = os.listdir(rod_dir + '_history')
                                 latest_rods = sorted(rod_lis, reverse=True,
                                                      key=lambda dir_name: int(dir_name[dir_name.find('_') + 1:]))
                                 for latest_rod in latest_rods:
                                     try:
-                                        src = '../../../../ROD_history/' + latest_rod + '/tag_data/' + self.host + \
-                                              '.json'
+                                        src = rod_dir + '_history/' + latest_rod + '/tag_data/' + self.host + '.json'
                                         if os.path.exists(src):
                                             copyfile(src, path)
                                             with open(path, 'r') as f:
@@ -87,16 +96,15 @@ class UrlDict:
                                             copy_flag += ' tag_data from(' + latest_rod + ').'
                                     except json.decoder.JSONDecodeError:
                                         continue
-                                    break
+                                    else:
+                                        break
+                                if not self.url_tags:
+                                    copy_flag += ' tag_data has not loaded.'
                         else:
                             f.close()
                             copy_flag += ' tag_data from ROD.'
                 else:
                     f.close()
-        if self.url_dict:
-            copy_flag += ' url_hash is broken.'
-        if self.url_tags:
-            copy_flag += ' tag_data is broken.'
         return copy_flag
 
     def save_url_dict(self):
@@ -126,17 +134,16 @@ class UrlDict:
 
     def add_request_url_to_url_dict(self, page):
         if page.url in self.url_dict:
-            self.url_dict[page.url]['request_url_host'] = deepcopy(page.request_url_host)   # そのページのリクエストURLのホスト名を保存
-            self.url_dict[page.url]['request_url_in_same_server'] = deepcopy(page.request_url_same_server)
+            self.url_dict[page.url]['request_url_host'] = list(deepcopy(page.request_url_host))
+            self.url_dict[page.url]['request_url_same_host'] = list(deepcopy(page.request_url_same_host))
         else:
             return False
         return True
 
     def compare_request_url(self, page):
         if page.url in self.url_dict:
-            if 'request_url_in_same_server' in self.url_dict[page.url]:
-                diff = set(page.request_url_same_server).difference(
-                    set(self.url_dict[page.url]['request_url_in_same_server']))
+            if 'request_url_same_host' in self.url_dict[page.url]:
+                diff = page.request_url_same_server.difference(set(self.url_dict[page.url]['request_url_same_host']))
             else:
                 diff = False
         else:
@@ -160,20 +167,20 @@ class UrlDict:
     # 二つ目はファイルサイズが同じだったかどうか、全て読み込まれているかどうか分からないため(途中切断はなさそうなため不要?)
     def compere_hash(self, page):
         file_length = len(page.html)
-        if file_length == 0:
-            return None, False
-
-        if type(page.html) == str:
+        if file_length:
+            if type(page.html) == str:
+                try:
+                    html_hash = page.html.encode('utf-8')
+                except Exception:
+                    return None, False
+            else:
+                html_hash = page.html
             try:
-                html_hash = page.html.encode('utf-8')
+                sha = sha256(html_hash).hexdigest()
             except Exception:
                 return None, False
         else:
-            html_hash = page.html
-        try:
-            sha = sha256(html_hash).hexdigest()
-        except Exception:
-            return None, False
+            sha = None
 
         today = date.today()
         temp = str(today).split('-')

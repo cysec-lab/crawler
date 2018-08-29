@@ -1,95 +1,18 @@
-from main import crawler_host
 from tf_idf import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
 from check_result.main_cr import del_and_make_achievement
 # from SVC_screenshot import del_0size
 from multiprocessing import Process, set_start_method, get_context
 import os
-import subprocess
 import shutil
 from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
 import sys
 from datetime import datetime
+from sys_command import kill_chrome
 from time import sleep
 
 
 # 実行ディレクトリはcrawler_srcじゃないと、main_cr.pyのmake_achievement()のchdirでバグる?
 # 例： python3 operate_main.py ritsumeikan
-
-
-# 子プロセスを返す
-def return_children(my_pid):
-    try:
-        children = subprocess.check_output(['ps', '--ppid', str(my_pid), '--no-heading', '-o', 'pid'])
-    except subprocess.CalledProcessError:
-        return list()
-    else:
-        child_list = children.decode().replace(' ', '').split('\n')
-        try:
-            child_list.remove('')
-        except ValueError:
-            pass
-        return child_list
-
-
-# meより下の家族プロセスkillする
-def kill_family(me):
-    family = list()
-    family.append(me)
-    i = 0
-    while True:
-        if len(family) == i:
-            break
-        pid_ = family[i]
-        family.extend(return_children(pid_))
-        i += 1
-    family.reverse()
-    print("kill {}'s {}".format(me, family))
-    for kill_pid in family:
-        os.system("kill -9 " + kill_pid)
-        print('kill {}'.format(kill_pid))
-
-
-# ppidのプロセスがupstartなら、そのchrome(driver)は孤児
-# ppidが1だったら、そのchrome(driver)は孤児
-def check_upstart(proc_ppid):
-    if proc_ppid == '1':
-        return True
-    try:
-        ps = subprocess.Popen(['ps', '--no-header', '--pid', proc_ppid], stdout=subprocess.PIPE)
-        awk = subprocess.Popen(['awk', "{print $4}"], stdin=ps.stdout, stdout=subprocess.PIPE)
-        upstart = awk.stdout
-    except subprocess.CalledProcessError:
-        return False
-    else:
-        for upstart_b in upstart:
-            upstart_s = upstart_b.decode().strip()
-            if 'upstart' == upstart_s:
-                return True
-            else:
-                return False
-
-
-def kill_chrome(process):
-    try:
-        # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
-        #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
-        ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE)
-        awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE)
-        chromedriver_list = awk.stdout
-    except subprocess.CalledProcessError:
-        print('No chrome')
-        return 0
-    else:
-        for chromedriver in chromedriver_list:
-            pid_ppid = chromedriver.decode().rstrip().split(' ')
-            print('{} : {}'.format(process, pid_ppid))
-            if check_upstart(pid_ppid[1]):
-                kill_family(pid_ppid[0])
-
-
-# PPIDが1のphantomJSをkillする(クローラが動かしているphantomjsのppidは1以外なので、ppid=1のphantomjsはゾンビ的な)
-def kill_phantomjs():
-    os.system("pkill -KILL -P 1 -f 'phantomjs'")
 
 
 def dealing_after_fact(org_arg):
@@ -169,34 +92,36 @@ def save_rod(org_arg):
 
 
 def main(organization):
+    from main import crawler_host
     # 以下のwhileループ内で
     # このファイル位置のパスを取ってきてchdirする
-    # 実行ディレクトリはこのファイル位置じゃないとバグるかも(全て相対パスだから)
-    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(check_resultディレクトリ)を絶対パスで取得
+    # 実行ディレクトリはこのファイル位置じゃないとバグるかも(ほぼ全て相対パスだから)
+    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(src)を絶対パスで取得
     os.chdir(now_dir)
 
     # 引数として与えられた組織名のディレクトリが存在するか
-    org_path = '../organization/' + organization
-    if not os.path.exists(org_path):
+    organization_path = now_dir[0:now_dir.rfind('/')] + '/organization/' + organization
+    if not os.path.exists(organization_path):
         print('You should check existing ' + organization + ' directory in ../organization/')
         return 0
 
     # 既に実行中ではないか
-    if os.path.exists('../organization/' + organization + '/running.tmp'):
+    if os.path.exists(organization_path + '/running.tmp'):
         print(organization + "'s site is crawled now.")
         return 0
     else:
         # 実行途中ではない場合、ファイルを作って実行中であることを示す
-        f = open('../organization/' + organization + '/running.tmp', 'w', encoding='utf-8')
+        f = open(organization_path + '/running.tmp', 'w', encoding='utf-8')
         start_time = datetime.now().strftime('%Y/%m/%d, %H:%M:%S')
         f.write(start_time)
         f.close()
 
-    if not os.path.exists(org_path + '/result_history'):
-        os.mkdir(org_path + '/result_history')
-    dir_name = str(len(os.listdir(org_path + '/result_history')) + 1)
+    # result_historyディレクトリがなければ作成
+    if not os.path.exists(organization_path + '/result_history'):
+        os.mkdir(organization_path + '/result_history')
+    dir_name = str(len(os.listdir(organization_path + '/result_history')) + 1)
 
-    org_arg = {'result_no': dir_name, 'org_path': org_path}
+    org_arg = {'result_no': dir_name, 'org_path': organization_path}
 
     while True:
         # クローラを実行
@@ -213,8 +138,8 @@ def main(organization):
         # 子プロセスが残る可能性がある?
         # kill_family(os.getpid())
         # kill_phantomjs()  # 特にPhantomJSは念入りに
-        kill_chrome(process='chromedriver')
-        kill_chrome(process='chrome')
+        kill_chrome(process='geckodriver')
+        kill_chrome(process='firefox')
 
         print('save used ROD before overwriting the ROD directory : ', end='')
         save_rod(org_arg)
@@ -234,8 +159,8 @@ def main(organization):
         break
 
     # 実行中であることを示すファイルを削除する
-    if os.path.exists('../organization/' + organization + '/running.tmp'):
-        os.remove('../organization/' + organization + '/running.tmp')
+    if os.path.exists(organization_path + '/running.tmp'):
+        os.remove(organization_path + '/running.tmp')
 
 
 if __name__ == '__main__':

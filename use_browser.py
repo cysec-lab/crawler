@@ -5,17 +5,127 @@ from FirefoxProfile_new import FirefoxProfile
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
+from selenium.webdriver.common.by import By
+from selenium.common.exceptions import TimeoutException
 from urllib.parse import urlparse
 from copy import deepcopy
 from get_web_driver_thread import GetChromeDriverThread, GetFirefoxDriverThread, GetPhantomJSDriverThread
 from html_read_thread import WebDriverGetThread
+import os
+from location import location
+
+
+def stop_watcher_and_get_data(driver, wait, watcher_window, page):
+    try:
+        # watcher.htmlに移動してstopをクリック
+        driver.switch_to.window(watcher_window)
+        wait.until(expected_conditions.visibility_of_element_located((By.ID, "stop")))
+        elm = driver.find_element_by_id("stop")
+        elm.click()
+
+        # contentsの最後の要素がDOMに現れるまで待つ
+        wait.until(expected_conditions.presence_of_element_located((By.ID, "EndOfData")))
+
+        # watcher.htmlをpageのプロパティに保存
+        page.watcher_html = driver.page_source
+
+        # clearContentsをクリック
+        elm = driver.find_element_by_id("clearContents")
+        elm.click()
+        # 最後の要素が消えるまで待つ
+        wait.until(expected_conditions.invisibility_of_element_located((By.ID, "EndOfData")))
+    except Exception as e:
+        print(location() + str(e), flush=True)
+        return False
+    else:
+        return True
+
+
+def start_watcher_and_move_blank(driver, wait, watcher_window, blank_window):
+    try:
+        driver.switch_to.window(watcher_window)
+        wait.until(expected_conditions.visibility_of_element_located((By.ID, "start")))
+        elm = driver.find_element_by_id("start")
+        elm.click()
+        driver.switch_to.window(blank_window)
+        wait.until(lambda d: "Watcher" != driver.title)
+    except Exception as e:
+        print(location() + str(e), flush=True)
+        return False
+    else:
+        return True
+
+
+# ページを読み込むためのabout:blankのページを作る。blankページとwatcherページ以外は閉じる
+# blankページが作れなければFalse
+def create_blank_window(driver, wait, watcher_window):
+    blank_window = False
+    try:
+        driver.switch_to.window(watcher_window)
+        wait.until(expected_conditions.visibility_of_element_located((By.ID, "createBlankTab")))
+        elm = driver.find_element_by_id("createBlankTab")
+        elm.click()
+        for i in range(30):
+            windows = driver.window_handles
+            if len(windows) > 1:
+                for window in windows:
+                    if watcher_window == window:
+                        continue
+                    driver.switch_to.window(window)
+                    if blank_window is False:
+                        if driver.current_url == "about:blank":
+                            blank_window = window
+                    if window != blank_window:
+                        driver.close()
+                if blank_window:
+                    break
+            sleep(0.1)
+    except Exception as e:
+        print(location() + str(e), flush=True)
+        return False
+    else:
+        return blank_window
+
+
+# driverを取得した直後に呼ぶ。
+def get_watcher_window(driver, wait):
+    watcher_window = False
+    try:
+        wait.until(expected_conditions.visibility_of_all_elements_located((By.ID, "button")))
+        wait.until(expected_conditions.presence_of_element_located((By.ID, "DoneAttachJS")))
+    except TimeoutException as e:
+        print(location() + str(e), flush=True)
+        return False
+    except Exception as e:
+        print(location() + str(e), flush=True)
+        return False
+    try:
+        windows = driver.window_handles
+        for window in windows:
+            driver.switch_to.window(window)
+            title = driver.title
+            print("windowId : {}, title : {}".format(window, title), flush=True)
+            if title == "Watcher":
+                watcher_window = window
+            else:
+                print("close : {}".format(window), flush=True)
+                driver.close()
+    except Exception as e:
+        print(location() + str(e), flush=True)   # 最悪、エラーが起きてもwatcher_windowがわかればよい
+    try:
+        driver.switch_to.window(watcher_window)
+    except Exception as e:
+        print(location() + str(e), flush=True)
+        return False
+    else:
+        return watcher_window
 
 
 # Firefoxを使うためのdriverを返す
-# ファイルダウンロード可能?
+# ファイルダウンロード可能
 # RequestURLの取得可能(アドオンを用いて)
 # ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
-def get_fox_driver(screenshots=False, user_agent=''):
+def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     # headless FireFoxの設定
     options = FirefoxOptions()
     fpro = FirefoxProfile()
@@ -28,32 +138,39 @@ def get_fox_driver(screenshots=False, user_agent=''):
         fpro.set_preference('general.useragent.override', user_agent)
 
     # アドオン使えるように
-    fpro.add_extension(extension='/home/hiro/Desktop/GetRequest.xpi')
+    src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
+    extension_dir = src_dir + '/extensions'
+    fpro.add_extension(extension=extension_dir + '/RequestCapture.xpi')
 
     # ファイルダウンロードできるように
-    fpro.set_preference('browser.download.folderList', 2)  # 2:ユーザ定義フォルダ
-    fpro.set_preference('browser.download.dir', '../DownloadByFF')
+    if org_path:
+        fpro.set_preference('browser.download.folderList', 2)  # 0:デスクトップ　1:Downloadフォルダ 　2:ユーザ定義フォルダ
+        fpro.set_preference('browser.download.dir', org_path + '/Download')  # なければ作られる
+    else:
+        fpro.set_preference('browser.download.folderList', 0)
     fpro.set_preference('browser.download.manager.showWhenStarting', False)  # ダウンロードマネージャ起動しないように
     fpro.set_preference('browser.helpApps.alwaysAsk.force', False)
     fpro.set_preference('browser.download.manager.alertOnEXEOpen', False)
     fpro.set_preference('browser.download.manager.closeWhenDone', True)
-    fpro.set_preference('browser.helperApps.neverAsk.saveToDisk',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    mime_list = ['application/x-gzip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                 'text/html', 'text/plain ', 'application/octet-stream']
+    fpro.set_preference('browser.helperApps.neverAsk.saveToDisk', ','.join(mime_list))
 
     # コンソールログを取得するために必要(ffではすべてのログが見れない)
-    d = DesiredCapabilities.FIREFOX
-    d['loggingPrefs'] = {'browser': 'ALL', 'driver': 'ALL', 'client': 'ALL', 'performance': 'ALL', 'server': 'ALL'}
+    # d = DesiredCapabilities.FIREFOX
+    # d['loggingPrefs'] = {'browser': 'ALL', 'driver': 'ALL', 'client': 'ALL', 'performance': 'ALL', 'server': 'ALL'}
 
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
+    # メモリが足りなかったらドライバーの取得でフリーズする可能性大
     try:
-        t = GetFirefoxDriverThread(options=options, d=d, ffprofile=fpro)
+        t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
         # t.daemon = True
         t.start()
         t.join(10)
     except Exception:
         sleep(10)
         try:
-            t = GetFirefoxDriverThread(options=options, d=d, ffprofile=fpro)
+            t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
             # t.daemon = True
             t.start()
             t.join(10)
@@ -67,7 +184,156 @@ def get_fox_driver(screenshots=False, user_agent=''):
     driver = t.driver
     driver.set_window_size(1280, 1024)
 
-    return driver
+    # 拡張機能のwindowIDを取得し、それ以外のwindowを閉じる
+    # geckodriver 0.21.0 から HTTP/1.1 になった？ Keep-Aliveの設定が5秒のせいで、5秒間driverにコマンドがいかなかったらPipeが壊れる.
+    # 0.20.1 にダウングレードすると Broken Pipe エラーは出なくなった
+    wait = WebDriverWait(driver, 5)
+    watcher_window = get_watcher_window(driver, wait)
+    if watcher_window is False:
+        return False
+
+    return {"driver": driver, "wait": wait, "watcher_window": watcher_window}
+
+
+def set_html(page, driver):
+    try:
+        t = WebDriverGetThread(driver, page.url)
+        t.start()
+        t.join(timeout=60)   # 60秒のロード待機時間
+    except Exception:
+        # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
+        sleep(10)
+        try:
+            t = WebDriverGetThread(driver, page.url)
+            t.start()
+            t.join(timeout=60)  # 60秒のロード待機時間
+        except Exception as e:
+            return ['makingWebDriverGetThreadError', page.url + '\n' + str(e)]
+    re = True
+    if t.re is False:
+        re = 'timeout'
+    elif t.re is not True:
+        return ['Error_WebDriver', page.url + '\n' + str(t.re)]
+
+    # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
+    sleep(1)
+    # ただの1秒待機をやめて、0.1秒待機を10回繰り返すことに
+    # chromeでは以下のようにしても、間のリダイレクトを検出することはできなかった。
+    # リダイレクトはするが、driver.current_urlに逐一反映していかないみたい。
+    """
+    というかここのdriver.current_urlでエラー落ちするのでこのままでは使わないほうがよい
+    以下の２つのエラー
+    http.client.CannotSendRequest: Request-sent
+    selenium.common.exceptions.UnexpectedAlertPresentException: Alert Text: None
+    selenium.common.exceptions.TimeoutException: Message: timeout
+    
+    relay_url = list()
+    current_url = driver.current_url
+    print(current_url)
+    for i in range(10):
+        latest_url = driver.current_url
+        print('0.{}'.format(i), latest_url)
+        if current_url != latest_url:  # 0.1秒ごとにURLを監視
+            relay_url.append(latest_url)
+            current_url = latest_url
+        sleep(0.1)
+    if set(relay_url).difference({driver.current_url}):  # 最後のURL以外に中継URLがあれば、保存
+        page.relay_url = deepcopy(relay_url)
+    """
+    try:
+        page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
+        page.html = driver.page_source   # htmlソースを更新
+    except Exception as e:
+        return ['infoGetError_browser', page.url + '\n' + str(e)]
+    else:
+        page.hostName = urlparse(page.url).netloc   # ホスト名を更新
+        page.scheme = urlparse(page.url).scheme     # スキームも更新
+        if page.html:
+            return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
+        else:
+            return ['infoGetError_browser', page.url + '\n']
+
+
+# hidden属性が入っているとtextが取れないので、soupでスクレイピングすることにした
+def set_request_url_firefox(page, driver):
+    request_urls = set()
+    download_info = dict()
+
+    # RequestURLを取得
+    try:
+        request_elements = driver.find_elements_by_class_name("Request_ByExtension")
+    except Exception as e:
+        print(location() + str(e))
+    else:
+        for elm in request_elements:
+            request_urls.add(elm.text)
+        page.request_url = deepcopy(request_urls)
+
+    # DownloadURLを取得
+    # 入る内容 :
+    # download_info["数字"]["downloadURL"] = URL
+    # download_info["数字"]["downloadFinalURL"] = URL
+    try:
+        download_elements = driver.find_elements_by_class_name("Download_ByExtension")
+    except Exception as e:
+        print(location() + str(e))
+    else:
+        for elm in download_elements:
+            under = elm.id.find("_")
+            key = elm.id[under+1:]
+            if key not in download_info:
+                download_info[key] = dict()
+            download_info[key][elm.id[0:under]] = elm.text
+        page.download_url = deepcopy(download_info)
+
+    # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
+    for url in page.request_url:
+        url_domain = urlparse(url).netloc
+        if page.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
+            page.request_url_same_server.add(url)
+        if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
+            url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+        page.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
+
+
+# watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、そのURLをリストで返す
+def get_window_url(driver, watcher_id, base_id):
+    url_list = list()
+    try:
+        windows = driver.window_handles
+        for window in windows:
+            if (window == watcher_id) or (window == base_id):
+                continue
+            driver.switch_to.window(window)
+            url_list.append(driver.current_url)
+            driver.close()
+        driver.switch_to.window(watcher_id)
+    except Exception as e:
+        print(location() + str(e))
+        raise
+    return url_list
+
+
+def take_screenshots(path, driver):
+    import os
+    try:
+        img_name = str(len(os.listdir(path)))
+        driver.save_screenshot(path + '/' + img_name + '.png')
+    except Exception as e:
+        print(location() + str(e))
+    else:
+        return True
+
+    return False
+
+
+def quit_driver(driver):
+    try:
+        driver.quit()
+    except Exception:
+        return False
+    else:
+        return True
 
 
 # Chromeを使うためのdriverを返す
@@ -192,68 +458,6 @@ def get_phantom_driver(screenshots, user_agent='*'):
     return driver
 
 
-def set_html(page, driver):
-    try:
-        t = WebDriverGetThread(driver, page.url)
-        t.start()
-        t.join(timeout=60)   # 60秒のロード待機時間
-    except Exception:
-        # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
-        sleep(10)
-        try:
-            t = WebDriverGetThread(driver, page.url)
-            t.start()
-            t.join(timeout=60)  # 60秒のロード待機時間
-        except Exception as e:
-            return ['makingWebDriverGetThreadError', page.url + '\n' + str(e)]
-
-    re = True
-    if t.re is False:
-        re = 'timeout'
-    elif t.re is not True:
-        return ['Error_WebDriver', page.url + '\n' + str(t.re)]
-
-    # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
-    sleep(1)  # ただの1秒待機をやめて、0.1秒待機を10回繰り返すことに
-    # chromeでは以下のようにしても、間のリダイレクトを検出することはできなかった。
-    # リダイレクトはするが、driver.current_urlに逐一反映していかないみたい。
-    """
-    というかここのdriver.current_urlでエラー落ちするのでこのままでは使わないほうがよい
-    以下の２つのエラー
-    http.client.CannotSendRequest: Request-sent
-    selenium.common.exceptions.UnexpectedAlertPresentException: Alert Text: None
-    selenium.common.exceptions.TimeoutException: Message: timeout
-    
-    relay_url = list()
-    current_url = driver.current_url
-    print(current_url)
-    for i in range(10):
-        latest_url = driver.current_url
-        print('0.{}'.format(i), latest_url)
-        if current_url != latest_url:  # 0.1秒ごとにURLを監視
-            relay_url.append(latest_url)
-            current_url = latest_url
-        sleep(0.1)
-    if set(relay_url).difference({driver.current_url}):  # 最後のURL以外に中継URLがあれば、保存
-        page.relay_url = deepcopy(relay_url)
-    """
-
-    try:
-        wait = WebDriverWait(driver, 5)
-        wait.until(expected_conditions.presence_of_all_elements_located)   # ロード完了まで最大5秒待つ(たぶんロードは完了しているのでいらない)
-        page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
-        page.html = driver.page_source   # htmlソースを更新
-    except Exception as e:
-        return ['infoGetError_chrome', page.url + '\n' + str(e)]
-    else:
-        page.hostName = urlparse(page.url).netloc   # ホスト名を更新
-        page.scheme = urlparse(page.url).scheme     # スキームも更新
-        if page.html:
-            return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
-        else:
-            return ['infoGetError_chrome', page.url + '\n']
-
-
 def set_request_url_chrome(page, driver):
     import json
     request_urls = set()
@@ -267,9 +471,7 @@ def set_request_url_chrome(page, driver):
     for i, log in enumerate(performance_log):
         try:
             log_message = json.loads(log['message'])  # logのkeyは 'message' と "timestamp"
-            message = log_message['message']       # log_messageのkeyは "message" と "webview" (webviewの中身は謎の16進数?)
-            # with open('/home/hiro/Desktop/lo.txt', 'a') as f:
-            #     f.write("{} \t {}\n".format(message['method'], message['params']))
+            message = log_message['message']       # log_messageのkeyは "message" と "webview" (webviewの中身は謎の英数字)
             if message['method'] == 'Network.requestWillBeSent':  # messageのkeyは "params" と "method"
                 u = message['params']['request']['url']
                 request_urls.add(u)
@@ -283,7 +485,6 @@ def set_request_url_chrome(page, driver):
                 # iframeによるdocxファイルのダウンロードエラーは検知。それ以外の方法でのDLはログに残っていなかった
                 if message['params']['errorText'] == 'net::ERR_ABORTED':  # このエラーはファイルダウンロードエラー?
                     searched_id = message['params']['requestId']
-                    print(searched_id)
                     for log2 in reversed(performance_log[0:i]):   # エラーログから遡って、同じrequestIDのrequestかresponseを探す
                         message2 = json.loads(log2['message'])['message']
                         print(message2)
@@ -352,66 +553,7 @@ def set_request_url_phantom(page, driver):
     return re
 
 
-def get_window_url(driver):
-    url_list = list()
-    try:
-        windows = driver.window_handles
-        for window in windows[1:]:
-            driver.switch_to.window(window)
-            url_list.append(driver.current_url)
-            driver.close()
-        driver.switch_to.window(windows[0])
-    except:
-        raise
-    return url_list
-
-
-def take_screenshots(path, driver):
-    import os
-    try:
-        img_name = str(len(os.listdir(path)))
-        driver.save_screenshot(path + '/' + img_name + '.png')
-    except Exception as e:
-        print(e)
-    else:
-        return True
-
-    return False
-
-
-def quit_driver(driver):
-    try:
-        driver.quit()
-    except Exception:
-        return False
-    else:
-        return True
-
 """
-def set_content_type(self, driver):
-    try:
-        har = driver.get_log('har')
-    except Exception as e:
-        wa_file('../../driverGetLogError.txt', self.url + '\n' + str(e))
-        self.content_type = ''
-    else:
-        message = har[0]['message']
-        while True:
-            header_start = message.find('"headers":[')
-            if header_start == -1:
-                self.content_type = ''
-                break
-            message = message[header_start:]
-            header_end = message.find(']')
-            header = message[0:header_end]
-            start_point = header.find('"name":"Content-Type","value":"')
-            if not (start_point == -1):
-                start_point += 31
-                end_point = header[start_point:].find('"')
-                self.content_type = header[start_point: start_point + end_point]
-                break
-            message = message[header_end:]
-            
 
 def click_a_tags(driver, q_send, url_ini):
     try:

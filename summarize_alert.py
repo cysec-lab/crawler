@@ -30,7 +30,7 @@ def summarize_alert_main(recv_q, send_q, nth):
     while True:
         if not data_list:
             event.clear()   # data_listが空になると同時にreceiveで'end'がappendされたらデッドロックなる？
-            event.wait()    # data_listが空(if文の中に入る) -> append, set -> clear -> wait
+            event.wait()    # data_listが空(if文の中に入る) -> receive_alert()の中でsetされると、wait()が終わる
 
         temp = data_list.popleft()
         if temp == 'end':

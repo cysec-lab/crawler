@@ -3,11 +3,12 @@ from urllib.request import urlopen
 from time import sleep
 from copy import deepcopy
 from html_read_thread import UrlOpenReadThread
+from json import loads
 
 
 # 一つのURLが持つ情報をまとめたもの
 # メソッドは自分のプロパティを設定するもの(PhantomJSを使わずに)
-# PhantomJSを使うメソッドは別ファイルに関数としてまとめている
+# ブラウザを使うメソッドは別ファイルに関数としてまとめている
 class Page:
     def __init__(self, url, src):
         self.url_initial = url         # 親プロセスから送られてきたURL
@@ -17,19 +18,54 @@ class Page:
         self.content_length = None     # ファイルサイズ。urlopen時にヘッダから取得
         self.encoding = 'utf-8'        # 文字コード。urlopen時のヘッダから取得(使っていない
         self.html_urlopen = None       # urlopenで取得したHTMLソースコードのバイト列(使っていない
-        self.url = url                 # current_url。urlopen、phantomsJSで接続した後にそれぞれ更新
-        self.html = None               # HTMLソースコード。urlopen、phantomsJSで接続した後にそれぞれ更新
-        self.hostName = None           # urlopen、phantomsJSで接続した後にそれぞれ更新
+        self.url = url                 # current_url。urlopen、ブラウザで接続した後にそれぞれ更新
+        self.html = None               # HTMLソースコード。urlopen、ブラウザで接続した後にそれぞれ更新
+        self.hostName = None           # urlopen、ブラウザで接続した後にそれぞれ更新
         self.scheme = None             # 上と同じ
         self.links = set()             # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
         self.normalized_links = set()  # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
-        self.request_url = list()              # このページをロードするために行ったリクエストのURLのリスト。PhantomJSのログから
-        self.request_url_host = list()         # 上のURLからホスト名だけ抜き出したもの
-        self.request_url_same_server = list()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
+        self.request_url = set()              # このページをロードするために行ったリクエストのURLの集合。
+        self.request_url_host = set()         # 上のURLからホスト名だけ抜き出したもの
+        self.request_url_same_host = set()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
+        self.download_info = dict()  # 自動ダウンロードがされた場合、ここに情報を保存する
         self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
-        self.relay_url = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。phantomjsでhtmlを取得するときに保存。
-        self.download_url = set()  # 自動ダウンロードがされた場合、ここにリンクを保存する
+        self.relay_url = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。ブラウザでhtmlを取得するときに保存。
+        self.watcher_html = None
+
+    # 拡張機能により追記したDOM要素を除き、別の変数に格納する
+    # 専用HTMLに情報を載せることにした
+    def extracting_extension_data(self, soup):
+        # classがRequestとDownloadの要素を集める
+        request_tags = soup.find_all('p', attrs={'class': 'Request_ByExtension'})
+        download_tags = soup.find_all('p', attrs={'class': 'Download_ByExtension'})
+
+        # requestURLをリストにし、soupの中身から削除する
+        self.request_url = [request_tag.get_text() for request_tag in request_tags]
+        # print("{}\n{}\n{}".format(self.url, self.request_url, len(self.request_url)), flush=True)
+
+        # downloadのURLを辞書のリストにし、soupの中身から削除する
+        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime } それぞれ辞書型
+        download_info = dict()
+        for elm in download_tags:
+            under = elm["id"].find("_")
+            key = elm["id"][under+1:]
+            if key not in download_info:
+                download_info[key] = dict()
+            if elm["id"][0:under] == "JsonData":
+                download_info[key].update(loads(elm.get_text()))
+            else:
+                download_info[key][elm["id"][0:under]] = elm.get_text()
+        self.download_info = deepcopy(download_info)
+
+        # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
+        for url in self.request_url:
+            url_domain = urlparse(url).netloc
+            if self.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
+                self.request_url_same_host.add(url)
+            if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
+                url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+            self.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
 
     def set_html_and_content_type_urlopen(self, url, time_out):
         # レスポンスのtimeoutを決める(適当)

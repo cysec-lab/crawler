@@ -55,7 +55,8 @@ class CheckSearchedUrlThread(Thread):
                         o = socket.getaddrinfo(host_name, 80, 0, 0, proto=socket.IPPROTO_TCP)
                     except Exception as e:
                         # wa_file('get_addinfo_e.csv', check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n')
-                        crawling_flag = check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n'
+                        # crawling_flag = check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n'
+                        crawling_flag = "unknown"
                     else:
                         ip_address = o[0][4][0]
                         for ip in self.IPAddress_list:

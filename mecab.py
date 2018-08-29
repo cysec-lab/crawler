@@ -62,25 +62,6 @@ def get_tf_dict_by_mecab(soup):
     hack_level = detect_hack(text)
 
     # mecabで形態素解析
-    """
-    # windows.ver
-    mecab_u_dic = ''
-    file = os.listdir('../../../../ROD/mecab-dic/')
-    for dic in file:
-        if dic.endswith('.dic'):
-            mecab_u_dic += '../../../../ROD/mecab-dic/' + dic + ','
-    mecab_u_dic = mecab_u_dic.rstrip(',')
-    # mecabで形態素解析
-    try:
-        mecab = MeCab.Tagger('-Ochasen -u ' + mecab_u_dic)
-    except RuntimeError:
-        time.sleep(1)
-        try:
-            mecab = MeCab.Tagger('-Ochasen -u ' + mecab_u_dic)
-        except RuntimeError:
-            return hack_level, False
-    # linux.ver
-    """
     try:
         mecab = MeCab.Tagger('-Ochasen')  # -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
     except RuntimeError:
@@ -137,11 +118,11 @@ def get_top10_tfidf(tfidf_dict, nth):
         tmp.append(tfidf_list[i])
         top10.append(tfidf_list[i][0])
 
-    with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
-        try:
+    try:
+        with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
             f.write(str(tmp)[1:-1])
-        except Exception:
-            pass
+    except Exception:
+        pass
 
     return top10
 

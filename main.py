@@ -12,10 +12,10 @@ from datetime import date
 # from machine_learning_tag import machine_learning_main
 from clamd import clamd_main
 from shutil import copytree, copyfile
-from use_mysql import get_connector, make_tables
 import dbm
 import pickle
 from summarize_alert import summarize_alert_main
+from sys_command import kill_chrome
 
 
 necessary_list_dict = dict()   # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
@@ -52,8 +52,8 @@ cant_del_child_set = set()   # 子プロセスがsave中なので、del_child()�
 # 設定ファイルの読み込み
 def get_setting_dict(path):
     setting = dict()
-    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'machine_learning', 'phantomjs', 'mecab',
-                          'mysql', 'screenshots_svc']
+    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'machine_learning', 'headless_browser',
+                          'mecab', 'screenshots_svc']
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
     for line in setting_line:
@@ -106,7 +106,9 @@ def get_setting_dict(path):
                     setting['MAX_process'] = None
                 else:
                     if value == 0:
-                        setting['MAX_process'] = cpu_count() - 1
+                        setting['MAX_process'] = cpu_count()
+                    elif value < 0:
+                        setting['MAX_process'] = cpu_count() + value if cpu_count() + value > 0 else 1
                     else:
                         setting['MAX_process'] = value
             elif variable in bool_variable_list:   # True or Falseの2値しか取らない設定はまとめている
@@ -330,7 +332,7 @@ def print_progress(run_time_pp, current_achievement):
         if remaining_num == 0:
             count += 1    # URL待機リストが空のホスト数をカウント
         else:
-            None
+            pass
             # if host in hostName_process:
             #     print('main : ' + host + "'s remaining is " + str(remaining_num) +
             #           '\t active = ' + str(hostName_process[host].is_alive()))
@@ -404,13 +406,13 @@ def end():
 def make_url_list(now_time):
     del_list = list()
     for thread in thread_set:
-        if type(thread.result) is not int:     # そのスレッドが最後まで実行されたか
+        if type(thread.result) is not int:     # resultの初期値はtime.time()。 上書きされているとチェックが終わったということ
             if thread.result is True:
                 url_db[thread.url_tuple[0]] = 'True,' + str(nth)               # 立命館URL
                 url_list.append((thread.url_tuple[0], thread.url_tuple[1]))    # URLのタプルを検索リストに追加
             elif thread.result == 'black':
                 url_db[thread.url_tuple[0]] = 'Black,' + str(nth)  # 対象URLだがblackリストでフィルタリングされたURL
-            else:   # (Falseか'unknown')
+            else:   # (False or unknown)
                 url_db[thread.url_tuple[0]] = 'False,' + str(nth)
                 # タプルの長さが3の場合はリダイレクト後のURL
                 if len(thread.url_tuple) == 3:
@@ -464,7 +466,7 @@ def thread_start(url_tuple):
 
 
 # クローリングプロセスを生成する、既に一度作ったことがある場合は、プロセスだけ作る
-def make_process(host_name, setting_dict, conn, n):
+def make_process(host_name, setting_dict, n, org_path):
     if host_name not in hostName_process:   # まだ作られていない場合、プロセス作成
         # 子プロセスと通信するキューを作成
         child_sendq = Queue()
@@ -488,14 +490,11 @@ def make_process(host_name, setting_dict, conn, n):
             args_dic['screenshots_svc_q'] = screenshots_svc_q['recv']
         else:
             args_dic['screenshots_svc_q'] = False
-        if setting_dict['mysql']:
-            args_dic['mysql'] = {'conn': conn, 'n': str(n)}
-        else:
-            args_dic['mysql'] = False
         args_dic['nth'] = str(n)
-        args_dic['phantomjs'] = setting_dict['phantomjs']
+        args_dic['headless_browser'] = setting_dict['headless_browser']
         args_dic['mecab'] = setting_dict['mecab']
         args_dic['screenshots'] = setting_dict['screenshots']
+        args_dic['org_path'] = org_path
         hostName_args[host_name] = args_dic    # クローラプロセスの引数は、サーバ毎に毎回同じなので保存しておく
 
         # プロセス作成
@@ -638,6 +637,7 @@ def receive_and_send(not_send=False):
 
 
 # url_tupleのリンクURLをクローリングするための辞書に登録する
+# hostName_remaining[host] = {URL_list: [], update_flag: bool}
 def allocate_to_host_remaining(url_tuple):
     host_name = urlparse(url_tuple[0]).netloc
     if host_name not in hostName_remaining:
@@ -650,7 +650,6 @@ def allocate_to_host_remaining(url_tuple):
 # hostName_processの整理(死んでいるプロセスのインスタンスを削除、queueの削除)
 # 子プロセスが終了しない、子のメインループも回ってなく、どこかで止まっている場合、親から強制終了させる
 # 基準は、待機キューに同じデータが300秒以上入っているかどうか　としていたが、update_flagを作ったのでそれで判断
-# 通信キューにURLを溜めないようにしたので変更
 def del_child(now):
     del_process_list = list()
     for host_name, process_dc in hostName_process.items():
@@ -665,6 +664,8 @@ def del_child(now):
                     del hostName_time[host_name]
                     print('main : terminate ' + str(process_dc) + ' because it was alive over 300 second')
                     wa_file('notice.txt', str(process_dc) + ' is deleted.\n')
+                    kill_chrome(process="geckodriver")
+                    kill_chrome(process='firefox')
                 else:   # 300秒経っていない場合、remainingリストからURLが取り出されていたら、時間を更新
                     if hostName_remaining[host_name]['update_flag']:
                         hostName_time[host_name] = now
@@ -703,8 +704,8 @@ def crawler_host(org_arg=None):
     if org_arg is None:
         os._exit(255)
 
-    nth = org_arg['result_no']       # result_noは、resultディレクトリの数(何回目のクローリングか)
-    org_path = org_arg['org_path']   # org_pathは、組織ごとのディレクトリパス。設定ファイルや結果を保存するところ
+    nth = org_arg['result_no']      # result_historyの中のresultの数+1(何回目のクローリングか)
+    org_path = org_arg['org_path']  # 組織ごとのディレクトリパス。設定ファイルや結果を保存するところ ".../organization/組織名"
 
     global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, hostName_time, fewest_host
     global waiting_list, url_list, assignment_url_set, thread_set
@@ -723,7 +724,6 @@ def crawler_host(org_arg=None):
     save_time = setting_dict['SAVE_time']
     run_count = setting_dict['run_count']
     screenshots = setting_dict['screenshots']
-    mysql = setting_dict['mysql']
 
     # 一回目の実行の場合
     if run_count == 0:
@@ -760,16 +760,6 @@ def crawler_host(org_arg=None):
         os.chdir(org_path + '/result')
     except FileNotFoundError:
         print('You should check the run_count in setting file.')   # もういらないと思うけど...
-
-    # databaseに必要なテーブルを作成、コネクターとカーソルを取得
-    # nthは何度目のクローリングかなので、あったほうが情報を保存するときにいいかなって(mysqlはもう使ってないけど)
-    if mysql:
-        conn = get_connector()
-        if not make_tables(conn=conn, n=nth):
-            print('cannot make tables')
-            os._exit(255)
-    else:
-        conn = None
 
     # メインループを回すループ(save_timeが設定されていなければ、途中保存しないため一周しかしない。一周で全て周り切る)
     while True:
@@ -863,12 +853,15 @@ def crawler_host(org_arg=None):
                 allocate_to_host_remaining(url_tuple=url_tuple)
 
             # プロセス数が上限に達していなければ、プロセスを生成する
+            # falsification.cysecは最優先で周る
             host = 'falsification.cysec.cs.ritsumei.ac.jp'
-            if host in hostName_process:
-                if not hostName_process[host].is_alive():
-                    make_process(host, setting_dict, conn, nth)
-            else:
-                make_process(host, setting_dict, conn, nth)
+            if host in hostName_remaining:
+                if hostName_remaining[host]['URL_list']:
+                    if host in hostName_process:
+                        if not hostName_process[host].is_alive():
+                            make_process(host, setting_dict, nth, org_path)
+                    else:
+                        make_process(host, setting_dict, nth, org_path)
 
             num_of_process = max_process - get_alive_child_num()
             if num_of_process > 0:
@@ -879,7 +872,7 @@ def crawler_host(org_arg=None):
                     # 一番待機URLが少ないプロセスを1つ作る
                     fewest = tmp_list[-1][0]
                     if fewest_host is None:
-                        make_process(fewest, setting_dict, conn, nth)
+                        make_process(fewest, setting_dict, nth, org_path)
                         num_of_process -= 1
                         fewest_host = fewest
                     else:
@@ -887,7 +880,7 @@ def crawler_host(org_arg=None):
                             if hostName_process[fewest_host].is_alive():
                                 pass
                             else:
-                                make_process(fewest, setting_dict, conn, nth)
+                                make_process(fewest, setting_dict, nth, org_path)
                                 num_of_process -= 1
                                 fewest_host = fewest
                     # 待機URLが多い順に作る
@@ -899,7 +892,7 @@ def crawler_host(org_arg=None):
                             if host in hostName_process:
                                 if hostName_process[host].is_alive():
                                     continue   # プロセスが活動中なら、次に多いホストを
-                            make_process(host, setting_dict, conn, nth)
+                            make_process(host, setting_dict, nth, org_path)
                             num_of_process -= 1
 
         # メインループを抜け、結果表示＆保存

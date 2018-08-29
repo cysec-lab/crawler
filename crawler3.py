@@ -4,7 +4,8 @@ from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
 from inspection_page import title_inspection, invisible
 from inspection_file import check_content_type
-from use_browser import get_chrome_driver, set_html, set_request_url_chrome, get_window_url, take_screenshots, quit_driver
+from use_browser import get_fox_driver, set_html, get_window_url, take_screenshots, quit_driver, create_blank_window
+from use_browser import start_watcher_and_move_blank, stop_watcher_and_get_data
 import os
 from time import sleep, time
 from copy import deepcopy
@@ -14,16 +15,15 @@ import threading
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
-from use_mysql import execute_query, get_id_from_url, register_url
 from robotparser_new_kai import RobotFileParser
 import urllib.error
+from location import location
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 threadId_set = set()         # パーサーのスレッドid集合
 threadId_time = dict()       # スレッドid : 実行時間
 dir_name = ''                # このプロセスの作業ディレクトリ
 f_name = ''                  # このプロセスのホスト名をファイル名として使えるように変換したもの
-# semaphore = threading.Semaphore(3)     # ダウンロードチェックするためのスレッド数を制限
 word_idf_dict = dict()                 # 前回にこのサーバに出てきた単語とそのidf値
 word_df_dict = dict()                  # 今回、このサーバに出てきた単語と出現ページ数
 word_df_lock = threading.Lock()        # word_df_dict更新の際のlock
@@ -31,6 +31,7 @@ num_of_achievement = 0       # 実際に取得してパースしたファイル�
 url_cache = set()            # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
 urlDict = None              # サーバ毎のurl_dictの辞書を扱うクラス
 request_url_host_set = set()       # 各ページを構成するためにGETしたurlのネットワーク名の集合
+request_url_host_set_lock = threading.Lock()
 request_url_host_set_pre = set()   # 今までのクローリング時のやつ
 iframe_src_set = set()      # iframeのsrc先urlの集合
 iframe_src_set_pre = set()  # 今までのクローリング時のやつ
@@ -154,7 +155,7 @@ def init(host, screenshots):
     urlDict = UrlDict(f_name)
     copy_flag = urlDict.load_url_dict()
     if copy_flag:
-        wa_file('../../notice.txt', host + ' : copy' + copy_flag + ' because JSON data is broken.\n')
+        wa_file('../../notice.txt', host + ' : ' + copy_flag + '\n')
 
 
 # クローリングして得たページの情報を外部ファイルに記録
@@ -190,7 +191,7 @@ def save_result(alert_process_q):
             else:
                 text += i + '\n'
         # 偽サイトの結果ファイルはresultディレに書かない
-        if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
+        if 'falsification.cysec.' in dir_name:
             wa_file(file_name, text)
         else:
             wa_file('../../' + file_name, text)
@@ -295,41 +296,56 @@ def get_tags_from_html(soup, page, machine_learning_q):
             machine_learning_q.put(dic)
 
 
-def make_query(mysql, url, table_type, contents):
-    conn = mysql['conn']
-    n = mysql['n']
-    query_list = list()
-    value_list = list()
-    tables = table_type + '_url_' + n
-
-    # urlからidを取得する
-    url_id = get_id_from_url(conn, url, n)
-    if url_id is None:
-        register_url(conn, url, n)
-    elif url_id is False:
-        return query_list, value_list
-
-    for string in contents:
-        query = 'INSERT INTO ' + tables + ' (url_id, ' + table_type + ') VALUES (%s, %s)'
-        query_list.append(query)
-        value = [str(url_id), string]
-        value.append(value)
-
-    return query_list, value_list
-
-
 def parser(parse_args_dic):
-    global word_df_dict
+    global word_df_dict, request_url_host_set
     host = parse_args_dic['host']
     page = parse_args_dic['page']
     q_send = parse_args_dic['q_send']
     file_type = parse_args_dic['file_type']
     machine_learning_q = parse_args_dic['machine_learning_q']
     use_mecab = parse_args_dic['use_mecab']
-    mysql = parse_args_dic['mysql']
     screenshots_svc_q = parse_args_dic['screenshots_svc_q']
     img_name = parse_args_dic['img_name']
     nth = parse_args_dic['nth']
+
+    # Watcher.htmlをスクレイピングするためのsoup
+    try:
+        soup = BeautifulSoup(page.watcher_html, 'lxml')
+    except Exception:
+        soup = BeautifulSoup(page.watcher_html, 'html.parser')
+    page.extracting_extension_data(soup)
+    # requestURLが取れていたら、過去のデータと比較
+    if page.request_url:
+        with request_url_host_set_lock:
+            request_url_host_set = request_url_host_set.union(page.request_url_host)
+        if request_url_host_set_pre:
+            diff = page.request_url_host.difference(request_url_host_set_pre)
+            if diff:
+                str_t = ''
+                for t in diff:
+                    if t in host:  # 自分自身のサーバへのリクエストURLの場合(自身が新しく見つかったサーバの場合、多数のURLが出力されるため)
+                        continue   # tは一番左のホスト名が抜かれているので t in host じゃないといけない(詳しくはexcept_extension_info()
+                    str_t += ',' + t
+                if str_t != '':
+                    data_temp = dict()
+                    data_temp['url'] = page.url
+                    data_temp['src'] = page.src
+                    data_temp['file_name'] = 'new_request_url.csv'
+                    data_temp['content'] = page.url + str_t
+                    data_temp['label'] = 'URL,request_url'
+                    with wfta_lock:
+                        write_file_to_alertdir.append(data_temp)
+    # downloadURLがあれば出力
+    if page.download_info:
+        for file_id, info in page.download_info.items():
+            data_temp = dict()
+            data_temp['url'] = page.url
+            data_temp['src'] = page.src
+            data_temp['file_name'] = 'download_url.csv'
+            data_temp['content'] = page.url + "," + file_id + "," + info["StartTime"] + "," + info["FileName"] + "," + info["Danger"] + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"]) + "," + info["Mime"] + "," + info["URL"]
+            data_temp['label'] = 'URL,id,StartTime,FileName,Danger,FileSize,TotalBytes,Mime,URL'
+            with wfta_lock:
+                write_file_to_alertdir.append(data_temp)
 
     # スクレイピングするためのsoup
     try:
@@ -344,11 +360,6 @@ def parser(parse_args_dic):
     make_link(page, soup, page_type=file_type)  # ページに貼られているリンクを取得
     send_data = make_send_links_data(page)      # 親に送るURLリストを作成
     send_to_parent(q_send, send_data)           # 親にURLリストを送信
-
-    # リンク集をデータベースに保存
-    if mysql is not False:
-        query_list, value_list = make_query(mysql, url=page.url, table_type='link', contents=page.normalized_links)
-        execute_query(conn=mysql['conn'], query_list=query_list, value_list=value_list)
 
     # 検査
     # 前回とのハッシュ値を比較
@@ -566,7 +577,8 @@ def parser(parse_args_dic):
         threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
         del threadId_time[threading.get_ident()]
     except KeyError as e:
-        print(host + ' : ' + 'thread was deleted. : ' + page.url + ' : ' + str(e))
+        # print(location() + host + ' : ' + 'thread was deleted. : ' + str(e), flush=True)
+        pass
 
 
 # 180秒以上続いているスレッドのリストを返す
@@ -587,12 +599,13 @@ def del_thread(host):
         sleep(5)
         del_thread_list = check_thread_time(int(time()))
         for th in del_thread_list:
-            print(host + ' del: ' + str(th))
+            # print(host + ' del: ' + str(th), flush=True)
             try:
                 threadId_set.remove(th)   # 消去処理がパーススレッドとほぼ同時に行われるとなるかも？(多分ない)
                 del threadId_time[th]
             except KeyError as e:
-                print(host + ' : del_thread-function KeyError :' + str(e))
+                # print(location() + host + ' : ' + ' del_thread-function KeyError :' + str(e), flush=True)
+                pass
 
 
 # 5秒間受信キューに何も入っていなければFalseを返す
@@ -601,7 +614,7 @@ def receive(recv_r):
     try:
         temp_r = recv_r.get(block=True, timeout=5)
     except Exception as e:
-        print(f_name + ' : ' + str(e), flush=True)
+        # print(location() + f_name + ' : ' + str(e), flush=True)
         return False
     return temp_r
 
@@ -631,9 +644,12 @@ def check_redirect(page, host):
     return True
 
 
-# 接続間隔はurlopen接続後、phantomJS接続後、それぞれ接続する関数内で１秒待機
+# 接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
 def crawler_main(args_dic):
-    global num_of_achievement, request_url_host_set
+    global num_of_achievement
+
+    page = None
+    error_break = False
 
     # 引数取り出し
     host = args_dic['host_name']
@@ -643,20 +659,25 @@ def crawler_main(args_dic):
     screenshots = args_dic['screenshots']
     machine_learning_q = args_dic['machine_learning_q']
     screenshots_svc_q = args_dic['screenshots_svc_q']
-    phantomjs = args_dic['phantomjs']
+    use_browser = args_dic['headless_browser']
     use_mecab = args_dic['mecab']
-    mysql = args_dic['mysql']
     alert_process_q = args_dic['alert_process_q']
     nth = args_dic['nth']
+    org_path = args_dic['org_path']
 
-    # PhantomJSを使うdriverを取得、一つのプロセスは一つのPhantomJSを使う
-    if phantomjs:
-        driver = get_chrome_driver(screenshots, user_agent=user_agent)
-        if driver is False:
+    # import sys
+    # f = open(host + ".log", "a")
+    # sys.stdout = f
+
+    # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
+    if use_browser:
+        driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+        if driver_info is False:
             print(host + ' : cannot make browser process', flush=True)
             os._exit(0)
-
-    page = None
+        driver = driver_info["driver"]
+        watcher_window = driver_info["watcher_window"]
+        wait = driver_info["wait"]
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -671,9 +692,9 @@ def crawler_main(args_dic):
         # 動いていることを確認
         # pid = os.getpid()
         # if page is None:
-        #     print(host + '(' + str(pid) + ') : main loop is running...')
+        #     print(host + '(' + str(pid) + ') : main loop is running...', flush=True)
         # else:
-        #     print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE')
+        #     print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE', flush=True)
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -690,15 +711,15 @@ def crawler_main(args_dic):
         send_to_parent(sendq=q_send, data='plz')   # 親プロセスにURLを要求
         search_tuple = receive(q_recv)             # 5秒間何も届かなければFalse
         if search_tuple is False:
-            #print(host + " : couldn't get data from main process.")
+            # print(host + " : couldn't get data from main process.", flush=True)
             while threadId_set:   # 実行中のパーススレッドがあるならば
-                #print(host + ' : wait 3sec because the queue is empty.')
+                # print(host + ' : wait 3sec because the queue is empty.', flush=True)
                 sleep(3)
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
-            #print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+            # print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!', flush=True)
             while threadId_set:
-                #print(host + ' : wait 3sec for finishing parse thread')
+                # print(host + ' : wait 3sec for finishing parse thread', flush=True)
                 sleep(3)
             # 3秒待機後、もう一度要求する
             sleep(3)
@@ -710,7 +731,7 @@ def crawler_main(args_dic):
                 # ２回目もFalse or nothingだったらメインを抜ける
                 break
         else:    # それ以外(URLのタプル)
-            #print(host + ' : ' + search_tuple[0] + ' : RECEIVE')
+            # print(host + ' : ' + search_tuple[0] + ' : RECEIVE', flush=True)
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
@@ -756,32 +777,56 @@ def crawler_main(args_dic):
 
         if type(file_type) is str:   # ウェブページの場合
             img_name = False
-            if phantomjs:
-                # phantomJSでURLに再接続。関数内で接続後１秒待機
+            if use_browser:
+                # ヘッドレスブラウザでURLに再接続。関数内で接続後１秒待機
+                # robots.txtを参照
                 if robots is not None:
                     if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                         continue
-                phantom_result = set_html(page=page, driver=driver)
-                if type(phantom_result) == list:     # 接続エラーの場合はlistが返る
-                    update_write_file_dict('host', phantom_result[0] + '.txt', content=phantom_result[1])
-                    quit_driver(driver)    # headless browser終了して
-                    driver = get_chrome_driver(screenshots, user_agent=user_agent)  # 再取得
-                    if driver is False:
-                        os._exit(0)
+                # ページをロードするためのabout:blankのwindowを作る
+                blank_window = create_blank_window(driver=driver, wait=wait, watcher_window=watcher_window)
+                if blank_window is False:
+                    error_break = True
+                    break
+                # watchingを開始し、ブランクページに移動する(URLに接続する準備完了)
+                re = start_watcher_and_move_blank(driver=driver, wait=wait, watcher_window=watcher_window,
+                                                  blank_window=blank_window)
+                if re is False:
+                    error_break = True
+                    break
+                # ブラウザからHTML文などの情報取得
+                browser_result = set_html(page=page, driver=driver)
+                if type(browser_result) == list:     # 接続エラーの場合はlistが返る
+                    update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
+                    # headless browser終了して作りなおしておく。
+                    quit_driver(driver)
+                    driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+                    if driver_info is False:
+                        error_break = True
+                        break
                     else:
-                        phantom_result = set_html(page=page, driver=driver)   # もっかい接続を試してみる
-                        if type(phantom_result) == list:                # ２回目もエラーなら次のURLへ(諦める)
-                            continue
+                        driver = driver_info["driver"]
+                        watcher_window = driver_info["watcher_window"]
+                        wait = driver_info["wait"]
+                    # 次のURLへ
+                    continue
+
+                # watchingを停止して、page.watcher_htmlにデータを保存
+                re = stop_watcher_and_get_data(driver=driver, wait=wait, watcher_window=watcher_window, page=page)
+                if re is False:
+                    error_break = True
+                    break
+
                 # リダイレクトが1秒以内に複数回行われていた場合
-                if page.relay_url:
-                    data_temp = dict()
-                    data_temp['url'] = page.url
-                    data_temp['src'] = page.src
-                    data_temp['file_name'] = 'relay_url_by_redirect.csv'
-                    data_temp['label'] = 'URL,src,relay_url'
-                    data_temp['content'] = page.url_initial + ',' + page.src + ',' + str(page.relay_url)[1:-1]
-                    with wfta_lock:
-                        write_file_to_alertdir.append(data_temp)
+                # if page.relay_url:
+                #     data_temp = dict()
+                #     data_temp['url'] = page.url
+                #     data_temp['src'] = page.src
+                #     data_temp['file_name'] = 'relay_url_by_redirect.csv'
+                #     data_temp['label'] = 'URL,src,relay_url'
+                #     data_temp['content'] = page.url_initial + ',' + page.src + ',' + str(page.relay_url)[1:-1]
+                #     with wfta_lock:
+                #         write_file_to_alertdir.append(data_temp)
 
                 # about:blankなら以降の処理はしない
                 if page.url == "about:blank":
@@ -806,48 +851,44 @@ def crawler_main(args_dic):
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
                     send_to_parent(sendq=q_send, data=(page.url, "redirect"))
 
-                # phantomJSでurlが変わっている可能性があるため再度チェック
+                # ブラウザでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
                     continue
 
                 # ページをロードする際にリクエストしたURLをpageオブジェ内に保存
-                try:
-                    set_request_url_chrome(page, driver)    # testにはGET、POSTメソッド以外のメソッドがあれば入る
-                except Exception:
-                    test = False
-                if page.request_url:
-                    request_url_host_set = request_url_host_set.union(set(page.request_url_host))
-                    if request_url_host_set_pre:
-                        diff = set(page.request_url_host).difference(request_url_host_set_pre)
-                        if diff:
-                            str_t = ''
-                            for t in diff:
-                                if t in host:   # 自分自身のサーバへのリクエストURLの場合
-                                    continue
-                                str_t += ',' + t
-                            if str_t != '':
-                                data_temp = dict()
-                                data_temp['url'] = page.url
-                                data_temp['src'] = page.src
-                                data_temp['file_name'] = 'new_request_url.csv'
-                                data_temp['content'] = page.url + str_t
-                                data_temp['label'] = 'URL,request_url'
-                                with wfta_lock:
-                                    write_file_to_alertdir.append(data_temp)
-                # if test:
-                #     wa_file('../../method_except_forGETPOST.csv', page.url + ',' + page.src + ',' + str(test) + '\n')
+                # set_request_url_firefox(page, driver)
+                # if page.request_url:
+                #     request_url_host_set = request_url_host_set.union(set(page.request_url_host))
+                #     if request_url_host_set_pre:
+                #         diff = set(page.request_url_host).difference(request_url_host_set_pre)
+                #         if diff:
+                #             str_t = ''
+                #             for t in diff:
+                #                 if t in host:   # 自分自身のサーバへのリクエストURLの場合
+                #                     continue  # tは一番左のホスト名が抜かれているので t in host じゃないといけない(詳しくはexcept_extension_info()
+                #                 str_t += ',' + t
+                #             if str_t != '':
+                #                 data_temp = dict()
+                #                 data_temp['url'] = page.url
+                #                 data_temp['src'] = page.src
+                #                 data_temp['file_name'] = 'new_request_url.csv'
+                #                 data_temp['content'] = page.url + str_t
+                #                 data_temp['label'] = 'URL,request_url'
+                #                 with wfta_lock:
+                #                     write_file_to_alertdir.append(data_temp)
 
                 # スクショが欲しければ撮る
                 if screenshots:
-                    if phantom_result is True:
+                    if browser_result is True:
                         scsho_path = '../../../../RAD/screenshots/' + dir_name
                         take_screenshots(scsho_path, driver)
 
                 # 別窓やタブが開いた場合、そのURLを取得
                 try:
-                    window_url_list = get_window_url(driver)
-                except Exception as e:
-                    wa_file('../../window_url_get_error.txt', data=page.url + '\n' + str(e) + '\n')
+                    window_url_list = get_window_url(driver, watcher_id=watcher_window, base_id=blank_window)
+                except Exception as e1:
+                    update_write_file_dict('result', 'window_url_get_error.txt',
+                                           content=location() + '\n' + page.url + '\n' + str(e1))
                 else:
                     if window_url_list:   # URLがあった場合、リンクURLを渡すときと同じ形にして親プロセスに送信
                         url_tuple_list = list()
@@ -855,10 +896,10 @@ def crawler_main(args_dic):
                             url_tuple_list.append((url_temp, page.url))   # 作成タプルはリンクリストを作る時と同じ(URL, src)
                         send_to_parent(q_send, {'type': 'new_window_url', 'url_tuple_list': url_tuple_list})
 
-            # スレッドを作成してパース開始(phantomJSで開いたページのHTMLソースをスクレイピングする)
+            # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
                                       'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab, 'nth': nth,
-                                      'mysql': mysql, 'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name}
+                                      'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             threadId_set.add(t.ident)  # スレッド集合に追加
@@ -892,20 +933,20 @@ def crawler_main(args_dic):
         # 検索結果数をインクリメント
         num_of_achievement += 1
         if not (num_of_achievement % 100):  # 100URLをクローリングごとに保存して終了
-            print(host + ' : achievement have reached ' + str(num_of_achievement))
+            # print(host + ' : achievement have reached ' + str(num_of_achievement), flush=True)
             while threadId_set:
-                print(host + ' : wait 3sec for thread end.')
+                # print(host + ' : wait 3sec for thread end.', flush=True)
                 sleep(3)
             break
 
-    if page is not None:
-        url_cache.add(page.url_initial)  # 親から送られてきたURL
-        url_cache.add(page.url_urlopen)  # urlopenで得たURL
-        url_cache.add(page.url)          # 最終的にパースしたURL
+    # error_break=True はヘッドレスブラウザ関連のエラーにより、break
+    if not error_break:
+        if page is not None:
+            url_cache.add(page.url_initial)  # 親から送られてきたURL
+            url_cache.add(page.url_urlopen)  # urlopenで得たURL
+            url_cache.add(page.url)          # 最終的にパースしたURL
 
-    # q_send.put('save')
     save_result(alert_process_q)
-    # q_send.put('done_save')
-    print(host + ' saved.')
+    print(host + ' saved.', flush=True)
     quit_driver(driver)  # headless browser終了して
     os._exit(0)

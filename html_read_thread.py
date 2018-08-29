@@ -31,8 +31,12 @@ class WebDriverGetThread(Thread):
         self.re = False
 
     def run(self):
+        import time
         try:
+            # 回線が悪い時やファイルサイズが大きい時、ここで時間がかかる
+            # s = time.time()
             self.web_driver.get(self.url)
+            # print("web_driver get time : {}".format(time.time() - s))
         except Exception as e:
             self.re = e
         else:
