@@ -1,6 +1,6 @@
 from collections import deque
 from threading import Thread, Event
-from file_rw import wa_file
+from file_rw import w_file
 from os import path, mkdir
 
 data_list = deque()
@@ -49,10 +49,10 @@ def summarize_alert_main(recv_q, send_q, nth):
         # label と content　を直うち
         if file_name.endswith('.csv'):
             if not path.exists(alert_dir_path + '/' + file_name):
-                wa_file(alert_dir_path + '/' + file_name, label + '\n')
-            wa_file(alert_dir_path + '/' + file_name, content + '\n')
+                w_file(alert_dir_path + '/' + file_name, label + '\n', mode="a")
+            w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
         else:
-            wa_file(alert_dir_path + '/' + file_name, content + '\n')
+            w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
 
     print('summarize_alert : ended')
 

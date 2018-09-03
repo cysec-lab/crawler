@@ -4,6 +4,7 @@ from time import sleep
 from copy import deepcopy
 from html_read_thread import UrlOpenReadThread
 from json import loads
+from location import location
 
 
 # 一つのURLが持つ情報をまとめたもの
@@ -37,27 +38,13 @@ class Page:
     # 専用HTMLに情報を載せることにした
     def extracting_extension_data(self, soup):
         # classがRequestとDownloadの要素を集める
-        request_tags = soup.find_all('p', attrs={'class': 'Request_ByExtension'})
-        download_tags = soup.find_all('p', attrs={'class': 'Download_ByExtension'})
+        request_elements = soup.find_all('p', attrs={'class': 'Request'})
+        download_elements = soup.find_all('p', attrs={'class': 'Download'})
+        history_elements = soup.find_all('p', attrs={'class': 'History'})
 
         # requestURLをリストにし、soupの中身から削除する
-        self.request_url = [request_tag.get_text() for request_tag in request_tags]
+        self.request_url = set([request_element.get_text() for request_element in request_elements])
         # print("{}\n{}\n{}".format(self.url, self.request_url, len(self.request_url)), flush=True)
-
-        # downloadのURLを辞書のリストにし、soupの中身から削除する
-        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
-        download_info = dict()
-        for elm in download_tags:
-            under = elm["id"].find("_")
-            key = elm["id"][under+1:]
-            if key not in download_info:
-                download_info[key] = dict()
-            if elm["id"][0:under] == "JsonData":
-                download_info[key].update(loads(elm.get_text()))
-            else:
-                download_info[key][elm["id"][0:under]] = elm.get_text()
-        self.download_info = deepcopy(download_info)
-
         # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
         for url in self.request_url:
             url_domain = urlparse(url).netloc
@@ -66,6 +53,30 @@ class Page:
             if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
                 url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
             self.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
+
+        # downloadのURLを辞書のリストにし、soupの中身から削除する
+        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
+        download_info = dict()
+        for elm in download_elements:
+            under = elm["id"].find("_")
+            key = elm["id"][under+1:]
+            if key not in download_info:
+                download_info[key] = dict()
+            if elm["id"][0:under] == "JsonData":
+                try:
+                    json_data = loads(elm.get_text())
+                except Exception as e:
+                    print(location() + str(e), flush=True)
+                    download_info[key].update({"FileSize": "None", "TotalBytes": "None", "StartTime": "None",
+                                               "Danger": "None"})  # 要素を追加しておかないと、参照時にKeyエラーが出る
+                else:
+                    download_info[key].update(json_data)
+            else:
+                download_info[key][elm["id"][0:under]] = elm.get_text()
+        self.download_info = deepcopy(download_info)
+
+        # URL遷移が行われた場合、記録する
+        self.relay_url = [history_element.get_text() for history_element in history_elements]
 
     def set_html_and_content_type_urlopen(self, url, time_out):
         # レスポンスのtimeoutを決める(適当)

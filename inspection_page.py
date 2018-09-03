@@ -201,3 +201,4 @@ def script_inspection(soup):
     result['suspicious_script_name'] = script_name_inspection(script_tags)   # script名の検査
     result['script_src_list'] = get_src_of_tag(script_tags)    # scriptのsrcURLを取得
     return result
+

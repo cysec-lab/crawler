@@ -3,7 +3,7 @@ from urllib.parse import urlparse
 from collections import deque
 from time import time, sleep
 from crawler3 import crawler_main
-from file_rw import wa_file, r_file, w_json, r_json
+from file_rw import r_file, w_json, r_json, w_file
 from check_searched_url import CheckSearchedUrlThread
 from threading import active_count
 import os
@@ -440,13 +440,13 @@ def make_url_list(now_time):
                         data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                         summarize_alert_q['recv'].put(data_temp)
                     # 一応すべて外部出力
-                    wa_file('after_redirect.csv',
-                            thread.url_tuple[0] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[2] + '\n')
+                    w_file('after_redirect.csv',
+                           thread.url_tuple[0] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[2] + '\n', mode="a")
             del_list.append(thread)
             thread.lock.release()    # スレッドは最後にロックをして待っているのでリリースして終わらせる
         else:
             if now_time - thread.result > 300:    # 300秒経っても終わらない場合は削除
-                wa_file('cant_done_check_thread.csv', thread.url_tuple[0] + ',' + thread.url_tuple[1] + '\n')
+                w_file('cant_done_check_thread.csv', thread.url_tuple[0] + ',' + thread.url_tuple[1] + '\n', mode="a")
                 del_list.append(thread)
                 thread.lock.release()   # スレッドは最初にロックをしているのでリリースしておく
     for thread in del_list:
@@ -613,8 +613,8 @@ def receive_and_send(not_send=False):
                             data_temp['content'] = url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0]
                             data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                             summarize_alert_q['recv'].put(data_temp)
-                        wa_file('after_redirect.csv',
-                                url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0] + '\n')
+                        w_file('after_redirect.csv',
+                               url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0] + '\n', mode="a")
 
             # waitingリストに追加。既に割り当て済みの場合は追加しない。
             url_tuple_list = received_data['url_tuple_list']
@@ -663,7 +663,7 @@ def del_child(now):
                     process_dc.terminate()  # 300秒ずっと待機URLリストが変化なかったので終了させる
                     del hostName_time[host_name]
                     print('main : terminate ' + str(process_dc) + ' because it was alive over 300 second')
-                    wa_file('notice.txt', str(process_dc) + ' is deleted.\n')
+                    w_file('notice.txt', str(process_dc) + ' is deleted.\n', mode="a")
                     kill_chrome(process="geckodriver")
                     kill_chrome(process='firefox')
                 else:   # 300秒経っていない場合、remainingリストからURLが取り出されていたら、時間を更新
@@ -906,13 +906,13 @@ def crawler_host(org_arg=None):
         run_time = int(time()) - current_start_time
         print('run time = ' + str(run_time))
         print('remaining = ' + str(remaining))
-        wa_file('result.txt', 'assignment_url_set = ' + str(len(assignment_url_set)) + '\n' +
-                'current achievement = ' + str(current_achievement) + '\n' +
-                'all achievement = ' + str(all_achievement) + '\n' +
-                'number of child-process = ' + str(len(hostName_achievement)) + '\n' +
-                'run time = ' + str(run_time) + '\n' +
-                'remaining = ' + str(remaining) + '\n' +
-                'date = ' + str(date.today()) + '\n')
+        w_file('result.txt', 'assignment_url_set = ' + str(len(assignment_url_set)) + '\n' +
+               'current achievement = ' + str(current_achievement) + '\n' +
+               'all achievement = ' + str(all_achievement) + '\n' +
+               'number of child-process = ' + str(len(hostName_achievement)) + '\n' +
+               'run time = ' + str(run_time) + '\n' +
+               'remaining = ' + str(remaining) + '\n' +
+               'date = ' + str(date.today()) + '\n', mode="a")
 
         print('main : save...')   # 途中結果を保存する
         copytree('../../RAD', 'TEMP')

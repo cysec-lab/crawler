@@ -104,11 +104,11 @@ def get_watcher_window(driver, wait):
         for window in windows:
             driver.switch_to.window(window)
             title = driver.title
-            print("windowId : {}, title : {}".format(window, title), flush=True)
+            # print("windowId : {}, title : {}".format(window, title), flush=True)
             if title == "Watcher":
                 watcher_window = window
             else:
-                print("close : {}".format(window), flush=True)
+                # print("close : {}".format(window), flush=True)
                 driver.close()
     except Exception as e:
         print(location() + str(e), flush=True)   # 最悪、エラーが起きてもwatcher_windowがわかればよい
@@ -140,7 +140,7 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     # アドオン使えるように
     src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
     extension_dir = src_dir + '/extensions'
-    fpro.add_extension(extension=extension_dir + '/RequestCapture.xpi')
+    fpro.add_extension(extension=extension_dir + '/CrawlerExtension.xpi')
 
     # ファイルダウンロードできるように
     if org_path:
@@ -152,8 +152,19 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     fpro.set_preference('browser.helpApps.alwaysAsk.force', False)
     fpro.set_preference('browser.download.manager.alertOnEXEOpen', False)
     fpro.set_preference('browser.download.manager.closeWhenDone', True)
-    mime_list = ['application/x-gzip', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                 'text/html', 'text/plain ', 'application/octet-stream']
+    # ダウンロード可能なMimeタイプの設定
+    import csv
+    mime_list = list()
+    mime_file_dir = src_dir + '/files/mime'
+    for csv_file in os.listdir(mime_file_dir):
+        try:
+            with open(mime_file_dir + "/" + csv_file) as f:
+                csv_reader = csv.DictReader(f)
+                for row in csv_reader:
+                    if row["Template"]:
+                        mime_list.append(row["Template"])
+        except csv.Error as e:
+            print(location() + str(e), flush=True)
     fpro.set_preference('browser.helperApps.neverAsk.saveToDisk', ','.join(mime_list))
 
     # コンソールログを取得するために必要(ffではすべてのログが見れない)
@@ -186,7 +197,7 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
 
     # 拡張機能のwindowIDを取得し、それ以外のwindowを閉じる
     # geckodriver 0.21.0 から HTTP/1.1 になった？ Keep-Aliveの設定が5秒のせいで、5秒間driverにコマンドがいかなかったらPipeが壊れる.
-    # 0.20.1 にダウングレードすると Broken Pipe エラーは出なくなった
+    # 0.20.1 にダウングレードするか、seleniumを最新にアップグレードすると、 Broken Pipe エラーは出なくなる。
     wait = WebDriverWait(driver, 5)
     watcher_window = get_watcher_window(driver, wait)
     if watcher_window is False:
@@ -217,29 +228,7 @@ def set_html(page, driver):
 
     # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
     sleep(1)
-    # ただの1秒待機をやめて、0.1秒待機を10回繰り返すことに
-    # chromeでは以下のようにしても、間のリダイレクトを検出することはできなかった。
-    # リダイレクトはするが、driver.current_urlに逐一反映していかないみたい。
-    """
-    というかここのdriver.current_urlでエラー落ちするのでこのままでは使わないほうがよい
-    以下の２つのエラー
-    http.client.CannotSendRequest: Request-sent
-    selenium.common.exceptions.UnexpectedAlertPresentException: Alert Text: None
-    selenium.common.exceptions.TimeoutException: Message: timeout
-    
-    relay_url = list()
-    current_url = driver.current_url
-    print(current_url)
-    for i in range(10):
-        latest_url = driver.current_url
-        print('0.{}'.format(i), latest_url)
-        if current_url != latest_url:  # 0.1秒ごとにURLを監視
-            relay_url.append(latest_url)
-            current_url = latest_url
-        sleep(0.1)
-    if set(relay_url).difference({driver.current_url}):  # 最後のURL以外に中継URLがあれば、保存
-        page.relay_url = deepcopy(relay_url)
-    """
+
     try:
         page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = driver.page_source   # htmlソースを更新
@@ -252,48 +241,6 @@ def set_html(page, driver):
             return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
         else:
             return ['infoGetError_browser', page.url + '\n']
-
-
-# hidden属性が入っているとtextが取れないので、soupでスクレイピングすることにした
-def set_request_url_firefox(page, driver):
-    request_urls = set()
-    download_info = dict()
-
-    # RequestURLを取得
-    try:
-        request_elements = driver.find_elements_by_class_name("Request_ByExtension")
-    except Exception as e:
-        print(location() + str(e))
-    else:
-        for elm in request_elements:
-            request_urls.add(elm.text)
-        page.request_url = deepcopy(request_urls)
-
-    # DownloadURLを取得
-    # 入る内容 :
-    # download_info["数字"]["downloadURL"] = URL
-    # download_info["数字"]["downloadFinalURL"] = URL
-    try:
-        download_elements = driver.find_elements_by_class_name("Download_ByExtension")
-    except Exception as e:
-        print(location() + str(e))
-    else:
-        for elm in download_elements:
-            under = elm.id.find("_")
-            key = elm.id[under+1:]
-            if key not in download_info:
-                download_info[key] = dict()
-            download_info[key][elm.id[0:under]] = elm.text
-        page.download_url = deepcopy(download_info)
-
-    # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-    for url in page.request_url:
-        url_domain = urlparse(url).netloc
-        if page.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
-            page.request_url_same_server.add(url)
-        if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
-            url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-        page.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
 
 
 # watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、そのURLをリストで返す
@@ -315,7 +262,6 @@ def get_window_url(driver, watcher_id, base_id):
 
 
 def take_screenshots(path, driver):
-    import os
     try:
         img_name = str(len(os.listdir(path)))
         driver.save_screenshot(path + '/' + img_name + '.png')

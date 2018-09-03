@@ -14,6 +14,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException
+from location import location
 
 
 def fun(num, url_2):
@@ -64,10 +65,15 @@ def fun(num, url_2):
     print("extract data time = {}".format(time.time() - s))
     print(page.request_url)
     print(len(page.request_url))
-    print(page.download_info)
-    print(type(page.download_info["1"]["TotalBytes"]))
-    print(type(page.download_info["1"]["FileSize"]))
+    for i in page.request_url:
+        if "from" in i:
+            print(i)
 
+    if page.download_info:
+        for i, v in page.download_info.items():
+            print(v)
+
+    print("Quit driver")
     quit_driver(driver)
 
 
@@ -82,23 +88,37 @@ def main():
     url = 'file:///home/hiro/Desktop/falsification/test_site/home/whatsnew/20131219kouchi.html'
     url = 'http://www.ritsumei.ac.jp/'
     url_kouchi = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/whatsnew/20131219kouchi'
+
+    url = "http://www.slp.is.ritsumei.ac.jp/publications-jis.html"
+
     p1 = Process(target=fun, args=('1', url_autodl,))
-
-    url = "https://www.amazon.co.jp/RAZER-RZ01-02330100-R3A1-Razer-Basilisk-%E6%9C%89%E7%B7%9A%E3%82%B2%E3%83%BC%E3%83%9F%E3%83%B3%E3%82%B0%E3%83%9E%E3%82%A6%E3%82%B9%E3%80%90%E6%97%A5%E6%9C%AC%E6%AD%A3%E8%A6%8F%E4%BB%A3%E7%90%86%E5%BA%97%E4%BF%9D%E8%A8%BC%E5%93%81%E3%80%91RZ01-02330100-R3A1/dp/B0779P36CZ?pf_rd_m=AN1VRQENFRJN5&pf_rd_p=34099e8e-4cbf-4001-b107-e3dc96868f55&pf_rd_r=165b99b3-dc0a-4b70-a343-c94686624398&pd_rd_wg=UhleS&pf_rd_s=desktop-gateway&pf_rd_t=40701&pd_rd_w=lsLz5&pf_rd_i=desktop-gateway&pd_rd_r=165b99b3-dc0a-4b70-a343-c94686624398&ref_=pd_gw_qpp"
-
     # p2 = Process(target=fun, args=('2', url,))
-    # p3 = Process(target=fun, args=('3', url,))
-    # url = "https://qiita.com/Shitimi_613/items/254730d6dff96f6459ca"
-    # p4 = Process(target=fun, args=('4', url,))
     p1.start()  # スタート
     # p2.start()  # スタート
-    # p3.start()
-    # p4.start()
+
+
+def pp():
+    import csv
+    src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
+    mime_list = list()
+    mime_file_dir = src_dir + '/files/mime'
+    for csv_file in os.listdir(mime_file_dir):
+        try:
+            with open(mime_file_dir + "/" + csv_file) as f:
+                csv_reader = csv.DictReader(f)
+                for row in csv_reader:
+                    if row["Template"]:
+                        mime_list.append(row["Template"])
+        except csv.Error as e:
+            print(location() + str(e), flush=True)
+    for i in mime_list:
+        if "application/vnd.openxmlformats-officedocument.wordprocessingml.document" == i:
+            print(i)
 
 
 if __name__ == '__main__':
     main()
-
+    # pp()
     # driver.find_element_by_id('dLoad2').click()
     # for i in range(50):
     #     print(driver.current_url)

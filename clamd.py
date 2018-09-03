@@ -3,9 +3,8 @@ import os
 from time import sleep
 from os import listdir
 from threading import Thread
-from subprocess import Popen
 from collections import deque
-from file_rw import wa_file
+from file_rw import w_file
 
 end = False          # メインプロセスから'end'が送られてくると終了
 data_list = deque()   # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
@@ -68,33 +67,24 @@ def clamd_main(recvq, sendq):
             clamd_error.append(url + '\n' + str(e))
         else:
             if result is not None:
-                wa_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n')
+                w_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n', mode="a")
                 if not os.path.exists('../clamd_files'):
                     os.mkdir('../clamd_files')
-                wa_file('../clamd_files/b_' + str(len(listdir('../clamd_files'))+1) + '.clam', url + '\n' + str(byte))
+                w_file('../clamd_files/b_' + str(len(listdir('../clamd_files'))+1) + '.clam', url + '\n' + str(byte),
+                       mode="a")
             print('clamd : ' + url + ' have scanned.')
         if len(clamd_error) > 100:
             text = ''
             for i in clamd_error:
                 text += i + '\n'
-            wa_file('clamd_error.txt', text)
+            w_file('clamd_error.txt', text, mode="a")
             clamd_error.clear()
 
     text = ''
     for i in clamd_error:
         text += i + '\n'
-    wa_file('clamd_error.txt', text)
+    w_file('clamd_error.txt', text, mode="a")
     clamd_error.clear()
-
-    """
-    # clamdにシャットダウンシグナル送信
-    try:
-        cd.shutdown()
-    except pyclamd.ConnectionError as e:
-        print(e)
-    while p.poll() is None:   # Noneの間は生きている
-        sleep(3)
-    """
     print('clamd : ended')
 
     sendq.put('end')   # 親にendを知らせる

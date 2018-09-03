@@ -143,7 +143,7 @@ class UrlDict:
     def compare_request_url(self, page):
         if page.url in self.url_dict:
             if 'request_url_same_host' in self.url_dict[page.url]:
-                diff = page.request_url_same_server.difference(set(self.url_dict[page.url]['request_url_same_host']))
+                diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
             else:
                 diff = False
         else:

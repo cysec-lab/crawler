@@ -1,9 +1,9 @@
 import json
 
 
-def w_file(name, data):
+def w_file(file_name, data, mode="w"):
     try:
-        f = open(name, 'w', encoding='utf-8')
+        f = open(file_name, mode=mode, encoding='utf-8')
         f.write(data)
         f.close()
     except:
@@ -12,29 +12,7 @@ def w_file(name, data):
         except:
             pass
         try:
-            f = open(name, 'w', encoding='shift-jis')
-            f.write(data)
-            f.close()
-        except:
-            try:
-                f.close()
-            except:
-                pass
-            raise
-
-
-def wa_file(name, data):
-    try:
-        f = open(name, 'a', encoding='utf-8')
-        f.write(data)
-        f.close()
-    except:
-        try:
-            f.close()
-        except:
-            pass
-        try:
-            f = open(name, 'a', encoding='shift-jis')
+            f = open(file_name, mode=mode, encoding='shift-jis')
             f.write(data)
             f.close()
         except:

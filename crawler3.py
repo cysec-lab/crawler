@@ -1,4 +1,4 @@
-﻿from file_rw import w_file, r_file, wa_file
+﻿from file_rw import w_file, r_file
 from webpage import Page
 from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
@@ -31,18 +31,17 @@ num_of_achievement = 0       # 実際に取得してパースしたファイル�
 url_cache = set()            # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
 urlDict = None              # サーバ毎のurl_dictの辞書を扱うクラス
 request_url_host_set = set()       # 各ページを構成するためにGETしたurlのネットワーク名の集合
-request_url_host_set_lock = threading.Lock()
-request_url_host_set_pre = set()   # 今までのクローリング時のやつ
+request_url_host_set_pre = set()   # 前回までのクローリング時のやつ
 iframe_src_set = set()      # iframeのsrc先urlの集合
-iframe_src_set_pre = set()  # 今までのクローリング時のやつ
+iframe_src_set_pre = set()  # 前回までのクローリング時のやつ
 iframe_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
 script_src_set = set()      # scriptのsrc先urlの集合
-script_src_set_pre = set()  # 今までのクローリング時のやつ
+script_src_set_pre = set()  # 前回までのクローリング時のやつ
 script_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
 link_set = set()      # ページに貼られていたリンク先URLのネットワーク名の集合
-link_set_pre = set()  # 今までのクローリング時のやつ
+link_set_pre = set()  # 前回までのクローリング時のやつ
 link_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
-frequent_word_list = list()   # 今までこのサーバに出てきた頻出単語top50
+frequent_word_list = list()   # 前回までこのサーバに出てきた頻出単語top50
 
 robots = None    # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
@@ -59,7 +58,9 @@ def init(host, screenshots):
     global html_special_char, script_src_set, script_src_set_pre, robots
     global num_of_achievement, dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, frequent_word_list
     global request_url_host_set, request_url_host_set_pre, iframe_src_set, iframe_src_set_pre, link_set, link_set_pre
-    data_temp = r_file('../../ROD/LIST/HTML_SPECHAR.txt')
+
+    src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
+    data_temp = r_file(src_dir + '/files/HTML_SPECHAR.txt')
     data_temp = data_temp.split('\n')
     for line in data_temp:
         line = line.split('\t')
@@ -107,7 +108,7 @@ def init(host, screenshots):
         except urllib.error.URLError:   # サーバに届かなかったらエラーが出る。
             robots = None               # robots.txtがなかったら、全てTrueを出すようになる。
         except Exception as e:    # 上記以外のエラーとして、http.client.RemoteDisconnected　というエラー落ちがあるかも
-            print(e)
+            print(host + ": " + location() + str(e))
             robots = None
 
     # 今までのクローリングで集めた、この組織の全request_url(のネットワーク部)をロード
@@ -155,7 +156,7 @@ def init(host, screenshots):
     urlDict = UrlDict(f_name)
     copy_flag = urlDict.load_url_dict()
     if copy_flag:
-        wa_file('../../notice.txt', host + ' : ' + copy_flag + '\n')
+        w_file('../../notice.txt', host + ' : ' + copy_flag + '\n', mode="a")
 
 
 # クローリングして得たページの情報を外部ファイルに記録
@@ -170,7 +171,7 @@ def save_result(alert_process_q):
             pickle.dump({'num': num_of_achievement, 'cache': url_cache, 'request': request_url_host_set,
                          'iframe': iframe_src_set, 'link_host': link_set, 'script': script_src_set,
                          'robots': robots}, f)
-    w_file('achievement.txt', str(num_of_achievement))
+    w_file('achievement.txt', str(num_of_achievement), mode="w")
     for file_name, value in write_file_to_hostdir.items():
         text = ''
         for i in value:
@@ -180,7 +181,7 @@ def save_result(alert_process_q):
                 text += i[1] + '\n'
             else:
                 text += i + '\n'
-        wa_file(file_name, text)
+        w_file(file_name, text, mode="a")
     for file_name, value in write_file_to_resultdir.items():
         text = ''
         for i in value:
@@ -192,9 +193,9 @@ def save_result(alert_process_q):
                 text += i + '\n'
         # 偽サイトの結果ファイルはresultディレに書かない
         if 'falsification.cysec.' in dir_name:
-            wa_file(file_name, text)
+            w_file(file_name, text, mode="a")
         else:
-            wa_file('../../' + file_name, text)
+            w_file('../../' + file_name, text, mode="a")
     for data_dict in write_file_to_alertdir:
         alert_process_q.put(data_dict)
 
@@ -308,49 +309,10 @@ def parser(parse_args_dic):
     img_name = parse_args_dic['img_name']
     nth = parse_args_dic['nth']
 
-    # Watcher.htmlをスクレイピングするためのsoup
-    try:
-        soup = BeautifulSoup(page.watcher_html, 'lxml')
-    except Exception:
-        soup = BeautifulSoup(page.watcher_html, 'html.parser')
-    page.extracting_extension_data(soup)
-    # requestURLが取れていたら、過去のデータと比較
-    if page.request_url:
-        with request_url_host_set_lock:
-            request_url_host_set = request_url_host_set.union(page.request_url_host)
-        if request_url_host_set_pre:
-            diff = page.request_url_host.difference(request_url_host_set_pre)
-            if diff:
-                str_t = ''
-                for t in diff:
-                    if t in host:  # 自分自身のサーバへのリクエストURLの場合(自身が新しく見つかったサーバの場合、多数のURLが出力されるため)
-                        continue   # tは一番左のホスト名が抜かれているので t in host じゃないといけない(詳しくはexcept_extension_info()
-                    str_t += ',' + t
-                if str_t != '':
-                    data_temp = dict()
-                    data_temp['url'] = page.url
-                    data_temp['src'] = page.src
-                    data_temp['file_name'] = 'new_request_url.csv'
-                    data_temp['content'] = page.url + str_t
-                    data_temp['label'] = 'URL,request_url'
-                    with wfta_lock:
-                        write_file_to_alertdir.append(data_temp)
-    # downloadURLがあれば出力
-    if page.download_info:
-        for file_id, info in page.download_info.items():
-            data_temp = dict()
-            data_temp['url'] = page.url
-            data_temp['src'] = page.src
-            data_temp['file_name'] = 'download_url.csv'
-            data_temp['content'] = page.url + "," + file_id + "," + info["StartTime"] + "," + info["FileName"] + "," +\
-                                   info["Danger"] + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"]) + "," +\
-                                   info["Mime"] + "," + info["URL"] + "," + info["referrer"]
-            data_temp['label'] = 'URL,id,StartTime,FileName,Danger,FileSize,TotalBytes,Mime,URL,Referrer'
-            with wfta_lock:
-                write_file_to_alertdir.append(data_temp)
-
     # スクレイピングするためのsoup
     try:
+        # ここで以下のエラーが出るが、soup自体は取得できていて、soup.prettify()もできたので無視する
+        # encoding error : input conversion failed due to input error,
         soup = BeautifulSoup(page.html, 'lxml')
     except Exception:
         soup = BeautifulSoup(page.html, 'html.parser')
@@ -591,7 +553,7 @@ def check_thread_time(now):
             if (now - th_time) > 180:
                 thread_list.append(threadId)
     except RuntimeError as e:
-        print(e)
+        print(location() + str(e))
     return thread_list
 
 
@@ -644,6 +606,65 @@ def check_redirect(page, host):
     if host == page.hostName:
         return 'same'
     return True
+
+
+def extract_extension_data_and_inspection(page, host):
+    global request_url_host_set
+    # Watcher.htmlをスクレイピングするためのsoup
+    try:
+        soup_3 = BeautifulSoup(page.watcher_html, 'lxml')
+    except Exception:
+        soup_3 = BeautifulSoup(page.watcher_html, 'html.parser')
+    page.extracting_extension_data(soup_3)
+
+    # 別サーバにリダイレクトしていなければ、RequestURLにチェックをする
+    if check_redirect(page, host) is not True:
+        # requestURLが取れていたら、過去のデータと比較
+        if page.request_url:
+            request_url_host_set = request_url_host_set.union(page.request_url_host)
+            if request_url_host_set_pre:
+                diff = page.request_url_host.difference(request_url_host_set_pre)
+                if diff:
+                    str_t = ''
+                    for t in diff:
+                        if t in host:  # 自分自身のサーバへのリクエストURLの場合(自身が新しく見つかったサーバの場合、多数のURLが出力されるため)
+                            continue   # tは一番左のホスト名が抜かれているので t in host じゃないといけない(詳しくはexcept_extension_info()
+                        str_t += ',' + t
+                    if str_t != '':
+                        data_temp = dict()
+                        data_temp['url'] = page.url
+                        data_temp['src'] = page.src
+                        data_temp['file_name'] = 'new_request_url.csv'
+                        data_temp['content'] = page.url + "," + page.url_initial + str_t
+                        data_temp['label'] = 'URL,InitialURL,request_url'
+                        with wfta_lock:
+                            write_file_to_alertdir.append(data_temp)
+
+    # downloadURLがあれば出力
+    if page.download_info:
+        for file_id, info in page.download_info.items():
+            data_temp = dict()
+            data_temp['url'] = page.url
+            data_temp['src'] = page.src
+            data_temp['file_name'] = 'download_url.csv'
+            data_temp['content'] = page.url_initial + "," + file_id + "," + info["StartTime"] + "," + info["FileName"]\
+                                   + "," + info["Danger"] + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"])\
+                                   + "," + info["Mime"] + "," + info["URL"] + "," + info["Referrer"] + "," + \
+                                   page.url_initial
+            data_temp['label'] = 'URL,id,StartTime,FileName,Danger,FileSize,TotalBytes,Mime,URL,Referrer,InitialURL'
+            with wfta_lock:
+                write_file_to_alertdir.append(data_temp)
+
+    # URL遷移の記録があれば
+    # if page.relay_url:
+    #     data_temp = dict()
+    #     data_temp['url'] = page.url
+    #     data_temp['src'] = page.src
+    #     data_temp['file_name'] = 'relay_url_by_redirect.csv'
+    #     data_temp['label'] = 'URL,src,relay_url'
+    #     data_temp['content'] = page.url_initial + ',' + page.src + ',' + str(page.relay_url)[1:-1]
+    #     with wfta_lock:
+    #         write_file_to_alertdir.append(data_temp)
 
 
 # 接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
@@ -813,22 +834,15 @@ def crawler_main(args_dic):
                     # 次のURLへ
                     continue
 
-                # watchingを停止して、page.watcher_htmlにデータを保存
+                # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
                 re = stop_watcher_and_get_data(driver=driver, wait=wait, watcher_window=watcher_window, page=page)
                 if re is False:
                     error_break = True
                     break
 
-                # リダイレクトが1秒以内に複数回行われていた場合
-                # if page.relay_url:
-                #     data_temp = dict()
-                #     data_temp['url'] = page.url
-                #     data_temp['src'] = page.src
-                #     data_temp['file_name'] = 'relay_url_by_redirect.csv'
-                #     data_temp['label'] = 'URL,src,relay_url'
-                #     data_temp['content'] = page.url_initial + ',' + page.src + ',' + str(page.relay_url)[1:-1]
-                #     with wfta_lock:
-                #         write_file_to_alertdir.append(data_temp)
+                # watcher.htmlのHLTML文から、拡張機能によって取得した情報を抽出する
+                # parserスレッドでしない理由は、リダイレクトが行われていると、parserスレッドを起動しないから
+                extract_extension_data_and_inspection(page=page, host=host)
 
                 # about:blankなら以降の処理はしない
                 if page.url == "about:blank":
@@ -856,28 +870,6 @@ def crawler_main(args_dic):
                 # ブラウザでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
                     continue
-
-                # ページをロードする際にリクエストしたURLをpageオブジェ内に保存
-                # set_request_url_firefox(page, driver)
-                # if page.request_url:
-                #     request_url_host_set = request_url_host_set.union(set(page.request_url_host))
-                #     if request_url_host_set_pre:
-                #         diff = set(page.request_url_host).difference(request_url_host_set_pre)
-                #         if diff:
-                #             str_t = ''
-                #             for t in diff:
-                #                 if t in host:   # 自分自身のサーバへのリクエストURLの場合
-                #                     continue  # tは一番左のホスト名が抜かれているので t in host じゃないといけない(詳しくはexcept_extension_info()
-                #                 str_t += ',' + t
-                #             if str_t != '':
-                #                 data_temp = dict()
-                #                 data_temp['url'] = page.url
-                #                 data_temp['src'] = page.src
-                #                 data_temp['file_name'] = 'new_request_url.csv'
-                #                 data_temp['content'] = page.url + str_t
-                #                 data_temp['label'] = 'URL,request_url'
-                #                 with wfta_lock:
-                #                     write_file_to_alertdir.append(data_temp)
 
                 # スクショが欲しければ撮る
                 if screenshots:
@@ -950,5 +942,7 @@ def crawler_main(args_dic):
 
     save_result(alert_process_q)
     print(host + ' saved.', flush=True)
+    from datetime import datetime
+    print(datetime.now().strftime('%Y/%m/%d, %H:%M:%S') + "\n")
     quit_driver(driver)  # headless browser終了して
     os._exit(0)
