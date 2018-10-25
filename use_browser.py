@@ -6,7 +6,8 @@ from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoAlertPresentException
+from selenium.webdriver.common.alert import Alert
 from urllib.parse import urlparse
 from copy import deepcopy
 from get_web_driver_thread import GetChromeDriverThread, GetFirefoxDriverThread, GetPhantomJSDriverThread
@@ -131,7 +132,7 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     fpro = FirefoxProfile()
 
     # ヘッドレスモードに
-    options.add_argument('-headless')
+    #options.add_argument('-headless')
 
     # user agent
     if user_agent:
@@ -145,7 +146,7 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     # ファイルダウンロードできるように
     if org_path:
         fpro.set_preference('browser.download.folderList', 2)  # 0:デスクトップ　1:Downloadフォルダ 　2:ユーザ定義フォルダ
-        fpro.set_preference('browser.download.dir', org_path + '/Download')  # なければ作られる
+        fpro.set_preference('browser.download.dir', org_path + '/result/Download')  # なければ作られる
     else:
         fpro.set_preference('browser.download.folderList', 0)
     fpro.set_preference('browser.download.manager.showWhenStarting', False)  # ダウンロードマネージャ起動しないように
@@ -228,6 +229,16 @@ def set_html(page, driver):
 
     # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
     sleep(1)
+
+    # JavaScriptのalertが実行されていると、それを消す作業が必要(しないと、driver.page_sourceでエラーが出る)
+    while True:
+        try:
+            t = Alert(driver).text
+            Alert(driver).dismiss()
+            page.alert_txt.append(t)
+            sleep(0.5)
+        except NoAlertPresentException:
+            break
 
     try:
         page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
@@ -449,14 +460,14 @@ def set_request_url_chrome(page, driver):
     page.request_url = deepcopy(request_urls)
     page.download_url = deepcopy(download_urls)
 
-    # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-    for url in page.request_url:
-        url_domain = urlparse(url).netloc
-        if page.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
-            page.request_url_same_server.append(url)
-        if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
-            url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-        page.request_url_host.append(url_domain)  # ホスト名(ネットワーク部)だけ保存
+    # # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
+    # for url in page.request_url:
+    #     url_domain = urlparse(url).netloc
+    #     if page.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
+    #         page.request_url_same_server.append(url)
+    #     if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
+    #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+    #     page.request_url_host.append(url_domain)  # ホスト名(ネットワーク部)だけ保存
 
 
 def set_request_url_phantom(page, driver):
@@ -488,14 +499,14 @@ def set_request_url_phantom(page, driver):
         log_content = log_content[end:]
     page.request_url = deepcopy(temp)
 
-    # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-    for url in page.request_url:
-        url_domain = urlparse(url).netloc
-        if page.hostName == url_domain:                 # 同じホスト名(サーバ)のURLはそのまま保存
-            page.request_url_same_server.append(url)
-        if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
-            url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-        page.request_url_host.append(url_domain)     # ホスト名(ネットワーク部)だけ保存
+    # # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
+    # for url in page.request_url:
+    #     url_domain = urlparse(url).netloc
+    #     if page.hostName == url_domain:                 # 同じホスト名(サーバ)のURLはそのまま保存
+    #         page.request_url_same_server.append(url)
+    #     if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
+    #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+    #     page.request_url_host.append(url_domain)     # ホスト名(ネットワーク部)だけ保存
     return re
 
 

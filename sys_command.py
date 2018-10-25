@@ -31,8 +31,12 @@ def kill_family(me):
     family.reverse()
     print("kill {}'s {}".format(me, family))
     for kill_pid in family:
-        os.system("kill -9 " + kill_pid)
-        print('kill {}'.format(kill_pid))
+        try:
+            os.system("kill -9 " + kill_pid)
+        except Exception as e:
+            print("kill error : {}".format(e))
+        else:
+            print('kill {}'.format(kill_pid))
 
 
 # ppidのプロセスがupstartなら、そのchrome(driver)は孤児
@@ -73,6 +77,5 @@ def kill_chrome(process):
                 kill_family(pid_ppid[0])
 
 
-# PPIDが1のphantomJSをkillする(クローラが動かしているphantomjsのppidは1以外なので、ppid=1のphantomjsはゾンビ的な)
-def kill_phantomjs():
-    os.system("pkill -KILL -P 1 -f 'phantomjs'")
+def reboot():
+    subprocess.call("reboot")

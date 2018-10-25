@@ -1,14 +1,16 @@
-from tf_idf import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
-from check_result.main_cr import del_and_make_achievement
-# from SVC_screenshot import del_0size
-from multiprocessing import Process, set_start_method, get_context
-import os
-import shutil
-from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
 import sys
 from datetime import datetime
 from sys_command import kill_chrome
 from time import sleep
+from multiprocessing import Process, set_start_method, get_context
+import os
+import shutil
+
+from make_filter_from_past_data import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
+from make_filter_from_past_data import make_filter, merge_filter
+from check_result.main_cr import del_and_make_achievement
+# from SVC_screenshot import del_0size
+from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
 
 
 # 実行ディレクトリはcrawler_srcじゃないと、main_cr.pyのmake_achievement()のchdirでバグる?
@@ -24,7 +26,7 @@ def dealing_after_fact(org_arg):
     shutil.rmtree(org_path + '/ROD/tag_data')
 
     # 偽サイトの情報を削除
-    if org_path == '../organization/ritsumeikan':
+    if '/organization/ritsumeikan' in org_path:
         del_falsification_RAD(org_path=org_path)
 
     # 移動
@@ -43,21 +45,32 @@ def dealing_after_fact(org_arg):
         if os.path.exists('ROD/screenshots'):
             shutil.rmtree('ROD/screenshots')
         shutil.move('RAD/screenshots', 'ROD/screenshots')
-    print('done')
     """
-    # tf_idf.pyの実行
+    print('done')
+
+    # make_filter_from_past_data.pyの実行 (tfidfの計算には少し時間(1分くらい)がかかるのでプロセスを分けて
     print('run function of tf_idf.py : ', end='')
     p = Process(target=make_idf_dict_frequent_word_dict, args=(org_path,))
-    if org_path == '../organization/ritsumeikan':
+    p.start()
+
+    # 立命館サイトは make_host_set()を自動で実行。
+    # 今回の収集データと過去のデータをマージする作業なので、自動実行すると、今回検出された外部URLが安全なURLとして登録されてしまうため
+    # ちゃんと人が判断してから追加したほうがいい。立命館サイトは面倒なので自動でやっちゃう。
+    if '/organization/ritsumeikan' in org_path:
         p2 = Process(target=make_request_url_iframeSrc_link_host_set, args=(org_path,))
         p2.start()
     else:
         p2 = None
-    p.start()
+
     p.join()
     if p2 is not None:
         p2.join()
     print('done')
+
+    # alertされたデータから新しいフィルタを作る (linkとrequest URL用
+    make_filter(org_path=org_path)
+    if '/organization/ritsumeikan' in org_path:  # 立命館サイトは merge_filter()を自動で実行。
+        merge_filter(org_path=org_path)
 
     # RADの削除
     print('delete RAD : ', end='')
@@ -74,7 +87,7 @@ def dealing_after_fact(org_arg):
     del_and_make_achievement(path)
 
     # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
-    if org_path == '../organization/ritsumeikan':
+    if '/organization/ritsumeikan' in org_path:
         copy_ROD_from_cysec(org_path=org_path)
 
 
@@ -135,9 +148,7 @@ def main(organization):
             break
         print('crawling has finished.')
 
-        # 子プロセスが残る可能性がある?
-        # kill_family(os.getpid())
-        # kill_phantomjs()  # 特にPhantomJSは念入りに
+        # 孤児のchrome じゃなくてfirefoxをkill
         kill_chrome(process='geckodriver')
         kill_chrome(process='firefox')
 

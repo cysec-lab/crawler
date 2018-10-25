@@ -2,33 +2,32 @@ import json
 
 
 def w_file(file_name, data, mode="w"):
-    try:
-        f = open(file_name, mode=mode, encoding='utf-8')
-        f.write(data)
-        f.close()
-    except:
-        try:
-            f.close()
-        except:
-            pass
-        try:
-            f = open(file_name, mode=mode, encoding='shift-jis')
-            f.write(data)
-            f.close()
-        except:
+    enc_list = ["utf-8", "shift_jis", "cp932", "iso-2022-jp"]
+    for enc in enc_list:
+        with open(file_name, mode=mode, encoding=enc) as f:
             try:
-                f.close()
-            except:
-                pass
-            raise
+                f.write(data)
+            except UnicodeDecodeError:
+                continue
+            except UnicodeEncodeError:
+                continue
+            else:
+                break
 
 
-def r_file(name, mode='r', encode='utf-8'):
-    try:
-        with open(name, mode, encoding=encode) as f:
-            return f.read()     # 改行文字は含まれる
-    except:
-        raise
+def r_file(name, encode='utf-8'):
+    enc_list = ["utf-8", "shift_jis", "cp932", "iso-2022-jp"]
+    for enc in enc_list:
+        with open(name, mode="r", encoding=enc) as f:
+            try:
+                read = f.read()     # 改行文字は含まれる
+            except UnicodeDecodeError:
+                continue
+            except UnicodeEncodeError:
+                continue
+            else:
+                return read
+    return None
 
 
 def w_json(name, data):

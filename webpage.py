@@ -26,13 +26,14 @@ class Page:
         self.links = set()             # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
         self.normalized_links = set()  # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
         self.request_url = set()              # このページをロードするために行ったリクエストのURLの集合。
-        self.request_url_host = set()         # 上のURLからホスト名だけ抜き出したもの
-        self.request_url_same_host = set()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
+        # self.request_url_host = set()         # 上のURLからホスト名だけ抜き出したもの
+        # self.request_url_same_host = set()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
         self.download_info = dict()  # 自動ダウンロードがされた場合、ここに情報を保存する
         self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
-        self.relay_url = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。ブラウザでhtmlを取得するときに保存。
-        self.watcher_html = None
+        self.among_url = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。
+        self.watcher_html = None  # watcher.htmlは拡張機能が集めた情報が載っている専用ページ。そのHTML文を保存する。
+        self.alert_txt = list()   # alertがポップアップされると、そのテキストを追加していく
 
     # 拡張機能により追記したDOM要素を除き、別の変数に格納する
     # 専用HTMLに情報を載せることにした
@@ -42,17 +43,22 @@ class Page:
         download_elements = soup.find_all('p', attrs={'class': 'Download'})
         history_elements = soup.find_all('p', attrs={'class': 'History'})
 
-        # requestURLをリストにし、soupの中身から削除する
-        self.request_url = set([request_element.get_text() for request_element in request_elements])
-        # print("{}\n{}\n{}".format(self.url, self.request_url, len(self.request_url)), flush=True)
-        # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-        for url in self.request_url:
-            url_domain = urlparse(url).netloc
-            if self.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
-                self.request_url_same_host.add(url)
-            if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
-                url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-            self.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
+        # リクエストURLを集合に追加し、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
+        self.request_url = set([elm.get_text() for elm in request_elements])
+        # for request_element in request_elements:
+        #     url = request_element.get_text()
+        #     if url in self.request_url:
+        #         continue
+        #     else:
+        #         self.request_url.add(url)
+        #
+        #     url_domain = urlparse(url).netloc
+        #     if self.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
+        #         self.request_url_same_host.add(url)
+        #     # ドメイン名からネットワーク部だけ抽出して保存
+        #     if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
+        #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
+        #     self.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
         # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
@@ -75,8 +81,11 @@ class Page:
                 download_info[key][elm["id"][0:under]] = elm.get_text()
         self.download_info = deepcopy(download_info)
 
-        # URL遷移が行われた場合、記録する
-        self.relay_url = [history_element.get_text() for history_element in history_elements]
+        # URL遷移が起きた場合、記録する
+        url_history = [history_element.get_text() for history_element in history_elements]
+        if len(url_history) < 2:
+            url_history = list()
+        self.among_url = url_history.copy()
 
     def set_html_and_content_type_urlopen(self, url, time_out):
         # レスポンスのtimeoutを決める(適当)
@@ -275,8 +284,8 @@ class Page:
                                 if not time_str[i].isdigit():
                                     break
                             checked_url = checked_url[0:time_temp + 5] + '0' + checked_url[time_temp + 5 + i:]
-                        # URLにcaldate= で日付が設定されている場合、2015-2017年の間以外のものを排除する (apuのサイト)
-                        # URLにdate= で日付が設定されている場合、2015-2017年の間以外のものを排除する (スポ健のブログ)
+                        # URLにcaldate= で日付が設定されている場合、2016-2019年の間以外のものを排除する (apuのサイト)
+                        # URLにdate= で日付が設定されている場合、2016-2019年の間以外のものを排除する (スポ健のブログ)
                         checked_url_temp = checked_url.replace('-', '')  # スポ健はdate=2016-08-08みたいになっているため
                         date_start = checked_url_temp.find('date=')
                         if not (date_start == -1):
@@ -285,7 +294,7 @@ class Page:
                             except:
                                 pass
                             else:
-                                if (2015 < date_int) and (date_int < 2017):
+                                if (2016 < date_int) and (date_int < 2019):
                                     pass
                                 else:
                                     continue

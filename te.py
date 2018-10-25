@@ -51,6 +51,7 @@ def fun(num, url_2):
     s = time.time()
     page = Page(url_2, 'test')
     print("Access to URL and Loading")
+    print("URL is :{}".format(page.url))
     re = set_html(page, driver)
     print("set_html time = {}".format(time.time() - s))
 
@@ -64,14 +65,15 @@ def fun(num, url_2):
     page.extracting_extension_data(soup)
     print("extract data time = {}".format(time.time() - s))
     print(page.request_url)
-    print(len(page.request_url))
-    for i in page.request_url:
-        if "from" in i:
-            print(i)
 
     if page.download_info:
         for i, v in page.download_info.items():
             print(v)
+    if page.among_url:
+        for i in page.among_url:
+            print(i)
+    print("URL is :{}".format(page.url))
+    print(page.html)
 
     print("Quit driver")
     quit_driver(driver)
@@ -89,9 +91,10 @@ def main():
     url = 'http://www.ritsumei.ac.jp/'
     url_kouchi = 'http://falsification.cysec.cs.ritsumei.ac.jp/home/whatsnew/20131219kouchi'
 
-    url = "http://www.slp.is.ritsumei.ac.jp/publications-jis.html"
+    url = "http://falsification.cysec.cs.ritsumei.ac.jp/home/redirect_start.html"
+    url = "http://www.ritsumei.ac.jp/file.jsp?id=388532"
 
-    p1 = Process(target=fun, args=('1', url_autodl,))
+    p1 = Process(target=fun, args=('1', url,))
     # p2 = Process(target=fun, args=('2', url,))
     p1.start()  # スタート
     # p2.start()  # スタート
@@ -116,70 +119,46 @@ def pp():
             print(i)
 
 
+def import_file(path):             # 実行でディレクトリは「crawler」
+    setting_dict_dict = dict()
+    settings_list = ["DOMAIN", "WHITE", "IPAddress", "REDIRECT", "BLACK"]
+    for setting in settings_list:
+        if os.path.exists("{}/{}.json".format(path, setting)):
+            with open("{}/{}.json".format(path, setting), "r") as f:
+                setting_dict_dict[setting] = json.load(f)
+        else:
+            setting_dict_dict[setting] = dict()
+    for i, v in setting_dict_dict.items():
+        print(i, v)
+    return setting_dict_dict
+
+
 if __name__ == '__main__':
-    main()
-    # pp()
-    # driver.find_element_by_id('dLoad2').click()
-    # for i in range(50):
-    #     print(driver.current_url)
-    #     time.sleep(1)
-    #     print('{i}, '.format(i=i+1), end='', flush=True)
+    # main()
+    from threading import active_count
+    from check_allow_url import check_searched_url, CheckSearchedIPAddressThread
+    filtering_dict = import_file("../organization/ritsumeikan/ROD/LIST")
+    url_tuple = ("http://www.ritsuei.ac.jp/top", "START")
+    s = list()
 
-    # request_urls = set()
-    # receive_urls = set()
-    # i = 0
-    # import json
-    # performance_log = driver.get_log('driver')
-    #
-    # for log in performance_log:
-        # print("{} \t {}".format(log['level'], log['message']))
-        # # logのkeyは 'message' と "timestamp" のみ
-        # log_message = json.loads(log['message'])
-        # # log_messageのkeyは "message" と "webview" のみ(webviewの中身は謎のx16)
-        # message = log_message['message']
-        # print('{} \t {}'.format(message['method'], message['params']))
-        # # messageのkeyは "params" と "method"
-        # if message['method'] == 'Network.requestWillBeSent':
-        #     u = message['params']['request']['url']
-        #     request_urls.add(u)
-        # elif message['method'] == 'Network.responseReceived':
-        #     # print("RECEIVE \t {}".format(message['params']['response']))
-        #     u = message['params']['response']['url']
-        #     receive_urls.add(u)
+    print(active_count())
+    res = check_searched_url(url_tuple, int(time.time()), filtering_dict)
+    s.append(res)
+    print(id(res))
 
-    # print(len(request_urls))
-    # print('request urls : {}'.format(request_urls))
-    # print(len(receive_urls))
-    # print('receive urls : {}'.format(receive_urls))
+    url_tuple = ("http://www.ritsumei.ac.jp/top", "START")
+    res = check_searched_url(url_tuple, int(time.time()), filtering_dict)
+    print(id(res))
+    s.append(res)
+    print(active_count())
+    print(type(res))
 
-
-    # urlopenとphantomjsそれぞれでJSによるリンク生成に対応できているかのテスト
-    """
-    urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
-    print(urlopen_result)
-    soup = BeautifulSoup(page.html, 'lxml')
-    #print(soup.prettify())
-    st = str(soup.prettify())
-    with open('urlopen.html', 'w', encoding='utf-8') as f:
-        f.write(st)
-    page.make_links_html(soup)
-    url_open = page.links
-    print(url_open)
-    print('------------------------')
-    phantom_result = set_html(page=page, driver=driver)
-    soup = BeautifulSoup(page.html, 'lxml')
-    #print(soup.prettify())
-    st = str(soup.prettify())
-    with open('phantom.html', 'w', encoding='utf-8') as f:
-        f.write(st)
-    page.make_links_html(soup)
-    phantomjs = page.links
-    print(phantomjs)
-    re, temp2 = set_request_url(page, driver)
-    print(re)
-    print(temp2)
-    print(len(temp2))
-    print(len(page.request_url))
-    print(temp2.difference(page.request_url))
-    quit_driver(driver)
-    """
+    for res in s:
+        print(res)
+        if type(res) == CheckSearchedIPAddressThread:
+            time.sleep(2)
+            print(active_count())
+            res.lock.release()
+            time.sleep(1)
+            print(active_count())
+            print(res.result)

@@ -79,10 +79,6 @@ def get_src_of_tag(tags):
     for tag in tags:
         src = tag.get('src')
         if src:
-            # url_domain = urlparse(src).netloc
-            # if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
-            #     url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-            # src_list.append(url_domain)
             o = urlparse(src)
             tag_src_url = o.netloc + o.path
             src_list.append(tag_src_url)     # iframeとscriptタグのsrc値は、queryとfragmentを削除したURLを保存

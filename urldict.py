@@ -132,20 +132,21 @@ class UrlDict:
                 else:
                     self.url_tags[page.url] = list([tags])    # tagリストのリスト
 
-    def add_request_url_to_url_dict(self, page):
+    def update_request_url_in_url_dict(self, page):
         if page.url in self.url_dict:
-            self.url_dict[page.url]['request_url_host'] = list(deepcopy(page.request_url_host))
-            self.url_dict[page.url]['request_url_same_host'] = list(deepcopy(page.request_url_same_host))
+            # self.url_dict[page.url]['request_url_same_host'] = list(deepcopy(page.request_url_same_host))
+            self.url_dict[page.url]["request_url"] = list(deepcopy(page.request_url))
         else:
             return False
         return True
 
     def compare_request_url(self, page):
         if page.url in self.url_dict:
-            if 'request_url_same_host' in self.url_dict[page.url]:
-                diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
-            else:
-                diff = False
+            # if 'request_url_same_host' in self.url_dict[page.url]:
+            #     diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
+            # else:
+            #     diff = False
+            diff = False
         else:
             diff = False
         return diff

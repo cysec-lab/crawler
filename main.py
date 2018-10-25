@@ -2,24 +2,26 @@
 from urllib.parse import urlparse
 from collections import deque
 from time import time, sleep
-from crawler3 import crawler_main
-from file_rw import r_file, w_json, r_json, w_file
-from check_searched_url import CheckSearchedUrlThread
 from threading import active_count
 import os
-from datetime import date
+from datetime import datetime
 # from machine_learning_screenshots import screenshots_learning_main
 # from machine_learning_tag import machine_learning_main
 from clamd import clamd_main
 from shutil import copytree, copyfile
 import dbm
 import pickle
+import json
+
+from crawler3 import crawler_main
+from file_rw import r_file, w_json, r_json, w_file
+from check_allow_url import check_searched_url, CheckSearchedIPAddressThread
 from summarize_alert import summarize_alert_main
 from sys_command import kill_chrome
+from memory_observer import MemoryObserverThread
 
 
-necessary_list_dict = dict()   # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
-after_redirect_list = list()   # リダイレクト後、ジャンプ先ホストとしてあやしくないもの
+filtering_dict = dict()     # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
 clamd_q = dict()
 machine_learning_q = dict()
 screenshots_svc_q = dict()
@@ -128,64 +130,13 @@ def get_setting_dict(path):
 
 # 必要なリストをインポート
 def import_file(path):             # 実行でディレクトリは「crawler」
-    global after_redirect_list
-    if os.path.exists(path + '/DOMAIN.txt'):
-        data_temp = r_file(path + '/DOMAIN.txt')
-        if data_temp:
-            data_temp = data_temp.split('###')[1]
-            necessary_list_dict['domain_list'] = data_temp.split('\n')[1:]      # 組織内ドメインリスト
+    filter_list = ["DOMAIN", "WHITE", "IPAddress", "REDIRECT", "BLACK"]
+    for filter_ in filter_list:
+        if os.path.exists("{}/{}.json".format(path, filter_)):
+            with open("{}/{}.json".format(path, filter_), "r") as f:
+                filtering_dict[filter_] = json.load(f)
         else:
-            necessary_list_dict['domain_list'] = list()
-    else:
-        necessary_list_dict['domain_list'] = list()
-    if os.path.exists(path + '/NOT_DOMAIN.txt'):
-        data_temp = r_file(path + '/NOT_DOMAIN.txt')
-        if data_temp:
-            data_temp = data_temp.split('###')[1]
-            necessary_list_dict['not_domain_list'] = data_temp.split('\n')[1:]  # 組織外ドメインリスト
-        else:
-            necessary_list_dict['not_domain_list'] = list()
-    else:
-        necessary_list_dict['not_domain_list'] = list()
-    if os.path.exists(path + '/BLACK_LIST.txt'):
-        data_temp = r_file(path + '/BLACK_LIST.txt')
-        if data_temp:
-            data_temp = data_temp.split('###')[1]
-            necessary_list_dict['black_list'] = data_temp.split('\n')[1:]       # 組織内だが検査しないリスト
-        else:
-            necessary_list_dict['black_list'] = list()
-    else:
-        necessary_list_dict['black_list'] = list()
-    if os.path.exists(path + '/WHITE_LIST.txt'):
-        data_temp = r_file(path + '/WHITE_LIST.txt')
-        if data_temp:
-            data_temp = data_temp.split('###')[1]
-            necessary_list_dict['white_list'] = data_temp.split('\n')[1:]  # 特定URLにおいて接続するリスト(google.siteなど
-        else:
-            necessary_list_dict['white_list'] = list()
-    else:
-        necessary_list_dict['white_list'] = list()
-    if os.path.exists(path + '/IPAddress_LIST.txt'):     # 接続するIPアドレスのリスト(今はこれに当てはまっていても接続していない)
-        data_temp = r_file(path + '/IPAddress_LIST.txt')
-        if data_temp:
-            necessary_list_dict['IPAddress_list'] = data_temp.split('\n')
-        else:
-            necessary_list_dict['IPAddress_list'] = list()
-    else:
-        necessary_list_dict['IPAddress_list'] = list()
-
-    # 空文字が入っている場合は削除(改行で分けているため、空行があれば空文字が入る)
-    for v in necessary_list_dict.values():
-        if '' in v:
-            v.remove('')
-
-    if os.path.exists(path + '/REDIRECT_LIST.txt'):   # 外部サイトへのリダイレクトとして安全が確認されたホスト名のリスト
-        data_temp = r_file(path + '/REDIRECT_LIST.txt')
-        if data_temp:
-            after_redirect_list = data_temp.split('\n')
-            # 空文字が入る場合は削除
-            if '' in after_redirect_list:
-                after_redirect_list.remove('')
+            filtering_dict[filter_] = dict()
 
 
 # 必要なディレクトリを作成
@@ -405,64 +356,59 @@ def end():
 # もしくは、300秒以上たってもスレッドが終わらない場合もスレッド集合から削除する
 def make_url_list(now_time):
     del_list = list()
+    # thread_setの中は、(url_tuple, res)　か CheckSearchedIPAddressThread型のオブジェクト
     for thread in thread_set:
-        if type(thread.result) is not int:     # resultの初期値はtime.time()。 上書きされているとチェックが終わったということ
-            if thread.result is True:
-                url_db[thread.url_tuple[0]] = 'True,' + str(nth)               # 立命館URL
-                url_list.append((thread.url_tuple[0], thread.url_tuple[1]))    # URLのタプルを検索リストに追加
-            elif thread.result == 'black':
-                url_db[thread.url_tuple[0]] = 'Black,' + str(nth)  # 対象URLだがblackリストでフィルタリングされたURL
+        # threadオブジェクトとtupleオブジェクトとでそれぞれ値の参照方法が変わる
+        if type(thread) == CheckSearchedIPAddressThread:
+            url_tuple = thread.url_tuple
+            result = thread.result
+            lock = thread.lock
+        else:
+            url_tuple = thread[0]
+            result = thread[1]
+            lock = None
+        if type(result) is not int:     # resultの初期値はtime.time()。 上書きされているとチェックが終わったということ
+            if result is True:
+                url_db[url_tuple[0]] = 'True,' + str(nth)        # 立命館URL
+                url_list.append((url_tuple[0], url_tuple[1]))    # URLのタプルを検索リストに追加
+            elif result == 'black':
+                url_db[url_tuple[0]] = 'Black,' + str(nth)  # 対象URLだがblackリストでフィルタリングされたURL
             else:   # (False or unknown)
-                url_db[thread.url_tuple[0]] = 'False,' + str(nth)
+                url_db[url_tuple[0]] = 'False,' + str(nth)
                 # タプルの長さが3の場合はリダイレクト後のURL
-                if len(thread.url_tuple) == 3:
+                if len(url_tuple) == 3:
                     w_alert_flag = True
-                    redirect_host = urlparse(thread.url_tuple[0]).netloc
-                    redirect_path = urlparse(thread.url_tuple[0]).path
-                    # リダイレクト後であった場合、ホスト名を見てあやしければ外部出力
-                    # if not [white for white in after_redirect_list if redirect_host.endswith(white)]:
-                    # ホスト名+パスの途中 までを見ることにしたので、上記の一行では判断できなくなった
-                    for white_redirect_url in after_redirect_list:
-                        if '+' in white_redirect_url:
-                            white_host = white_redirect_url[0:white_redirect_url.find('+')]
-                            white_path = white_redirect_url[white_redirect_url.find('+')+1:]
-                        else:
-                            white_host = white_redirect_url
-                            white_path = ''
-                        if redirect_host.endswith(white_host) and redirect_path.startswith(white_path):
+                    redirect_host = urlparse(url_tuple[0]).netloc
+                    redirect_path = urlparse(url_tuple[0]).path
+                    # リダイレクト後であった場合、ホスト名+パスの途中までを見てあやしければ外部出力
+                    for white_host, white_path_list in filtering_dict["REDIRECT"]["allow"].items():
+                        if redirect_host.endswith(white_host) and \
+                                [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
                             w_alert_flag = False
+                            break
                     if w_alert_flag:
                         data_temp = dict()
-                        data_temp['url'] = thread.url_tuple[0]
-                        data_temp['src'] = thread.url_tuple[1]
+                        data_temp['url'] = url_tuple[0]
+                        data_temp['src'] = url_tuple[1]
                         data_temp['file_name'] = 'after_redirect_check.csv'
-                        data_temp['content'] = thread.url_tuple[2] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[0]
+                        data_temp['content'] = url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0]
                         data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                         summarize_alert_q['recv'].put(data_temp)
-                    # 一応すべて外部出力
+                    # 一応リダイレクトはすべて出力
                     w_file('after_redirect.csv',
-                           thread.url_tuple[0] + ',' + thread.url_tuple[1] + ',' + thread.url_tuple[2] + '\n', mode="a")
+                           url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n', mode="a")
             del_list.append(thread)
-            thread.lock.release()    # スレッドは最後にロックをして待っているのでリリースして終わらせる
+            if lock is not None:
+                lock.release()    # スレッドは最後にロックをして待っているのでリリースして終わらせる
         else:
-            if now_time - thread.result > 300:    # 300秒経っても終わらない場合は削除
-                w_file('cant_done_check_thread.csv', thread.url_tuple[0] + ',' + thread.url_tuple[1] + '\n', mode="a")
+            if now_time - result > 300:    # 300秒経っても終わらない場合は削除
+                w_file('cant_done_check_thread.csv', url_tuple[0] + ',' + url_tuple[1] + '\n', mode="a")
                 del_list.append(thread)
-                thread.lock.release()   # スレッドは最初にロックをしているのでリリースしておく
+                if lock is not None:
+                    lock.release()   # スレッドは最初にロックをしているのでリリースしておく
+    # 集合から削除
     for thread in del_list:
         thread_set.remove(thread)
-
-
-# クローリング対象のURLかどうかのチェックスレッドを起動する
-def thread_start(url_tuple):
-    t = CheckSearchedUrlThread(url_tuple, int(time()), necessary_list_dict,)
-    t.setDaemon(True)   # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
-    try:
-        t.start()
-    except RuntimeError:
-        raise
-    else:
-        thread_set.add(t)
 
 
 # クローリングプロセスを生成する、既に一度作ったことがある場合は、プロセスだけ作る
@@ -495,6 +441,7 @@ def make_process(host_name, setting_dict, n, org_path):
         args_dic['mecab'] = setting_dict['mecab']
         args_dic['screenshots'] = setting_dict['screenshots']
         args_dic['org_path'] = org_path
+        args_dic["filtering_dict"] = filtering_dict
         hostName_args[host_name] = args_dic    # クローラプロセスの引数は、サーバ毎に毎回同じなので保存しておく
 
         # プロセス作成
@@ -502,7 +449,7 @@ def make_process(host_name, setting_dict, n, org_path):
         #p.daemon = True   # 親が死ぬと子も死ぬ
         p.start()    # スタート
 
-        # いろいろ保存
+        # クローリングプロセスに関わる設定データを保存
         hostName_process[host_name] = p
         hostName_queue[host_name] = {'child_send': child_sendq, 'parent_send': parent_sendq}
         if host_name not in hostName_achievement:
@@ -592,18 +539,12 @@ def receive_and_send(not_send=False):
                         redirect_host = urlparse(url_tuple[0]).netloc
                         redirect_path = urlparse(url_tuple[0]).path
                         w_alert_flag = True
-                        # リダイレクト後であった場合、ホスト名を見てあやしければ外部出力
-                        # if not [white for white in after_redirect_list if redirect_host.endswith(white)]:
-                        # ホスト名+パスの途中 までを見ることにしたので、上記の一行では判断できなくなった
-                        for white_redirect_url in after_redirect_list:
-                            if '+' in white_redirect_url:
-                                white_host = white_redirect_url[0:white_redirect_url.find('+')]
-                                white_path = white_redirect_url[white_redirect_url.find('+') + 1:]
-                            else:
-                                white_host = white_redirect_url
-                                white_path = ''
-                            if redirect_host.endswith(white_host) and redirect_path.startswith(white_path):
+                        # リダイレクト後であった場合、ホスト名+パスの途中までを見てあやしければ外部出力
+                        for white_host, white_path_list in filtering_dict["REDIRECT"]["allow"].items():
+                            if redirect_host.endswith(white_host) and \
+                                    [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
                                 w_alert_flag = False
+                                break
                         if w_alert_flag:
                             data_temp = dict()
                             data_temp['url'] = url_tuple[0]
@@ -759,7 +700,12 @@ def crawler_host(org_arg=None):
     try:
         os.chdir(org_path + '/result')
     except FileNotFoundError:
-        print('You should check the run_count in setting file.')   # もういらないと思うけど...
+        print('You should check the run_count in setting file.')   # もういらないと思うけど
+
+    # メモリ使用量監視スレッド
+    t = MemoryObserverThread(limit=80, )
+    t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
+    t.start()
 
     # メインループを回すループ(save_timeが設定されていなければ、途中保存しないため一周しかしない。一周で全て周り切る)
     while True:
@@ -833,15 +779,23 @@ def crawler_host(org_arg=None):
 
             # 組織内URLかチェックする待ちリストからpop
             if waiting_list:
-                if active_count() < 2000:
-                    url_tuple = waiting_list.popleft()    # クローリングするURLかどうかのチェック待ちリストからpop
-                    try:
-                        thread_start(url_tuple)        # チェックするスレッドを立ち上げる
-                    except RuntimeError:
-                        waiting_list.append(url_tuple)   # 失敗したら待ちリストに戻す
-                else:
-                    print("main : number of thread is over 2000.")
-                    sleep(1)
+                # 一回のループで10個のURLをチェックする
+                for i in range(10):
+                    if active_count() < 2000:
+                        url_tuple = waiting_list.popleft()    # クローリングするURLかどうかのチェック待ちリストからpop
+                        res = check_searched_url(url_tuple, int(time()), filtering_dict, )
+                        if type(res) == CheckSearchedIPAddressThread:
+                            # IPアドレスチェックのためのスレッドが立ち上がった
+                            thread_set.add(res)
+                        else:
+                            # 結果が返ってきた (thread_setに入れる。オブジェクトの種類による処理の分岐はmake_url_list()内で行う)
+                            res = (url_tuple, res)
+                            thread_set.add(res)
+                    else:
+                        print("main : number of thread is over 2000.")
+                        sleep(1)
+                    if not waiting_list:
+                        break
 
             # クローリングするURLかどうかのチェックが終わったものからurl_listに追加する
             make_url_list(now)
@@ -867,7 +821,7 @@ def crawler_host(org_arg=None):
             if num_of_process > 0:
                 # remainingリストの中で一番待機URL数が多い順プロセスを生成する
                 tmp_list = sorted(hostName_remaining.items(), reverse=True, key=lambda tup: len(tup[1]['URL_list']))
-                tmp_list = [tmp for tmp in tmp_list if tmp[1]['URL_list']]   # 待機が0は消す
+                tmp_list = [tmp for tmp in tmp_list if tmp[1]['URL_list']]   # 待機が0以外のサーバーリスト
                 if tmp_list:
                     # 一番待機URLが少ないプロセスを1つ作る
                     fewest = tmp_list[-1][0]
@@ -912,30 +866,34 @@ def crawler_host(org_arg=None):
                'number of child-process = ' + str(len(hostName_achievement)) + '\n' +
                'run time = ' + str(run_time) + '\n' +
                'remaining = ' + str(remaining) + '\n' +
-               'date = ' + str(date.today()) + '\n', mode="a")
+               'date = ' + datetime.now().strftime('%Y/%m/%d, %H:%M:%S') + '\n', mode="a")
 
         print('main : save...')   # 途中結果を保存する
         copytree('../../RAD', 'TEMP')
         print('main : save done')
 
         if setting_dict['machine_learning']:
-            print('wait for machine learning process')
+            print('main : wait for machine learning process')
             machine_learning_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
             if not machine_learning_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
+                print("main : Terminate machine-learning proc.")
                 machine_learning_q['process'].terminate()
         if setting_dict['screenshots_svc']:
-            print('wait for screenshots learning process')
+            print('main : wait for screenshots learning process')
             screenshots_svc_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
             if not screenshots_svc_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
+                print("main : Terminate screenshots-svc proc.")
                 screenshots_svc_q['process'].terminate()
         if setting_dict['clamd_scan']:
-            print('wait for clamd process')
+            print('main : wait for clamd process')
             clamd_q['recv'].put('end')        # clamdプロセスに終わりを知らせる
             if not clamd_q['process'].join(timeout=60):   # clamdプロセスが終わるのを待つ
+                print("main : Terminate clamd proc.")
                 clamd_q['process'].terminate()
-        print('wait for summarize alert process')
+        print('main : wait for summarize alert process')
         summarize_alert_q['recv'].put('end')  # summarize alertプロセスに終わりを知らせる
         if not summarize_alert_q['process'].join(timeout=60):  # summarize alertプロセスが終わるのを待つ
+            print("main : Terminate summarize-alert proc.")
             summarize_alert_q['process'].terminate()
 
         url_db.close()
