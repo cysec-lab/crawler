@@ -2,7 +2,6 @@ http://www.ritsumei.ac.jp/top/
 http://www.arc.ritsumei.ac.jp/
 http://www.ujc.ritsumei.ac.jp/ujc/
 http://alumni.ritsumei.jp/
-http://www.ritsapu-kr.com
 http://www.ritsumei.jp/pickup/detail_j/topics/649/date/01/year/2008
 http://www.apu.ac.jp/home/
 http://en.apu.ac.jp/home/
@@ -15,3 +14,4 @@ http://www.rm.is.ritsumei.ac.jp/
 http://www.cm.is.ritsumei.ac.jp/lab/
 http://pep-rg.jp/
 http://falsification.cysec.cs.ritsumei.ac.jp/
+http://falsification.cysec.cs.ritsumei.ac.jp/home/redirect_start.html
