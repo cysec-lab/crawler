@@ -1,6 +1,6 @@
 ﻿
 import os
-from file_rw import r_json, w_json, wa_file, r_file, w_file
+from file_rw import r_json, w_json, r_file, w_file
 import shutil
 from check_result.normalize_dir import del_temp_file, del_pickle, del_dir
 
@@ -98,7 +98,7 @@ def make_achievement(dire):
         file_dic['num_of_checked_url_ByMachineLearning.txt'] += '\n' + str(iframe_count) + ' pages including iframe.'
 
     for key, value in file_dic.items():
-        wa_file('achievement/' + key, value)
+        w_file('achievement/' + key, value, mode="a")
 
     os.chdir(now_dir)  # check_resultにとぶ
     os.chdir('..')     # 実行ディレクトリにとぶ
@@ -220,7 +220,7 @@ def type_count(x):
             else:
                 contntType_count[j[0:j.find(',')]] = 1
         for key in contntType_count.keys():
-            wa_file(i + '/content-type_count.csv', key + ',' + str(contntType_count[key]) + '\n')
+            w_file(i + '/content-type_count.csv', key + ',' + str(contntType_count[key]) + '\n', "a")
 
 
 def combine_num(x, y):
@@ -240,13 +240,13 @@ def combine_num(x, y):
 
     for key, value in server_achievement.items():
         if key != '':
-            wa_file('result.csv', key)
+            w_file('result.csv', key, "a")
             for j in value:
-                wa_file('result.csv', ',' + str(j))
-            wa_file('result.csv', '\n')
+                w_file('result.csv', ',' + str(j), "a")
+            w_file('result.csv', '\n', "a")
 
     for i in server_achievement['']:
-        wa_file('result.csv', '総URL数,' + str(i))
+        w_file('result.csv', '総URL数,' + str(i), "a")
 
 
 def make_num(x):
@@ -256,5 +256,5 @@ def make_num(x):
     for i in listdir:
         data = r_file(i + '/achievement.txt')
         count += int(data)
-        wa_file('../num.csv', i + ',' + data + '\n')
-    wa_file('../num.csv', ',' + str(count))
+        w_file('../num.csv', i + ',' + data + '\n', "a")
+    w_file('../num.csv', ',' + str(count), "a")
