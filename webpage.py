@@ -141,21 +141,16 @@ class Page:
         return True
 
     def make_links_html(self, soup):
-        bs_html = soup
-        for a_tag in bs_html.findAll('a'):      # aタグを全部取ってくる
+        for a_tag in soup.findAll('a'):      # aタグを全部取ってくる
             link_url = a_tag.get('href')
-            style = a_tag.get('class')
+            class_ = a_tag.get('class')
             if link_url:
-                if ('#' == link_url) or ('/' == link_url):
+                if 'styleswitch' in str(class_):
                     continue
-                if 'styleswitch' in str(style):
-                    continue
-                if ('mailto:' not in link_url)and('do=login' not in link_url)and('tel:' not in link_url):
-                    self.links.add(link_url)
+                self.links.add(link_url)
 
     def make_links_xml(self, soup):
-        bs_xml = soup
-        link_1 = bs_xml.findAll('link')     # linkタグではさまれている部分をリストで返す
+        link_1 = soup.findAll('link')     # linkタグではさまれている部分をリストで返す
         i = 0
         # httpから始まり、</link>か空白までの文字をURLとして保存
         while True:
@@ -212,6 +207,14 @@ class Page:
             # リンク集合からpop
             checked_url = temp_set.pop()
             checked_url = checked_url.strip()
+
+            # "#" や "/" の一文字の場合
+            if ('#' == checked_url) or ('/' == checked_url):
+                continue
+
+            # mailto: はメール作成, tel: は電話
+            if ('mailto:' in checked_url) or ('tel:' in checked_url):
+                continue
 
             # 'http'から始まっていなければ、self.urlから補完する(http://.../を付けたす)
             if not (checked_url.startswith('http')):

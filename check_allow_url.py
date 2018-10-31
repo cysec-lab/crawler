@@ -5,19 +5,22 @@ from time import sleep
 
 
 # クローリングするURLかどうかを判定するスレッド
-# もともとは全フィルタのチェックをしていたが、今はIPアドレスのチェックだけ。
+# もともとは全フィルタのチェックをスレッドでしていたが、今はIPアドレスのチェックだけ。
 class CheckSearchedIPAddressThread(Thread):
     def __init__(self, url_tuple, run_time, ip_address_dict):
         super(CheckSearchedIPAddressThread, self).__init__()
         self.url_tuple = url_tuple
         self.url_host = urlparse(url_tuple[0]).netloc
-        self.IPAddress_allow = ip_address_dict["allow"]
+        if "allow" in ip_address_dict:
+            self.IPAddress_allow = ip_address_dict["allow"]
+        else:
+            self.IPAddress_allow = list()
         self.result = run_time
         self.lock = Lock()
 
     def run(self):
         self.lock.acquire()   # 最後にacquireするときに自身でデッドロックをかけるため
-        crawling_flag = True
+        crawling_flag = False
 
         # 組織IPアドレスじゃなければ、"unknown"
         if self.IPAddress_allow:
@@ -26,17 +29,15 @@ class CheckSearchedIPAddressThread(Thread):
             except Exception as e:
                 # wa_file('get_addinfo_e.csv', check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n')
                 # crawling_flag = check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n'
-                crawling_flag = "unknown"
+                crawling_flag = "Unknown"
             else:
                 ip_address = o[0][4][0]
                 for ip in self.IPAddress_allow:
-                    if not ip_address.startswith(ip):
-                        crawling_flag = False
-                    else:
-                        # ipアドレスにより組織関連サーバだと判断
+                    if ip_address.startswith(ip):  # ipアドレスにより組織関連サーバだと判断
                         # crawling_flag = True  したが、立命は多すぎるので検索はしない
                         # w_file('ipAddress_ritsumei.csv', check_url + ',' + self.url_tuple[1] + '\n')
-                        crawling_flag = 'black'  # ブラックリストに引っかかったことにする
+                        crawling_flag = 'Black'  # ブラックリストに引っかかったことにする
+                        break
         self.result = crawling_flag
         self.lock.acquire(timeout=120)   # runの一行目でacquireしているので、メインスレッドでreleaseされるまでデッドロックがかかる
 
@@ -63,7 +64,7 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
             for white_host, white_path_list in special_white.items():
                 if url_host.endswith(white_host) and \
                         [wh_pa for wh_pa in white_path_list if url_path.startswith(wh_pa)]:
-                    return True
+                    return "Special"   # 過去に外部としてアラートされたが、ホワイトリストに追加されてそれに引っかかったもの(安全な外部URL)
 
         # ホワイトリストはホスト名は組織ではないが、URLが途中まで一致したら接続を許可する
         for white_host, white_path_list in white.items():
@@ -77,20 +78,20 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
 
         # 内部ドメインだが、ブラックリストに載っているので許可しない
         if [black_string for black_string in black if black_string in check_url]:
-            return 'black'
+            return 'Black'
 
         # 組織ドメインなら許可
         if [crawling_domain for crawling_domain in domain_allow if url_host.endswith(crawling_domain)]:
             return True
 
     # IPアドレスのチェックをする (そもそもホスト名だけを指定してくれていれば、このスレッドは作らなくていい)
-    if filtering_dict["IPAddress"]["allow"]:
+    if filtering_dict["IPAddress"]:
         t = CheckSearchedIPAddressThread(url_host, run_time, filtering_dict["IPAddress"], )
         t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
         try:
             t.start()
         except RuntimeError:
-            return "unknown"
+            return "Unknown"
         else:
             return t
 
@@ -98,9 +99,9 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
 
 
 # url_listのURLが安全かどうかをフィルタを使って確かめる
-# 返り値は安全だと判断できなかったURLの集合。 要素はタプル(url, False or "unknown")
+# 診断が終わったURLの集合。 要素はタプル(url, "診断結果")
 def inspection_url_by_filter(url_list, filtering_dict, special_filter=None):
-    strange_set = set()
+    result_set = set()
     thread_set = set()
     for url in url_list:
         res = check_searched_url(url_tuple=(url, ""), run_time=0, filtering_dict=filtering_dict,
@@ -108,9 +109,8 @@ def inspection_url_by_filter(url_list, filtering_dict, special_filter=None):
         if type(res) == CheckSearchedIPAddressThread:
             thread_set.add(res)
         else:
-            if (res is False) or (res == "unknown"):
-                res = (url, res)
-                strange_set.add(res)
+            res = (url, res)
+            result_set.add(res)
 
     # IPアドレスのチェックが行われているスレッドが終わるまで最大10秒待つ  (立命クローリングではIPアドレスを設定していないので実行されない)
     if thread_set:
@@ -118,9 +118,8 @@ def inspection_url_by_filter(url_list, filtering_dict, special_filter=None):
             rm_list = list()
             for thread in thread_set:
                 if type(thread.result) is not int:
-                    if (thread.result is False) or (thread.result == "unknown"):
-                        res = (thread.url_tuple[0], thread.result)
-                        strange_set.add(res)
+                    res = (thread.url_tuple[0], thread.result)
+                    result_set.add(res)
                     rm_list.append(thread)
                     thread.lock.release()
             # 評価が終わったスレッドを削除
@@ -130,4 +129,4 @@ def inspection_url_by_filter(url_list, filtering_dict, special_filter=None):
                 break
             sleep(1)
 
-    return strange_set
+    return result_set

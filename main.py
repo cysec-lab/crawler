@@ -2,7 +2,6 @@
 from urllib.parse import urlparse
 from collections import deque
 from time import time, sleep
-from threading import active_count
 import os
 from datetime import datetime
 # from machine_learning_screenshots import screenshots_learning_main
@@ -15,7 +14,6 @@ import json
 
 from crawler3 import crawler_main
 from file_rw import r_file, w_json, r_json, w_file
-from check_allow_url import check_searched_url, CheckSearchedIPAddressThread
 from summarize_alert import summarize_alert_main
 from sys_command import kill_chrome
 from memory_observer import MemoryObserverThread
@@ -36,12 +34,10 @@ hostName_args = dict()         # ホスト名 : 子プロセスの引数
 fewest_host = None     # 待機URL数が一番少ないホスト名
 
 hostName_time = dict()         # ホスト名 : (確認した時間, その時にキューに入っていた最初のURLのタプル)
-thread_set = set()             # クローリングするURLかチェックするスレッドのid集合
 
 url_db = None                  # key-valueデータベース. URL : (True or False or Black) + , +  nth
 nth = None                     # 何回目のクローリングか
 
-waiting_list = deque()         # (URL, リンク元)のタプルのリスト(受信したもの全て)
 url_list = deque()             # (URL, リンク元)のタプルのリスト(子プロセスに送信用)
 assignment_url_set = set()     # 割り当て済みのURLの集合
 remaining = 0  # 途中保存で終わったときの残りURL数
@@ -179,7 +175,8 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         data_temp = r_file('../ROD/LIST/START_LIST.txt')
         data_temp = data_temp.split('\n')
         for ini in data_temp:
-            waiting_list.append((ini, 'START'))
+            if ini:
+                url_list.append((ini, 'START'))
     else:
         if not os.path.exists('result_' + str(first_time)):
             print('init : result_' + str(first_time) + ' that is the result of previous crawling is not found.')
@@ -190,9 +187,6 @@ def init(first_time, setting_dict):    # 実行ディレクトリは「result」
         # 子プロセスに割り当てたURLの集合
         data_temp = r_json('result_' + str(first_time) + '/assignment_url_set')
         assignment_url_set.update(set(data_temp))
-        # クローリングするかしないかのチェックをしていないURLの集合
-        data_temp = r_json('result_' + str(first_time) + '/waiting_list')
-        waiting_list.extend([tuple(i) for i in data_temp])
         # ホスト名を見て分類する前のリスト
         data_temp = r_json('result_' + str(first_time) + '/url_list')
         url_list.extend([tuple(i) for i in data_temp])
@@ -317,30 +311,18 @@ def forced_termination():
         del_child(int(time()))
         sleep(3)
 
-    # クローリングをするURLかどうかのチェックをしているスレッドが全て完了するまで回り続ける
-    while thread_set:
-        make_url_list(int(time()))
-        print('main : wait ritsumeikan check thread...')
-        print('main : remaining ' + str(len(thread_set)))
-        sleep(3)
-
     # 続きをするために途中経過を保存する
     all_achievement += get_achievement_amount()
     w_json(name='url_list', data=list(url_list))
     w_json(name='assignment_url_set', data=list(assignment_url_set))
     w_json(name='all_achievement', data=all_achievement)
-    w_json(name='waiting_list', data=list(waiting_list))
     with open('host_remaining.pickle', 'wb') as f:
         pickle.dump(hostName_remaining, f)
 
 
 # 全ての待機キューにURLがなく、全ての子プロセスが終了していたらTrue
 def end():
-    if waiting_list:            # クローリングするURLかどうかのチェックを待っているURLがなくて
-        return False
     if url_list:                # 子プロセスに送るためのURLのリストが空で
-        return False
-    if thread_set:              # 立命館かどうかのチェックの最中のスレッドがなくて
         return False
     if get_alive_child_num():   # 生きている子プロセスがいなくて
         return False
@@ -348,67 +330,6 @@ def end():
         if len(remaining_temp['URL_list']):
             return False
     return True
-
-
-# checkスレッド後が終わったURLのタプルを、子プロセスに送るためのリストに追加する
-# 外部リンクでリダイレクト後だった場合、ファイルに出力する
-# url_listを更新後、チェックを終えたスレッドidはスレッド集合から削除する
-# もしくは、300秒以上たってもスレッドが終わらない場合もスレッド集合から削除する
-def make_url_list(now_time):
-    del_list = list()
-    # thread_setの中は、(url_tuple, res)　か CheckSearchedIPAddressThread型のオブジェクト
-    for thread in thread_set:
-        # threadオブジェクトとtupleオブジェクトとでそれぞれ値の参照方法が変わる
-        if type(thread) == CheckSearchedIPAddressThread:
-            url_tuple = thread.url_tuple
-            result = thread.result
-            lock = thread.lock
-        else:
-            url_tuple = thread[0]
-            result = thread[1]
-            lock = None
-        if type(result) is not int:     # resultの初期値はtime.time()。 上書きされているとチェックが終わったということ
-            if result is True:
-                url_db[url_tuple[0]] = 'True,' + str(nth)        # 立命館URL
-                url_list.append((url_tuple[0], url_tuple[1]))    # URLのタプルを検索リストに追加
-            elif result == 'black':
-                url_db[url_tuple[0]] = 'Black,' + str(nth)  # 対象URLだがblackリストでフィルタリングされたURL
-            else:   # (False or unknown)
-                url_db[url_tuple[0]] = 'False,' + str(nth)
-                # タプルの長さが3の場合はリダイレクト後のURL
-                if len(url_tuple) == 3:
-                    w_alert_flag = True
-                    redirect_host = urlparse(url_tuple[0]).netloc
-                    redirect_path = urlparse(url_tuple[0]).path
-                    # リダイレクト後であった場合、ホスト名+パスの途中までを見てあやしければ外部出力
-                    for white_host, white_path_list in filtering_dict["REDIRECT"]["allow"].items():
-                        if redirect_host.endswith(white_host) and \
-                                [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
-                            w_alert_flag = False
-                            break
-                    if w_alert_flag:
-                        data_temp = dict()
-                        data_temp['url'] = url_tuple[0]
-                        data_temp['src'] = url_tuple[1]
-                        data_temp['file_name'] = 'after_redirect_check.csv'
-                        data_temp['content'] = url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0]
-                        data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
-                        summarize_alert_q['recv'].put(data_temp)
-                    # 一応リダイレクトはすべて出力
-                    w_file('after_redirect.csv',
-                           url_tuple[0] + ',' + url_tuple[1] + ',' + url_tuple[2] + '\n', mode="a")
-            del_list.append(thread)
-            if lock is not None:
-                lock.release()    # スレッドは最後にロックをして待っているのでリリースして終わらせる
-        else:
-            if now_time - result > 300:    # 300秒経っても終わらない場合は削除
-                w_file('cant_done_check_thread.csv', url_tuple[0] + ',' + url_tuple[1] + '\n', mode="a")
-                del_list.append(thread)
-                if lock is not None:
-                    lock.release()   # スレッドは最初にロックをしているのでリリースしておく
-    # 集合から削除
-    for thread in del_list:
-        thread_set.remove(thread)
 
 
 # クローリングプロセスを生成する、既に一度作ったことがある場合は、プロセスだけ作る
@@ -476,11 +397,11 @@ def get_alive_child_num():
 
 
 # 子プロセスからの情報を受信する、plzを受け取るとURLを送信する
-# 受信したリストの中のURLはwaiting_list(クローリングするURLかのチェック待ちリスト)に追加する。
+# 受信したリストの中のURLはクローリングするURLならばurl_listに追加する。
 # not_send=Trueのとき、子プロセスにはURLを送信しない。子プロセスからのデータを受け取りたいだけの時に使う。
 def receive_and_send(not_send=False):
     # 受信する型は、辞書、タプル、文字列の3種類
-    # {'type': '文字列', 'url_tuple_list': [(url, src), (url, src),...]}の辞書
+    # {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "page_url": URLが貼ってあったページURL, オプション}の辞書
     # (url, 'redirect')のタプル(リダイレクトが起こったが、ホスト名が変わらなかったためそのまま処理された場合)
     # "receive"の文字(子プロセスがURLのタプルを受け取るたびに送信する)
     # "plz"の文字(子プロセスがURLのタプルを要求)
@@ -500,17 +421,16 @@ def receive_and_send(not_send=False):
                         while True:
                             url_tuple = hostName_remaining[host_name]['URL_list'].popleft()
                             hostName_remaining[host_name]['update_flag'] = True
-                            if url_tuple[0] not in assignment_url_set:  # 一度送ったURLは送らない
+                            if url_tuple[0] not in assignment_url_set:  # まだ送信していないURLならば
                                 assignment_url_set.add(url_tuple[0])
                                 queue['parent_send'].put(url_tuple)
                                 send_num += 1
-                                break
+                                break  # 一つでもURLを送信したらbreak
                             if not hostName_remaining[host_name]['URL_list']:  # 待機リストが空になるとbreak
-                                queue['parent_send'].put('nothing')
+                                queue['parent_send'].put('nothing')  # もうURLが残ってないことを教える
                                 break
                     else:
-                        # もうURLが残ってないことを教える
-                        queue['parent_send'].put('nothing')
+                        queue['parent_send'].put('nothing')  # もうURLが残ってないことを教える
         elif type(received_data) is tuple:      # リダイレクトしたが、ホスト名が変わらなかったため子プロセスで処理を続行
             assignment_url_set.add(received_data[0])  # リダイレクト後のURLを割り当てURL集合に追加
             url_db[received_data[0]] = 'True,' + str(nth)
@@ -521,60 +441,55 @@ def receive_and_send(not_send=False):
                 hostName_achievement[host_name] += 1   # ファイルクローリング結果なので、検索済み数更新して次へ
                 continue
             elif received_data['type'] == 'new_window_url':      # 新しい窓(orタブ)に出たURL(今のところ見つかってない)
-                url_tuple_list = received_data['url_tuple_list']
-                for url_tuple in url_tuple_list:
+                url_set = received_data['url_set']
+                page_url = received_data["page_url"]
+                for url_tuple in url_set:
                     data_temp = dict()
                     data_temp['url'] = url_tuple[0]
-                    data_temp['src'] = url_tuple[1]
+                    data_temp['src'] = page_url
                     data_temp['file_name'] = 'new_window_url.csv'
-                    data_temp['content'] = url_tuple[0] + ',' + url_tuple[1]
+                    data_temp['content'] = url_tuple[0] + ',' + page_url
                     data_temp['label'] = 'NEW_WINDOW_URL,URL'
                     summarize_alert_q['recv'].put(data_temp)
             elif received_data['type'] == 'redirect':
-                url_tuple = received_data['url_tuple_list'][0]   # リダイレクトの場合、リストの要素数は１個だけ
-                if url_tuple[0] in url_db:
-                    value = url_db[url_tuple[0]].decode('utf-8')
-                    flag = value[0:value.find(',')]
-                    if flag == 'False':
-                        redirect_host = urlparse(url_tuple[0]).netloc
-                        redirect_path = urlparse(url_tuple[0]).path
-                        w_alert_flag = True
-                        # リダイレクト後であった場合、ホスト名+パスの途中までを見てあやしければ外部出力
-                        for white_host, white_path_list in filtering_dict["REDIRECT"]["allow"].items():
-                            if redirect_host.endswith(white_host) and \
-                                    [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
-                                w_alert_flag = False
-                                break
-                        if w_alert_flag:
-                            data_temp = dict()
-                            data_temp['url'] = url_tuple[0]
-                            data_temp['src'] = url_tuple[1]
-                            data_temp['file_name'] = 'after_redirect_check.csv'  # 同じ情報が二度このファイルに載ってしまうことがある。
-                            # url_dbにリダイレクト後のURLが登録されており、組織外だった場合、ここで記録される。二回目はmake_url_list()内で記録される。
-                            data_temp['content'] = url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0]
-                            data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
-                            summarize_alert_q['recv'].put(data_temp)
-                        w_file('after_redirect.csv',
-                               url_tuple[2] + ',' + url_tuple[1] + ',' + url_tuple[0] + '\n', mode="a")
+                url_tuple = list(received_data['url_set'])[0]   # リダイレクトの場合、リストの要素数は１個だけ
+                url = url_tuple[0]
+                res = url_tuple[1]
+                if (res is False) or (res == "unknown"):  # 外部URLだった場合
+                    # そのURLがホワイトリストに引っかかるかどうかを調べる
+                    redirect_host = urlparse(url).netloc
+                    redirect_path = urlparse(url).path
+                    w_alert_flag = True
+                    # ホスト名+パスの途中までを見てホワイトリストに引っかからなければアラート
+                    for white_host, white_path_list in filtering_dict["REDIRECT"]["allow"].items():
+                        if redirect_host.endswith(white_host) and \
+                                [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
+                            w_alert_flag = False
+                            break
+                    if w_alert_flag:
+                        data_temp = dict()
+                        data_temp['url'] = url
+                        data_temp['src'] = received_data["page_url"]
+                        data_temp['file_name'] = 'after_redirect_check.csv'  # 同じ情報が二度このファイルに載ってしまうことがある。
+                        # url_dbにリダイレクト後のURLが登録されており、組織外だった場合、ここで記録される。二回目はmake_url_list()内で記録される。
+                        data_temp['content'] = received_data["initial_url"] + ',' + received_data["page_url"] + \
+                                               ',' + url
+                        data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
+                        summarize_alert_q['recv'].put(data_temp)
+                w_file('after_redirect.csv', received_data["initial_url"] + ',' + received_data["page_url"] + ',' +
+                       url + "," + str(res) + '\n', mode="a")
 
-            # waitingリストに追加。既に割り当て済みの場合は追加しない。
-            url_tuple_list = received_data['url_tuple_list']
-            if url_tuple_list:
-                recv_num += len(url_tuple_list)
-                # リンク集から取り出してwaiting_listに追加。
-                for url_tuple in url_tuple_list:
-                    if url_tuple[0] not in url_db:
-                        waiting_list.append(url_tuple)    # まだ対象URLかのチェックをしていないのでチェック待ちリストに入れる
-                    else:
-                        value = url_db[url_tuple[0]].decode('utf-8')
-                        flag = value[0:value.find(',')]
-                        n = value[value.find(',')+1:]
-                        if int(n) != nth:
-                            url_db[url_tuple[0]] = flag + ',' + str(nth)
-                            if flag == 'True':
-                                url_list.append((url_tuple[0], url_tuple[1]))    # 今回はまだ割り当てていないため割り当て待ちリストに入れる
-                            elif flag == 'False':
-                                waiting_list.append(url_tuple)  # 前回はFalseだが、今回もう一度チェックする(ipアドレスの取得に失敗したものもFalseのため)
+            # urlリストに追加。既に割り当て済みの場合は追加しない。
+            url_tuple_set = received_data['url_set']
+            url_src = received_data["page_url"]
+            if url_tuple_set:
+                recv_num += len(url_tuple_set)
+                # リンク集から取り出してurl_listに追加。
+                for url_tuple in url_tuple_set:
+                    if url_tuple[1] is True:
+                        url_list.append((url_tuple[0], url_src))    # 分類待ちリストに入れる
+                    # url_dbの更新
+                    url_db[url_tuple[0]] = str(url_tuple[1]) + ',' + str(nth)
 
 
 # url_tupleのリンクURLをクローリングするための辞書に登録する
@@ -649,7 +564,7 @@ def crawler_host(org_arg=None):
     org_path = org_arg['org_path']  # 組織ごとのディレクトリパス。設定ファイルや結果を保存するところ ".../organization/組織名"
 
     global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, hostName_time, fewest_host
-    global waiting_list, url_list, assignment_url_set, thread_set
+    global url_list, assignment_url_set
     global remaining, send_num, recv_num, all_achievement
     start = int(time())
 
@@ -719,8 +634,6 @@ def crawler_host(org_arg=None):
         hostName_achievement = dict()    # ホスト名 : 達成数
         hostName_time = dict()           # ホスト名 : (確認した時間, その時にキューに入っていた最初のURLのタプル)
         fewest_host = None
-        thread_set = set()               # クローリングするURLかチェックするスレッドのid集合
-        waiting_list = deque()           # (URL, リンク元)のタプルのリスト(クローリングするURLかチェック待ちのリスト)
         url_list = deque()               # (URL, リンク元)のタプルのリスト(子プロセスに送信用)
         assignment_url_set = set()           # 割り当て済みのURLの集合
         all_achievement = 0
@@ -734,7 +647,7 @@ def crawler_host(org_arg=None):
         # メインループ
         while True:
             current_achievement = get_achievement_amount()
-            remaining = len(url_list) + len(waiting_list) + sum([len(dic['URL_list']) for dic in hostName_remaining.values()])
+            remaining = len(url_list) + sum([len(dic['URL_list']) for dic in hostName_remaining.values()])
             receive_and_send()
             now = int(time())
 
@@ -776,29 +689,6 @@ def crawler_host(org_arg=None):
                 all_achievement += current_achievement
                 w_json(name='assignment_url_set', data=list(assignment_url_set))
                 break
-
-            # 組織内URLかチェックする待ちリストからpop
-            if waiting_list:
-                # 一回のループで10個のURLをチェックする
-                for i in range(10):
-                    if active_count() < 2000:
-                        url_tuple = waiting_list.popleft()    # クローリングするURLかどうかのチェック待ちリストからpop
-                        res = check_searched_url(url_tuple, int(time()), filtering_dict, )
-                        if type(res) == CheckSearchedIPAddressThread:
-                            # IPアドレスチェックのためのスレッドが立ち上がった
-                            thread_set.add(res)
-                        else:
-                            # 結果が返ってきた (thread_setに入れる。オブジェクトの種類による処理の分岐はmake_url_list()内で行う)
-                            res = (url_tuple, res)
-                            thread_set.add(res)
-                    else:
-                        print("main : number of thread is over 2000.")
-                        sleep(1)
-                    if not waiting_list:
-                        break
-
-            # クローリングするURLかどうかのチェックが終わったものからurl_listに追加する
-            make_url_list(now)
 
             # url_list(子プロセスに送るURLのタプルのリスト)からURLのタプルを取り出して分類する
             while url_list:
@@ -850,7 +740,7 @@ def crawler_host(org_arg=None):
                             num_of_process -= 1
 
         # メインループを抜け、結果表示＆保存
-        remaining = len(url_list) + len(waiting_list) + sum([len(di['URL_list']) for di in hostName_remaining.values()])
+        remaining = len(url_list) + sum([len(di['URL_list']) for di in hostName_remaining.values()])
         current_achievement = get_achievement_amount()
         print('\nmain : -------------result------------------')
         print('main : assignment_url_set = ' + str(len(assignment_url_set)))

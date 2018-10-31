@@ -132,6 +132,7 @@ def meta_refresh_inspection(soup):
         return False
 
 
+# meta-refresh の src を 正規化して返す
 def get_meta_refresh_url(meta_refresh_list, page):
     url_str_list = str_mix_upper_lower('url')       # 'URL'の文字の大文字小文字混ぜ合わせた全てのリストを得る
     meta_refresh_url_list = list()
@@ -145,7 +146,7 @@ def get_meta_refresh_url(meta_refresh_list, page):
                     meta_refresh_url = meta_refresh_content[url_start + 3:]
                     if not(meta_refresh_url.startswith('http')):
                         meta_refresh_url = page.comp_http(page.url, meta_refresh_url)
-                    meta_refresh_url_list.append((meta_refresh_url, page.src, page.url))
+                    meta_refresh_url_list.append(meta_refresh_url)
     return meta_refresh_url_list
 
 

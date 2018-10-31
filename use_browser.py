@@ -1,7 +1,8 @@
 from time import sleep
+import csv
+import os
 from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from FirefoxProfile_new import FirefoxProfile
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
@@ -10,9 +11,10 @@ from selenium.common.exceptions import TimeoutException, NoAlertPresentException
 from selenium.webdriver.common.alert import Alert
 from urllib.parse import urlparse
 from copy import deepcopy
+
+from FirefoxProfile_new import FirefoxProfile
 from get_web_driver_thread import GetChromeDriverThread, GetFirefoxDriverThread, GetPhantomJSDriverThread
 from html_read_thread import WebDriverGetThread
-import os
 from location import location
 
 
@@ -132,7 +134,7 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     fpro = FirefoxProfile()
 
     # ヘッドレスモードに
-    #options.add_argument('-headless')
+    options.add_argument('-headless')
 
     # user agent
     if user_agent:
@@ -154,7 +156,6 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     fpro.set_preference('browser.download.manager.alertOnEXEOpen', False)
     fpro.set_preference('browser.download.manager.closeWhenDone', True)
     # ダウンロード可能なMimeタイプの設定
-    import csv
     mime_list = list()
     mime_file_dir = src_dir + '/files/mime'
     for csv_file in os.listdir(mime_file_dir):
@@ -375,46 +376,6 @@ def get_chrome_driver(screenshots=False, user_agent=''):
     return driver
 
 
-# phantomJSを使うためのdriverを返す
-# ファイルダウンロードは不可能(Windowsならjsを使って出来ないことはない)
-# RequestURLのログが残っている
-def get_phantom_driver(screenshots, user_agent='*'):
-    # PhantomJSの設定
-    des_cap = dict(DesiredCapabilities.PHANTOMJS)
-    des_cap["phantomjs.page.settings.userAgent"] = user_agent
-    if not screenshots:
-        des_cap["phantomjs.page.settings.loadImages"] = False
-    des_cap['phantomjs.page.settings.resourceTimeout'] = 60   # たぶん意味ない
-
-    # PhantomJSのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
-    try:
-        t = GetPhantomJSDriverThread(des_cap)
-        t.start()
-        t.join(10)
-    except Exception:
-        sleep(10)
-        try:
-            t = GetPhantomJSDriverThread(des_cap)
-            t.start()
-            t.join(10)
-        except Exception:
-            return False
-
-    if t.re is False:   # ドライバ取得でフリーズしている場合
-        quit_driver(t.driver)   # 一応終了させて
-        return False
-    if t.driver is False:  # 単にエラーで取得できなかった場合
-        quit_driver(t.driver)   # 一応終了させて
-        return False
-    driver = t.driver
-
-    # たぶん意味ない
-    driver.set_page_load_timeout = 60  # ページを構成するファイルのロードのタイムアウト?
-    driver.timeout = 10   # リクエストのタイムアウト?
-
-    return driver
-
-
 def set_request_url_chrome(page, driver):
     import json
     request_urls = set()
@@ -468,46 +429,6 @@ def set_request_url_chrome(page, driver):
     #     if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
     #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
     #     page.request_url_host.append(url_domain)  # ホスト名(ネットワーク部)だけ保存
-
-
-def set_request_url_phantom(page, driver):
-    try:
-        log_content = driver.get_log('har')[0]['message']
-    except Exception as e:
-        print(e)
-        raise
-    temp = set()   # ページをロードするのにリクエストしたurlを入れる集合
-    re = list()    # GETとPOST以外のメソッドがあれば入る
-    # GETとPOSTのメソッドのURLをpageの属性に保存
-    while True:
-        get = log_content.find('"method":')
-        if get == -1:
-            break
-        if log_content[get+9: get+14] == '"GET"':
-            end = log_content[get + 22:].find('"')
-            url_2 = log_content[get + 22: get + 22 + end]
-            temp.add(url_2)
-        elif log_content[get+9: get+15] == '"POST"':
-            end = log_content[get + 23:].find('"')
-            url_2 = log_content[get + 23: get + 23 + end]
-            temp.add(url_2)
-        else:
-            # 以下はGETメソッド以外があるかどうか調査するため
-            end = log_content[get + 26:].find('"')
-            url_2 = log_content[get + 9: get + 26 + end]
-            re.append(url_2)
-        log_content = log_content[end:]
-    page.request_url = deepcopy(temp)
-
-    # # 今保存したURLの中で、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-    # for url in page.request_url:
-    #     url_domain = urlparse(url).netloc
-    #     if page.hostName == url_domain:                 # 同じホスト名(サーバ)のURLはそのまま保存
-    #         page.request_url_same_server.append(url)
-    #     if url_domain.count('.') > 2:   # xx.ac.jpのように「.」が2つしかないものはそのまま
-    #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-    #     page.request_url_host.append(url_domain)     # ホスト名(ネットワーク部)だけ保存
-    return re
 
 
 """

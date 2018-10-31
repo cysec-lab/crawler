@@ -9,15 +9,16 @@ from shutil import copyfile
 # url_dictの操作を行う。各Webサーバ毎に生成される。
 # jsonで保存するため、set集合はlistにしている
 class UrlDict:
-    def __init__(self, host):
+    def __init__(self, host, org_path=""):
         self.host = host
+        self.org_path = org_path
         self.url_dict = dict()      # url : そのURLの情報の辞書
         self.url_tags = dict()      # url : タグ順番保存
 
     def load_url_dict(self, path=None):
         copy_flag = ''
-        rad_dir = '../../../../RAD'
-        rod_dir = '../../../../ROD'
+        rad_dir = self.org_path + '/RAD'
+        rod_dir = self.org_path + '/ROD'
         # url_hashのロード
         if path is None:
             path = rad_dir + '/url_hash_json/' + self.host + '.json'
@@ -108,7 +109,7 @@ class UrlDict:
         return copy_flag
 
     def save_url_dict(self):
-        data_dir = '../../../../RAD'
+        data_dir = self.org_path + '/RAD'
         if len(self.url_dict) > 0:
             f = open(data_dir + '/url_hash_json/' + self.host + '.json', 'w')
             json.dump(self.url_dict, f)

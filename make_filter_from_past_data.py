@@ -122,27 +122,27 @@ def make_filter(org_path):
     # ファイルロード
     if os.path.exists("{}/alert/link_to_new_server.csv".format(org_path)):
         new_link_file = r_file(name="{}/alert/link_to_new_server.csv".format(org_path))
-        # 3列目以降のデータを集合に追加
-        for line in new_link_file.splitlines():
-            new_link_set = new_link_set.union(line.split(",")[2:])
+        # 4列目以降のデータを集合に追加
+        for line in new_link_file.splitlines()[1:]:  # [1:]でヘッダを飛ばす
+            new_link_set = new_link_set.union(line.split(",")[3:])
     if os.path.exists("{}/alert/new_request_url.csv".format(org_path)):
         new_request_file = r_file(name="{}/alert/new_request_url.csv".format(org_path))
-        # 3列目以降のデータを集合に追加
-        for line in new_request_file.splitlines():
-            new_request_set = new_request_set.union(line.split(",")[2:])
+        # 4列目以降のデータを集合に追加
+        for line in new_request_file.splitlines()[1:]:  # [1:]でヘッダを飛ばす
+            new_request_set = new_request_set.union(line.split(",")[3:])
 
     # 新しいフィルタを作成 フィルタ-> {ホスト名: "", ホスト名: "", ...}
     if new_link_set:
-        new_link_host_set = set([urlparse(link).netloc for link in new_link_set])
-        new_link_filter = {host: [""] for host in new_link_host_set}
+        new_link_host_set = set([urlparse(link[1:-1]).netloc for link in new_link_set])  # [1:-1]で文字列を表す「'」を消す
+        new_link_filter = {host: [""] for host in new_link_host_set if host}
     if new_request_set:
-        new_request_host_set = set([urlparse(request).netloc for request in new_request_set])
-        new_request_filter = {host: [""] for host in new_request_host_set}
+        new_request_host_set = set([urlparse(request[1:-1]).netloc for request in new_request_set])
+        new_request_filter = {host: [""] for host in new_request_host_set if host}
 
     # jsonとして保存
-    with open("{}/new_link_filter.json".format(org_path)) as f:
+    with open("{}/new_link_filter.json".format(org_path), "w") as f:
         json.dump(new_link_filter, f)
-    with open("{}/new_request_filter.json".format(org_path)) as f:
+    with open("{}/new_request_filter.json".format(org_path), "w") as f:
         json.dump(new_request_filter, f)
 
 
@@ -152,6 +152,10 @@ def merge_filter(org_path):
 
     # link と request の文字以外は処理が同じなので、 for文でまとめる
     for obj in obj_list:
+        # 必要なdirがなければ作成
+        if not os.path.exists("{}/ROD/{}_url".format(org_path, obj)):
+            os.mkdir("{}/ROD/{}_url".format(org_path, obj))
+
         # 既存のフィルタロード
         if os.path.exists("{}/ROD/{}_url/filter.json".format(org_path, obj)):
             with open("{}/ROD/{}_url/filter.json".format(org_path, obj)) as f:
@@ -160,8 +164,8 @@ def merge_filter(org_path):
             temp_dict["old_{}_filter".format(obj)] = dict()
 
         # 新しいフィルタロード
-        if os.path.exists("{}/ROD/{}_url/filter.json".format(org_path, obj)):
-            with open("{}/ROD/{}_url/filter.json".format(org_path, obj)) as f:
+        if os.path.exists("{}/new_{}_filter.json".format(org_path, obj)):
+            with open("{}/new_{}_filter.json".format(org_path, obj)) as f:
                 temp_dict["new_{}_filter".format(obj)] = json.load(f)
         else:
             temp_dict["new_{}_filter".format(obj)] = dict()
@@ -175,7 +179,7 @@ def merge_filter(org_path):
                 temp_dict["old_{}_filter".format(obj)][key] = value
 
         # 保存
-        with open("{}/ROD/{}_url/filter.json".format(org_path, obj)) as f:
+        with open("{}/ROD/{}_url/filter.json".format(org_path, obj), "w") as f:
             json.dump(temp_dict["old_{}_filter".format(obj)], f)
 
 
