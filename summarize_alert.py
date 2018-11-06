@@ -17,9 +17,9 @@ def receive_alert(recv_q):
             break
 
 
-def summarize_alert_main(recv_q, send_q, nth):
+def summarize_alert_main(recv_q, send_q, nth, org_path):
 
-    alert_dir_path = '../../alert'
+    alert_dir_path = org_path + '/alert'
     # alertディレクトリを作成
     if not path.exists(alert_dir_path):
         mkdir(alert_dir_path)
@@ -46,7 +46,7 @@ def summarize_alert_main(recv_q, send_q, nth):
         label = 'Nth,' + label
         content = str(nth) + ',' + content
 
-        # label と content　を直うち
+        # label と content を出力
         if file_name.endswith('.csv'):
             if not path.exists(alert_dir_path + '/' + file_name):
                 w_file(alert_dir_path + '/' + file_name, label + '\n', mode="a")

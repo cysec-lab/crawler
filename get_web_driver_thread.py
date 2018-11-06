@@ -25,8 +25,9 @@ class GetFirefoxDriverThread(Thread):
             self.driver = False
         except Exception as e:
             print(location() + str(e), flush=True)
-
-        self.re = True
+            self.driver = False
+        finally:
+            self.re = True
 
 
 class GetChromeDriverThread(Thread):
@@ -47,22 +48,5 @@ class GetChromeDriverThread(Thread):
         except LookupError as e:
             print(location() + str(e), flush=True)
             self.driver = False
-        self.re = True
-
-
-class GetPhantomJSDriverThread(Thread):
-    def __init__(self, des_cap):
-        super(GetPhantomJSDriverThread, self).__init__()
-        self.des_cap = des_cap
-        self.driver = False
-        self.re = False
-
-    def run(self):
-        try:
-            self.driver = webdriver.PhantomJS(desired_capabilities=self.des_cap, service_log_path=path.devnull,
-                                              executable_path='/usr/local/bin/phantomjs')
-        except selenium.common.exceptions.WebDriverException:
-            self.driver = False
-        except LookupError:
-            self.driver = False
-        self.re = True
+        finally:
+            self.re = True

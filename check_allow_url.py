@@ -22,7 +22,7 @@ class CheckSearchedIPAddressThread(Thread):
         self.lock.acquire()   # 最後にacquireするときに自身でデッドロックをかけるため
         crawling_flag = False
 
-        # 組織IPアドレスじゃなければ、"unknown"
+        # 組織IPアドレスじゃなければ、"Unknown"
         if self.IPAddress_allow:
             try:
                 o = socket.getaddrinfo(self.url_host, 80, 0, 0, proto=socket.IPPROTO_TCP)

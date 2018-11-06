@@ -15,10 +15,10 @@ def w_file(file_name, data, mode="w"):
                 break
 
 
-def r_file(name, encode='utf-8'):
+def r_file(name, mode="r"):
     enc_list = ["utf-8", "shift_jis", "cp932", "iso-2022-jp"]
     for enc in enc_list:
-        with open(name, mode="r", encoding=enc) as f:
+        with open(name, mode=mode, encoding=enc) as f:
             try:
                 read = f.read()     # 改行文字は含まれる
             except UnicodeDecodeError:

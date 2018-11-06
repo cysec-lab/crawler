@@ -23,11 +23,7 @@ def receive(recvq):
             data_list.append(recv)
 
 
-def clamd_main(recvq, sendq):
-
-    # clamAVのclamdを起動(ubuntuにしたので、ずっと起動されている?)
-    # p = Popen(["clamd"])
-
+def clamd_main(recvq, sendq, org_path):
     while True:
         try:
             cd = pyclamd.ClamdAgnostic()
@@ -48,7 +44,7 @@ def clamd_main(recvq, sendq):
     eicar = cd.EICAR()
     cd.scan_stream(eicar)
 
-    t = Thread(target=receive, args=(recvq,))    # 子プロセスからのデータを受信するスレッド
+    t = Thread(target=receive, args=(recvq,))    # クローリングプロセスからのデータを受信するスレッド
     t.start()
     while True:
         if not data_list:
@@ -67,11 +63,11 @@ def clamd_main(recvq, sendq):
             clamd_error.append(url + '\n' + str(e))
         else:
             if result is not None:
-                w_file('../alert/warning_clamd.txt', str(result) + '\n' + url + '\nsrc= ' + url_src + '\n', mode="a")
-                if not os.path.exists('../clamd_files'):
-                    os.mkdir('../clamd_files')
-                w_file('../clamd_files/b_' + str(len(listdir('../clamd_files'))+1) + '.clam', url + '\n' + str(byte),
-                       mode="a")
+                w_file(org_path + '/alert/warning_clamd.txt', "{}\n\tURL={}\n\tsrc={}\n".format(result, url, url_src), mode="a")
+                if not os.path.exists(org_path + '/clamd_files'):
+                    os.mkdir(org_path + '/clamd_files')
+                w_file(org_path + '/clamd_files/b_' + str(len(listdir(org_path + '/clamd_files'))+1) + '.clam',
+                       url + '\n' + str(byte), mode="a")
             print('clamd : ' + url + ' have scanned.')
         if len(clamd_error) > 100:
             text = ''

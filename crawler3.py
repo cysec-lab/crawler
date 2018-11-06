@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 import urllib.error
 from datetime import datetime
+from multiprocessing import cpu_count
 
 from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
 from robotparser_new_kai import RobotFileParser
@@ -21,12 +22,14 @@ from use_browser import get_fox_driver, set_html, get_window_url, take_screensho
 from use_browser import start_watcher_and_move_blank, stop_watcher_and_get_data
 from location import location
 from check_allow_url import inspection_url_by_filter
+from sys_command import kill_chrome
+from resources_observer import cpu_checker, memory_checker, get_family, get_relate_browser_proc
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 
 dir_name = ''   # このプロセスの作業ディレクトリ
 f_name = ''     # このプロセスのホスト名をファイル名として使えるように変換したもの
-org_path = ""   # 組織ごとのディレクトリパス
+org_path = ""   # 組織のディレクトリ絶対パス
 
 threadId_set = set()      # パーサーのスレッドid集合
 threadId_time = dict()    # スレッドid : 実行時間
@@ -35,6 +38,7 @@ url_cache = set()         # 接続を試したURLの集合。他サーバへの�
 urlDict = None            # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None    # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
+current_browser_page = None   # 現在ヘッドレスブラウザで接続しているページ
 
 word_idf_dict = dict()                 # 前回にこのサーバに出てきた単語とそのidf値
 word_df_dict = dict()                  # 今回、このサーバに出てきた単語と出現ページ数
@@ -300,8 +304,8 @@ def parser(parse_args_dic):
     except Exception:
         soup = BeautifulSoup(page.html, 'html.parser')
 
-    # htmlソースからtagだけ取り出して機械学習に入れる
-    get_tags_from_html(soup, page, machine_learning_q)
+    # htmlソースからtagだけ取り出して機械学習に入れる(今はしていない)
+    # get_tags_from_html(soup, page, machine_learning_q)
 
     # ページに貼られているリンク集を作り、親プロセスへ送信
     if file_type == 'xml':
@@ -451,7 +455,7 @@ def parser(parse_args_dic):
         result_set = inspection_url_by_filter(url_list=meta_refresh_list, filtering_dict=filtering_dict)
         while result_set:
             send_to_parent(q_send, {'type': 'redirect', 'url_set': [result_set.pop()], "page_url": page.src,
-                                    "initial_url": page.url_initial})
+                                    "ini_url": page.url_initial})
 
     # scriptの検査
     # script名が特徴的かどうか。[(スクリプト名, そのスクリプトタグ),()...]となるリストを返す
@@ -513,7 +517,7 @@ def check_thread_time(now):
     return thread_list
 
 
-# 5秒間隔で180秒以上続いているスレッドがあるかチェックし、あるとリストから削除
+# 5秒間隔で180秒以上続いているparserスレッドがあるかチェックし、あるとリストから削除
 def del_thread(host):
     while True:
         sleep(5)
@@ -529,13 +533,74 @@ def del_thread(host):
                 pass
 
 
+# 資源監視スレッド。大域変数を使いたいのでこのファイルに記述
+def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid, interval=1):
+    """
+    :param cpu_limit: limitation %
+    :param memory_limit: limitation GB
+    :param ppid: observed process's parent pid
+    :param cpu_num:
+    :param interval: time to sleep
+    :return:
+    """
+    while True:
+        if current_browser_page:
+            initial = current_browser_page["initial"]
+            src = current_browser_page["src"]
+            url = current_browser_page["url"]
+            flag = False
+            family = get_family(ppid)
+
+            print("\n-----CPU-----")
+            ret = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
+            if ret:
+                flag = True
+                print("URL = {}".format(current_browser_page["url"]))
+                for p_dict in ret:
+                    print("\tHIGH CPU PROCESS : {}".format(p_dict["proc"].name()))
+                data_temp = dict()
+                data_temp['url'] = initial
+                data_temp['src'] = src
+                data_temp['file_name'] = 'over_work_cpu.csv'
+                proc_info = [(p_dict["proc"].name(), p_dict["cpu_per"]) for p_dict in ret]
+                data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
+                data_temp['label'] = 'InitialURL,URL,Src,Info'
+                with wfta_lock:
+                    write_file_to_alertdir.append(data_temp)
+
+            print("\n-----MEMORY-----")
+            ret = memory_checker(family, limit=memory_limit)
+            if ret:
+                flag = True
+                print("URL = {}".format(current_browser_page["url"]))
+                for p_dict in ret:
+                    print("\tHIGH MEM PROCESS : {}".format(p_dict["proc"].name()))
+                data_temp = dict()
+                data_temp['url'] = initial
+                data_temp['src'] = src
+                data_temp['file_name'] = 'over_work_memory.csv'
+                proc_info = [(p_dict["proc"].name(), p_dict["mem_used"]) for p_dict in ret]
+                data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
+                data_temp['label'] = 'InitialURL,URL,Src,Info'
+                with wfta_lock:
+                    write_file_to_alertdir.append(data_temp)
+
+            # terminate process's family with using many resources
+            if flag:
+                for p in family:
+                    try:
+                        p.terminate()
+                    except Exception as e:
+                        print("Terminate Error :{}".format(e))
+        sleep(interval)
+
 # 5秒間受信キューに何も入っていなければFalseを返す
 # 送られてくるのは、(URL, src)　か　'nothing'
 def receive(recv_r):
     try:
         temp_r = recv_r.get(block=True, timeout=5)
     except Exception as e:
-        # print(location() + f_name + ' : ' + str(e), flush=True)
+        print(location() + f_name + ' : ' + str(e), flush=True)
         return False
     return temp_r
 
@@ -627,7 +692,7 @@ def extract_extension_data_and_inspection(page, host, filtering_dict):
 
 # 接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
 def crawler_main(args_dic):
-    global num_of_achievement, org_path
+    global num_of_achievement, org_path, current_browser_page
 
     page = None
     error_break = False
@@ -656,10 +721,17 @@ def crawler_main(args_dic):
         driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
         if driver_info is False:
             print(host + ' : cannot make browser process', flush=True)
+            sleep(1)
+            kill_chrome("geckodriver")
+            kill_chrome("firefox")
             os._exit(0)
         driver = driver_info["driver"]
         watcher_window = driver_info["watcher_window"]
         wait = driver_info["wait"]
+        # ヘッドレスブラウザのリソース使用率を監視するスレッドを作る
+        t = threading.Thread(target=resource_observer_thread, args=(80, cpu_count(), 2, os.getpid(), 1))
+        t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
+        t.start()
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -693,15 +765,15 @@ def crawler_main(args_dic):
         send_to_parent(sendq=q_send, data='plz')   # 親プロセスにURLを要求
         search_tuple = receive(q_recv)             # 5秒間何も届かなければFalse
         if search_tuple is False:
-            # print(host + " : couldn't get data from main process.", flush=True)
+            #print(host + " : couldn't get data from main process.", flush=True)
             while threadId_set:   # 実行中のパーススレッドがあるならば
-                # print(host + ' : wait 3sec because the queue is empty.', flush=True)
+                #print(host + ' : wait 3sec because the queue is empty.', flush=True)
                 sleep(3)
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
-            # print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
+            #print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
             while threadId_set:
-                # print(host + ' : wait 3sec for finishing parse thread', flush=True)
+                #print(host + ' : wait 3sec for finishing parse thread', flush=True)
                 sleep(3)
             # 3秒待機後、もう一度要求する
             sleep(3)
@@ -744,7 +816,7 @@ def crawler_main(args_dic):
         redirect = check_redirect(page, host)
         if redirect is True:   # 別サーバへリダイレクトしていればTrue
             result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
-            send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "initial_url": page.url_initial,
+            send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                     "page_url": page.src})
             continue
         if redirect == "same":    # 同じホスト内のリダイレクトの場合、処理の続行を親プロセスに通知
@@ -779,6 +851,7 @@ def crawler_main(args_dic):
                     error_break = True
                     break
                 # ブラウザからHTML文などの情報取得
+                current_browser_page = {"src": page.src, "url": page.url, "initial": page.url_initial}
                 browser_result = set_html(page=page, driver=driver)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
@@ -834,7 +907,7 @@ def crawler_main(args_dic):
                 redirect = check_redirect(page, host)
                 if redirect is True:    # リダイレクトでサーバが変わっていれば
                     result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
-                    send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "initial_url": page.url_initial,
+                    send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                             "page_url": page.src})
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
@@ -906,8 +979,9 @@ def crawler_main(args_dic):
             break
 
     # error_break=True はヘッドレスブラウザ関連のエラーにより、break
-    if not error_break:
-        print("{} : headless Error break.".format(host), flush=True)
+    if error_break:
+        print("{} : Browser Error break.".format(host), flush=True)
+    else:
         if page is not None:
             url_cache.add(page.url_initial)  # 親から送られてきたURL
             url_cache.add(page.url_urlopen)  # urlopenで得たURL

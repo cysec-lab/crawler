@@ -13,7 +13,7 @@ from urllib.parse import urlparse
 from copy import deepcopy
 
 from FirefoxProfile_new import FirefoxProfile
-from get_web_driver_thread import GetChromeDriverThread, GetFirefoxDriverThread, GetPhantomJSDriverThread
+from get_web_driver_thread import GetFirefoxDriverThread
 from html_read_thread import WebDriverGetThread
 from location import location
 
@@ -177,22 +177,25 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     # メモリが足りなかったらドライバーの取得でフリーズする可能性大
     try:
         t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
-        # t.daemon = True
+        t.daemon = True
         t.start()
         t.join(10)
-    except Exception:
+    except Exception as e:     # runtime error とか
+        print(location() + str(e), flush=True)
         sleep(10)
         try:
             t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
-            # t.daemon = True
+            t.daemon = True
             t.start()
             t.join(10)
         except Exception:
             return False
     if t.re is False:   # ドライバ取得でフリーズしている場合
         quit_driver(t.driver)   # 一応終了させて
+        print("Freeze while getting driver.")
         return False
     if t.driver is False:  # 単にエラーで取得できなかった場合
+        print("Error while getting driver.")
         return False
     driver = t.driver
     driver.set_window_size(1280, 1024)
@@ -203,6 +206,7 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     wait = WebDriverWait(driver, 5)
     watcher_window = get_watcher_window(driver, wait)
     if watcher_window is False:
+        print("Couldn't get Watcher Window.")
         return False
 
     return {"driver": driver, "wait": wait, "watcher_window": watcher_window}
@@ -293,7 +297,7 @@ def quit_driver(driver):
     else:
         return True
 
-
+"""
 # Chromeを使うためのdriverを返す
 # ファイルダウンロードは可能(完了はできたことない。原因不明。)
 # RequestURLの取得可能
@@ -430,7 +434,7 @@ def set_request_url_chrome(page, driver):
     #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
     #     page.request_url_host.append(url_domain)  # ホスト名(ネットワーク部)だけ保存
 
-
+"""
 """
 
 def click_a_tags(driver, q_send, url_ini):

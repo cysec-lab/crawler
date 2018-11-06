@@ -1,4 +1,4 @@
-""" robotparser.py
+﻿""" robotparser.py
 
     Copyright (C) 2000  Bastian Kleineidam
 
@@ -257,7 +257,7 @@ class Entry:
                 return True
             agent = agent.lower()
 
-            # 以下の塊を変更
+            # 以下の2行を変更
             # if agent in useragent:
             #     return True
             pattern = agent.replace('*', '.*')
