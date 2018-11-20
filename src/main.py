@@ -292,7 +292,7 @@ def print_progress(run_time_pp, current_achievement):
 # 強制終了させるために途中経過を保存する
 def forced_termination():
     global all_achievement
-    print('main : forced_termination')
+    print('main : forced_termination', flush=True)
 
     # 子プロセスがなくなるまで回り続ける
     while get_alive_child_num() > 0:
@@ -528,11 +528,11 @@ def del_child(now):
         if 'latest_time' in hostName_queue[host_name]:
             if now - hostName_queue[host_name]['latest_time'] > 60:
                 del_process_list.append(host_name)
-    # メモリ解放
-    for host_name in del_process_list:
-        del hostName_args[host_name]
-        del hostName_process[host_name]
-        del hostName_queue[host_name]
+    # # メモリ解放
+    # for host_name in del_process_list:
+    #     del hostName_args[host_name]
+    #     del hostName_process[host_name]
+    #     del hostName_queue[host_name]
 
 
 def crawler_host(org_arg=None):
@@ -680,7 +680,7 @@ def crawler_host(org_arg=None):
 
             # プロセス数が上限に達していなければ、プロセスを生成する
             # falsification.cysecは最優先で周る
-            host = 'falsification.cysec.cs.ritsumei.ac.jp'
+            host = 'www.img.is.ritsumei.ac.jp'
             if host in hostName_remaining:
                 if hostName_remaining[host]['URL_list']:
                     if host in hostName_process:

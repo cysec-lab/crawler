@@ -21,7 +21,6 @@ class MemoryObserverThread(Thread):
             kill_process_cand = get_relate_browser_proc(proc_name)
             for proc in kill_process_cand:
                 try:
-                    parent = psutil.Process(proc.ppid())
                     if proc.ppid() == 1:
                         kill_process_list = get_family(proc.pid)
                         kill_process_list.append(proc)
@@ -37,23 +36,6 @@ class MemoryObserverThread(Thread):
 
 
 def memory_checker(family, limit):
-    """
-    rss
-    122M 138K 624B
-    14G 013M 640K 704B
-
-    data
-    1G 146M 949K 632
-    15G 061M 020K 672
-
-    uss
-    31M 309K 824B
-    13G 926M 871K 040B
-
-    pss
-    40M 269K 824
-    13G 934M 951K 424B
-    """
     ret = list()
     ret2 = list()
 

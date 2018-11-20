@@ -866,6 +866,7 @@ def crawler_main(args_dic):
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                 continue
+        print("get by urlopen : {}".format(page.url), flush=True)
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
         if type(urlopen_result) is list:  # listが返るとエラー
             # URLがこのサーバの中でひとつ目だった場合
