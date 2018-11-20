@@ -13,25 +13,26 @@ class MemoryObserverThread(Thread):
         self.limit = limit
 
     def run(self):
-        proc_name = ["geckodriver"]#, "firefox"]
+        proc_name = ["geckodriver", "firefox"]
         while True:
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")
             # kill_chrome(process='firefox')
             kill_process_cand = get_relate_browser_proc(proc_name)
             for proc in kill_process_cand:
-                parent = psutil.Process(proc.ppid())
-                print("{}({}): parent={}".format(proc.name(), proc.pid, parent))
-                print("\tpython3's parent = {}".format(parent.ppid()))
-                print("\t\tparent = {}".format(psutil.Process(parent.ppid()).name()))
-                if proc.ppid() == 1:
-                    kill_process_list = get_family(proc.pid)
-                    kill_process_list.append(proc)
-                    for killed_proc in kill_process_list:
-                        try:
-                            killed_proc.kill()
-                        except Exception as e:
-                            print(location() + str(e), flush=True)
+                try:
+                    parent = psutil.Process(proc.ppid())
+                    if proc.ppid() == 1:
+                        kill_process_list = get_family(proc.pid)
+                        kill_process_list.append(proc)
+                        for killed_proc in kill_process_list:
+                            try:
+                                killed_proc.kill()
+                                print("kill :{}".format(killed_proc))
+                            except Exception as e:
+                                print(location() + str(e), flush=True)
+                except Exception:
+                    pass
             sleep(60)
 
 
@@ -92,8 +93,11 @@ def get_relate_browser_proc(proc_name):
     p_list = [psutil.Process(p) for p in psutil.pids()]
 
     for p in p_list:
-        if [p_name for p_name in proc_name if p_name in p.name()]:
-            res.append(p)
+        try:
+            if [p_name for p_name in proc_name if p_name in p.name()]:
+                res.append(p)
+        except Exception:
+            pass
     return res
 
 

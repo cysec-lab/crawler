@@ -118,11 +118,11 @@ def get_top10_tfidf(tfidf_dict, nth):
         tmp.append(tfidf_list[i])
         top10.append(tfidf_list[i][0])
 
-    try:
-        with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
-            f.write(str(tmp)[1:-1])
-    except Exception:
-        pass
+    # try:
+    #     with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
+    #         f.write(str(tmp)[1:-1])
+    # except Exception:
+    #     pass
 
     return top10
 
