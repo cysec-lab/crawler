@@ -1,0 +1,26 @@
+{
+  "manifest_version": 2,
+  "name": "CrawlerExtension",
+  "version": "9.9.9.9",
+  "icons": {
+    "128": "icon.png"
+  },
+  "applications": {
+    "gecko": {
+      "id": "6a5e23eac27898fb04528217b13b040faffbee84@temporary-addon"
+    }
+  },
+  "permissions": [
+    "<all_urls>",
+    "webRequest",
+    "downloads",
+    "tabs",
+    "history",
+    "webRequestBlocking"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ]
+  }
+}
