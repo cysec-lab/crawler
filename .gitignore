@@ -1,3 +1,5 @@
 src/__pycache__
 src/.idea/workspace.xml
-organization/*
+src/test
+src/check_result
+organization
