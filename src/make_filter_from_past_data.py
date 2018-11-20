@@ -114,36 +114,28 @@ def make_idf_dict_frequent_word_dict(org_path):
 # フィルタは　alertに記録されたURLのホスト名から作る (パスの途中まで設定できるようになっているが、その調整は手動でする)
 # 作ったフィルタは org_path/ に保存
 def make_filter(org_path):
-    new_link_set = set()
-    new_request_set = set()
-    new_link_filter = dict()
-    new_request_filter = dict()
+    obj_list = ["link", "request"]
 
-    # ファイルロード
-    if os.path.exists("{}/alert/link_to_new_server.csv".format(org_path)):
-        new_link_file = r_file(name="{}/alert/link_to_new_server.csv".format(org_path))
-        # 4列目以降のデータを集合に追加
-        for line in new_link_file.splitlines()[1:]:  # [1:]でヘッダを飛ばす
-            new_link_set = new_link_set.union(line.split(",")[3:])
-    if os.path.exists("{}/alert/new_request_url.csv".format(org_path)):
-        new_request_file = r_file(name="{}/alert/new_request_url.csv".format(org_path))
-        # 4列目以降のデータを集合に追加
-        for line in new_request_file.splitlines()[1:]:  # [1:]でヘッダを飛ばす
-            new_request_set = new_request_set.union(line.split(",")[3:])
+    for obj in obj_list:
+        new_url_set = set()
+        new_url_filter = dict()
 
-    # 新しいフィルタを作成 フィルタ-> {ホスト名: "", ホスト名: "", ...}
-    if new_link_set:
-        new_link_host_set = set([urlparse(link[1:-1]).netloc for link in new_link_set])  # [1:-1]で文字列を表す「'」を消す
-        new_link_filter = {host: [""] for host in new_link_host_set if host}
-    if new_request_set:
-        new_request_host_set = set([urlparse(request[1:-1]).netloc for request in new_request_set])
-        new_request_filter = {host: [""] for host in new_request_host_set if host}
+        # ファイルロード
+        if os.path.exists("{}/alert/{}_to_new_server.csv".format(org_path, obj)):
+            new_url_file = r_file(name="{}/alert/link_to_new_server.csv".format(org_path))
+            # 4列目以降のデータを集合に追加
+            for line in new_url_file.splitlines()[1:]:  # [1:]でヘッダを飛ばす
+                new_url_set = new_url_set.union(line.split(",")[3:])
 
-    # jsonとして保存
-    with open("{}/new_link_filter.json".format(org_path), "w") as f:
-        json.dump(new_link_filter, f)
-    with open("{}/new_request_filter.json".format(org_path), "w") as f:
-        json.dump(new_request_filter, f)
+        # 新しいフィルタを作成 フィルタ-> {ホスト名: "", ホスト名: "", ...}
+        if new_url_set:
+            new_url_host_set = set([urlparse(url[1:-1]).netloc for url in new_url_set])  # [1:-1]でjsonの文字列を表す「'」を消す
+            new_url_host_set.discard("192.168.0.233")  # 研究室内の偽サーバの情報は削除
+            new_url_filter = {host: [""] for host in new_url_host_set if host}
+
+        # jsonとして保存
+        with open("{}/new_{}_filter.json".format(org_path, obj), "w") as f:
+            json.dump(new_url_filter, f)
 
 
 def merge_filter(org_path):

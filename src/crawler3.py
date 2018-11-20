@@ -16,14 +16,14 @@ from file_rw import w_file, r_file
 from webpage import Page
 from urldict import UrlDict
 from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
-from inspection_page import title_inspection, invisible
+from inspection_page import title_inspection, invisible, form_inspection
 from inspection_file import check_content_type
 from use_browser import get_fox_driver, set_html, get_window_url, take_screenshots, quit_driver, create_blank_window
 from use_browser import start_watcher_and_move_blank, stop_watcher_and_get_data
 from location import location
 from check_allow_url import inspection_url_by_filter
 from sys_command import kill_chrome
-from resources_observer import cpu_checker, memory_checker, get_family, get_relate_browser_proc
+from resources_observer import cpu_checker, memory_checker, get_family
 
 html_special_char = list()       # URLの特殊文字を置換するためのリスト
 
@@ -62,6 +62,12 @@ write_file_to_resultdir = dict()  # result/result_*/の中に作るファイル�
 wftr_lock = threading.Lock()      # write_file_to_maindir更新の際のlock
 write_file_to_alertdir = list()   # result/alert/の中に作るファイルの内容。辞書のリスト
 wfta_lock = threading.Lock()      # write_file_to_alertdir更新の際のlock
+
+resource_dict = dict()
+resource_dict["CPU"] = list()
+resource_dict["MEM"] = list()
+resource_terminate_flag = False
+resource_event = threading.Event()
 
 
 def init(host, screenshots):
@@ -167,6 +173,12 @@ def init(host, screenshots):
     if copy_flag:
         w_file('../../notice.txt', host + ' : ' + copy_flag + '\n', mode="a")
 
+    key_list = ["CPU", "MEM"]
+    for key in key_list:
+        if os.path.exists("{}/result/{}/{}.pickle".format(org_path, key, f_name)):
+            with open("{}/result/{}/{}.pickle".format(org_path, key, f_name), "rb") as f:
+                resource_dict[key] = pickle.load(f)
+
 
 # クローリングして得たページの情報を外部ファイルに記録
 def save_result(alert_process_q):
@@ -209,6 +221,13 @@ def save_result(alert_process_q):
     # アラートディレクトリに保存するデータを送信
     for data_dict in write_file_to_alertdir:
         alert_process_q.put(data_dict)
+
+    key_list = ["CPU", "MEM"]
+    for key in key_list:
+        if not os.path.exists(org_path + "/result/" + key):
+            os.mkdir(org_path + "/result/" + key)
+        with open("{}/result/{}/{}.pickle".format(org_path, key, f_name), "wb") as f:
+            pickle.dump(resource_dict[key], f)
 
 
 # クローリングの結果を外部ファイルに出力したいが、毎度していてはディスク書き込みが頻発するため
@@ -487,11 +506,40 @@ def parser(parse_args_dic):
                     with wfta_lock:
                         write_file_to_alertdir.append(data_temp)
 
-    # # requestURLで、同じサーバのもので前回にないものがあるか比較
-    # if page.request_url:
-    #     diff = urlDict.compare_request_url(page)
-    #     if diff:
-    #         update_write_file_dict('alert', 'in_same_server.csv', content=['URL,diff', page.url + ',' + str(diff)])
+    # formの検査
+    form_result = form_inspection(soup=soup)
+    if form_result:
+        # formのaction先が未知のサーバかどうか
+        url_list = form_result["form_action"]
+        # URLを正規化
+        url_list_temp = list()
+        for url in url_list:
+            if not (url.startswith('http')):
+                url = page.comp_http(page.url, url)
+                if url == '#':  # 'javascript:'から始まるものや'#'から始まるもの
+                    continue
+            url_list_temp.append(url)
+        # リンクURLのフィルタに通す
+        result_set = inspection_url_by_filter(url_list=url_list_temp, filtering_dict=filtering_dict,
+                                              special_filter=link_url_filter)
+        strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
+        if strange_set:
+            # 疑わしいものはリクエストURLのフィルタを通す
+            result_set = inspection_url_by_filter(url_list=strange_set, filtering_dict=filtering_dict,
+                                                  special_filter=request_url_filter)
+            strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
+            # ２つのフィルタを通しても未知のサーバだと判断されたらアラート
+            if strange_set:
+                data_temp = dict()
+                data_temp['url'] = page.url_initial
+                data_temp['src'] = page.src
+                data_temp['file_name'] = 'new_form_url.csv'
+                content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
+                data_temp['content'] = page.url_initial + "," + page.url + "," + content
+                data_temp['label'] = 'InitialURL,URL,form_url'
+                with wfta_lock:
+                    write_file_to_alertdir.append(data_temp)
+
     # requestURL を url_dictに追加
     if page.request_url:
         urlDict.update_request_url_in_url_dict(page)
@@ -506,11 +554,11 @@ def parser(parse_args_dic):
 
 
 # 180秒以上続いているスレッドのリストを返す
-def check_thread_time(now):
+def check_thread_time():
     thread_list = list()
     try:
         for threadId, th_time in threadId_time.items():
-            if (now - th_time) > 180:
+            if (int(time()) - th_time) > 180:
                 thread_list.append(threadId)
     except RuntimeError as e:
         print(location() + str(e))
@@ -521,43 +569,44 @@ def check_thread_time(now):
 def del_thread(host):
     while True:
         sleep(5)
-        del_thread_list = check_thread_time(int(time()))
+        del_thread_list = check_thread_time()
         for th in del_thread_list:
-            w_file("../../../del_thread_test.txt", data="548 in crawler3.py : {} del thread.".format(host), mode="a")
-            # print(host + ' del: ' + str(th), flush=True)
+            print(host + ' del: ' + str(th), flush=True)
             try:
                 threadId_set.remove(th)   # 消去処理がパーススレッドとほぼ同時に行われるとなるかも？(多分ない)
                 del threadId_time[th]
-            except KeyError as e:
-                # print(location() + host + ' : ' + ' del_thread-function KeyError :' + str(e), flush=True)
+            except KeyError:
                 pass
 
 
 # 資源監視スレッド。大域変数を使いたいのでこのファイルに記述
-def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid, interval=1):
+def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid):
+    global resource_terminate_flag, resource_dict
     """
     :param cpu_limit: limitation %
-    :param memory_limit: limitation GB
+    :param memory_limit: limitation MB
     :param ppid: observed process's parent pid
     :param cpu_num:
     :param interval: time to sleep
     :return:
     """
     while True:
+        resource_event.wait(timeout=15)
         if current_browser_page:
             initial = current_browser_page["initial"]
             src = current_browser_page["src"]
             url = current_browser_page["url"]
             flag = False
             family = get_family(ppid)
+            if "falsification" in url:
+                print("Resource check URL is {}".format(url), flush=True)
 
-            print("\n-----CPU-----")
-            ret = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
+            # CPU
+            ret, ret2 = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
             if ret:
-                flag = True
-                print("URL = {}".format(current_browser_page["url"]))
+                print("URL = {}".format(url), flush=True)
                 for p_dict in ret:
-                    print("\tHIGH CPU PROCESS : {}".format(p_dict["proc"].name()))
+                    print("\tHIGH CPU PROCESS : {}".format(p_dict["proc"].name()), flush=True)
                 data_temp = dict()
                 data_temp['url'] = initial
                 data_temp['src'] = src
@@ -567,14 +616,18 @@ def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid, interval=1)
                 data_temp['label'] = 'InitialURL,URL,Src,Info'
                 with wfta_lock:
                     write_file_to_alertdir.append(data_temp)
+            # CPU使用率調査
+            for cpu in ret2:
+                apdata = [url, cpu]
+                resource_dict["CPU"].append(apdata)
 
-            print("\n-----MEMORY-----")
-            ret = memory_checker(family, limit=memory_limit)
+            # Memory
+            ret, ret2 = memory_checker(family, limit=memory_limit)
             if ret:
                 flag = True
-                print("URL = {}".format(current_browser_page["url"]))
+                print("URL = {}".format(current_browser_page["url"]), flush=True)
                 for p_dict in ret:
-                    print("\tHIGH MEM PROCESS : {}".format(p_dict["proc"].name()))
+                    print("\tHIGH MEM PROCESS : {}".format(p_dict["proc"].name()), flush=True)
                 data_temp = dict()
                 data_temp['url'] = initial
                 data_temp['src'] = src
@@ -584,15 +637,22 @@ def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid, interval=1)
                 data_temp['label'] = 'InitialURL,URL,Src,Info'
                 with wfta_lock:
                     write_file_to_alertdir.append(data_temp)
+            # メモリ使用率調査
+            for mem in ret2:
+                apdata = [url, mem]
+                resource_dict["MEM"].append(apdata)
 
-            # terminate process's family with using many resources
+            # terminate process's family with using much memory
             if flag:
+                resource_event.clear()
                 for p in family:
+                    print("Terminate browser : URL:{}".format(url), flush=True)
                     try:
-                        p.terminate()
+                        p.kill()
                     except Exception as e:
-                        print("Terminate Error :{}".format(e))
-        sleep(interval)
+                        print("Terminate Error :{}".format(e), flush=True)
+                resource_terminate_flag = True
+
 
 # 5秒間受信キューに何も入っていなければFalseを返す
 # 送られてくるのは、(URL, src)　か　'nothing'
@@ -651,7 +711,7 @@ def extract_extension_data_and_inspection(page, host, filtering_dict):
             data_temp = dict()
             data_temp['url'] = page.url_initial
             data_temp['src'] = page.src
-            data_temp['file_name'] = 'new_request_url.csv'
+            data_temp['file_name'] = 'request_to_new_server.csv'
             content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
             data_temp['content'] = page.url_initial + "," + page.url + "," + content
             data_temp['label'] = 'InitialURL,URL,request_url'
@@ -712,9 +772,10 @@ def crawler_main(args_dic):
     org_path = args_dic['org_path']
     filtering_dict = args_dic["filtering_dict"]
 
-    # import sys
-    # f = open(host + ".log", "a")
-    # sys.stdout = f
+    if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+        import sys
+        f = open(host + ".log", "a")
+        sys.stdout = f
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
     if use_browser:
@@ -729,8 +790,8 @@ def crawler_main(args_dic):
         watcher_window = driver_info["watcher_window"]
         wait = driver_info["wait"]
         # ヘッドレスブラウザのリソース使用率を監視するスレッドを作る
-        t = threading.Thread(target=resource_observer_thread, args=(80, cpu_count(), 2, os.getpid(), 1))
-        t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
+        t = threading.Thread(target=resource_observer_thread, args=(60, cpu_count(), 2000, os.getpid()))
+        t.daemon = True  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
         t.start()
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
@@ -743,12 +804,15 @@ def crawler_main(args_dic):
 
     # クローラプロセスメインループ
     while True:
+        resource_event.clear()
+
         # 動いていることを確認
-        # pid = os.getpid()
-        # if page is None:
-        #     print(host + '(' + str(pid) + ') : main loop is running...', flush=True)
-        # else:
-        #     print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE', flush=True)
+        if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+            pid = os.getpid()
+            if page is None:
+                print(host + '(' + str(pid) + ') : main loop is running...', flush=True)
+            else:
+                print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE', flush=True)
 
         # 前回(一個前のループ)のURLを保存、driverはクッキー消去
         if page is not None:
@@ -771,9 +835,10 @@ def crawler_main(args_dic):
                 sleep(3)
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
-            #print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
+            if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+                print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
             while threadId_set:
-                #print(host + ' : wait 3sec for finishing parse thread', flush=True)
+                # print(host + ' : wait 3sec for finishing parse thread', flush=True)
                 sleep(3)
             # 3秒待機後、もう一度要求する
             sleep(3)
@@ -785,7 +850,8 @@ def crawler_main(args_dic):
                 # ２回目もFalse or nothingだったらメインを抜ける
                 break
         else:    # それ以外(URLのタプル)
-            # print(host + ' : ' + search_tuple[0] + ' : RECEIVE', flush=True)
+            if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+                print(host + ' : ' + search_tuple[0] + ' : RECEIVE', flush=True)
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
@@ -852,11 +918,13 @@ def crawler_main(args_dic):
                     break
                 # ブラウザからHTML文などの情報取得
                 current_browser_page = {"src": page.src, "url": page.url, "initial": page.url_initial}
+                resource_event.set()
                 browser_result = set_html(page=page, driver=driver)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
+                    current_browser_page = None
                     driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
@@ -920,7 +988,7 @@ def crawler_main(args_dic):
                 # スクショが欲しければ撮る
                 if screenshots:
                     if browser_result is True:
-                        scsho_path = '../../../../RAD/screenshots/' + dir_name
+                        scsho_path = org_path + '/RAD/screenshots/' + dir_name
                         take_screenshots(scsho_path, driver)
 
                 # 別窓やタブが開いた場合、そのURLを取得
@@ -978,8 +1046,8 @@ def crawler_main(args_dic):
                 sleep(3)
             break
 
-    # error_break=True はヘッドレスブラウザ関連のエラーにより、break
-    if error_break:
+    # error_break=Trueはブラウザ関連のエラーによりbreak。 resource_ter_flag=Trueは資源監視スレッドによるブラウザ強制終了
+    if error_break and not resource_terminate_flag:
         print("{} : Browser Error break.".format(host), flush=True)
     else:
         if page is not None:
@@ -989,6 +1057,6 @@ def crawler_main(args_dic):
 
     save_result(alert_process_q)
     print(host + ' saved.', flush=True)
-    print(datetime.now().strftime('%Y/%m/%d, %H:%M:%S') + "\n")
+    print(datetime.now().strftime('%Y/%m/%d, %H:%M:%S') + "\n", flush=True)
     quit_driver(driver)  # headless browser終了して
     os._exit(0)

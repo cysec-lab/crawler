@@ -1,10 +1,10 @@
 import sys
 from datetime import datetime
 from sys_command import kill_chrome
-from time import sleep
-from multiprocessing import Process, set_start_method, get_context
+from multiprocessing import Process, set_start_method
 import os
 import shutil
+from send2trash import send2trash
 
 from make_filter_from_past_data import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
 from make_filter_from_past_data import make_filter, merge_filter
@@ -21,13 +21,13 @@ def dealing_after_fact(org_arg):
     dir_name = org_arg['result_no']
     org_path = org_arg['org_path']
 
-    # コピー先を削除
-    shutil.rmtree(org_path + '/ROD/url_hash_json')
-    shutil.rmtree(org_path + '/ROD/tag_data')
-
     # 偽サイトの情報を削除
     if '/organization/ritsumeikan' in org_path:
         del_falsification_RAD(org_path=org_path)
+
+    # コピー先を削除
+    shutil.rmtree(org_path + '/ROD/url_hash_json')
+    shutil.rmtree(org_path + '/ROD/tag_data')
 
     # 移動
     print('copy file to ROD from RAD : ', end='')

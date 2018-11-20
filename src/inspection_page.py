@@ -190,7 +190,7 @@ def title_inspection(soup):
 # scriptタグが見つからなければ、Falseが返る
 # 見つかれば、
 def script_inspection(soup):
-    script_tags = soup.find_all('script')
+    script_tags = soup.find_all('script')  # 要素の指定は大文字小文字を区別しなくてよい
     if len(script_tags) == 0:
         return False
     result = dict()
@@ -199,3 +199,20 @@ def script_inspection(soup):
     result['script_src_list'] = get_src_of_tag(script_tags)    # scriptのsrcURLを取得
     return result
 
+
+# formのaction要素を返す
+def form_inspection(soup):
+    form_tags = soup.find_all("form")
+    if len(form_tags) == 0:
+        return False
+    result = dict()
+    result["form_action"] = list()
+    for form_tag in form_tags:
+        action_url = form_tag.get('action')
+        if action_url:
+            result["form_action"].append(action_url)
+
+    if result["form_action"]:
+        return result
+    else:
+        return False

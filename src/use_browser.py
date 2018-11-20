@@ -244,6 +244,8 @@ def set_html(page, driver):
             sleep(0.5)
         except NoAlertPresentException:
             break
+        except Exception as e:
+            return ["getAlertError_browser", page.url + "\n" + str(e)]
 
     try:
         page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
