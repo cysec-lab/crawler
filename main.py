@@ -262,7 +262,7 @@ def get_achievement_amount():
 def print_progress(run_time_pp, current_achievement):
     global send_num, recv_num
     alive_count = get_alive_child_num()
-    print('main : ---------progress--------')
+    print('main : ---------progress--------', flush=True)
 
     count = 0
     for host, remaining_dict in hostName_remaining.items():
@@ -277,14 +277,14 @@ def print_progress(run_time_pp, current_achievement):
             #           '\t active = ' + str(hostName_process[host].is_alive()))
             # else:
             #     print('main : ' + host + "'s remaining is " + str(remaining_num) + "\t active = isn't made")
-    print('main : remaining=0 is ' + str(count))
-    print('main : run time = ' + str(run_time_pp) + 's.')
-    print('main : recv-URL : send-URL = ' + str(recv_num) + ' : ' + str(send_num))
-    print('main : achievement/assignment = ' + str(current_achievement) + ' / ' + str(len(assignment_url_set)))
-    print('main : all achievement = ' + str(all_achievement + current_achievement))
-    print('main : alive child process = ' + str(alive_count))
-    print('main : remaining = ' + str(remaining))
-    print('main : -------------------------')
+    print('main : remaining=0 is ' + str(count), flush=True)
+    print('main : run time = ' + str(run_time_pp) + 's.', flush=True)
+    print('main : recv-URL : send-URL = ' + str(recv_num) + ' : ' + str(send_num), flush=True)
+    print("main : achievement/assignment = {} / {}".format(current_achievement, len(assignment_url_set)), flush=True)
+    print('main : all achievement = ' + str(all_achievement + current_achievement), flush=True)
+    print('main : alive child process = ' + str(alive_count), flush=True)
+    print('main : remaining = ' + str(remaining), flush=True)
+    print('main : -------------------------', flush=True)
     send_num = 0
     recv_num = 0
 
@@ -300,8 +300,8 @@ def forced_termination():
         for host_name, host_name_remaining in hostName_remaining.items():
             length = len(host_name_remaining['URL_list'])
             if length:
-                print('main : ' + host_name + ' : remaining --> ' + str(length))
-        print('main : wait for finishing alive process ' + str(get_alive_child_num()))
+                print('main : ' + host_name + ' : remaining --> ' + str(length), flush=True)
+        print('main : wait for finishing alive process ' + str(get_alive_child_num()), flush=True)
         del_child(int(time()))
         sleep(3)
 
@@ -515,8 +515,6 @@ def del_child(now):
                     hostName_remaining[host_name]["update_time"] = 0
                     print('main : terminate ' + str(process_dc) + '. Over 300 Second.')
                     w_file('notice.txt', str(process_dc) + ' is deleted.\n', mode="a")
-                    kill_chrome(process="geckodriver")
-                    kill_chrome(process='firefox')
         else:  # プロセスが死んでいれば
             if host_name in hostName_remaining:
                 hostName_remaining[host_name]["update_time"] = 0
@@ -603,7 +601,7 @@ def crawler_host(org_arg=None):
         print('You should check the run_count in setting file.')   # もういらないと思うけど
 
     # メモリ使用量監視スレッド
-    t = MemoryObserverThread(limit=80, )
+    t = MemoryObserverThread()
     t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
     t.start()
 
