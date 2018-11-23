@@ -22,14 +22,18 @@ class MemoryObserverThread(Thread):
             for proc in kill_process_cand:
                 try:
                     if proc.ppid() == 1:
+                        print("kill {}".format(proc))
                         kill_process_list = get_family(proc.pid)
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
                             try:
                                 killed_proc.kill()
-                                print("kill :{}".format(killed_proc))
+                                print("\t{}".format(killed_proc))
                             except Exception as e:
                                 print(location() + str(e), flush=True)
+                    # else:
+                    #     print("else {}".format(proc))
+                    #     print("\tppid ={}, parent name ={}".format(proc.ppid(), psutil.Process(proc.ppid()).name()))
                 except Exception:
                     pass
             sleep(60)
@@ -72,9 +76,23 @@ def cpu_checker(family, limit, cpu_num):
 def get_relate_browser_proc(proc_name):
     # proc_name = ["Web Content", "firefox", "geckodriver", "WebExtensions"]
     res = list()
-    p_list = [psutil.Process(p) for p in psutil.pids()]
+    proc_list = list()
+    try:
+        pid_list = psutil.pids()
+    except psutil._exceptions.NoSuchProcess:
+        return res
+    except Exception as e:
+        print(location() + str(e), flush=True)
+        return res
+    for pid in pid_list:
+        try:
+            proc_list.append(psutil.Process(pid))
+        except psutil._exceptions.NoSuchProcess:
+            pass
+        except Exception as e:
+            print(location() + str(e), flush=True)
 
-    for p in p_list:
+    for p in proc_list:
         try:
             if [p_name for p_name in proc_name if p_name in p.name()]:
                 res.append(p)

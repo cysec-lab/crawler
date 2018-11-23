@@ -361,7 +361,7 @@ def make_process(host_name, setting_dict):
 
         # プロセス作成
         p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
-        # p.daemon = True   # 親が死ぬと子も死ぬ
+        p.daemon = True   # 親が死ぬと子も死ぬ
         p.start()    # スタート
 
         # クローリングプロセスに関わる設定データを保存
@@ -375,7 +375,7 @@ def make_process(host_name, setting_dict):
         print('main : ' + host_name + ' is not alive.')
         # プロセス作成
         p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
-        # p.daemon = True     # 親が死ぬと子も死ぬ
+        p.daemon = True     # 親が死ぬと子も死ぬ
         p.start()   # スタート
         hostName_process[host_name] = p   # プロセスを指す辞書だけ更新する
         print('main : ' + host_name + " 's process start. " + 'pid =' + str(p.pid))
@@ -680,7 +680,7 @@ def crawler_host(org_arg=None):
 
             # プロセス数が上限に達していなければ、プロセスを生成する
             # falsification.cysecは最優先で周る
-            host = 'www.img.is.ritsumei.ac.jp'
+            host = 'falsification.cysec.cs.ritsumei.ac.jp'
             if host in hostName_remaining:
                 if hostName_remaining[host]['URL_list']:
                     if host in hostName_process:

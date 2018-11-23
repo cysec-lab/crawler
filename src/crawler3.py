@@ -591,7 +591,8 @@ def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid):
     :return:
     """
     while True:
-        resource_event.wait(timeout=15)
+        resource_event.wait()
+        print("\tResource Check :{}".format(current_browser_page))
         if current_browser_page:
             initial = current_browser_page["initial"]
             src = current_browser_page["src"]
@@ -599,14 +600,14 @@ def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid):
             flag = False
             family = get_family(ppid)
             if "falsification" in url:
-                print("Resource check URL is {}".format(url), flush=True)
+                print("\tResource check : {}".format(url), flush=True)
 
             # CPU
             ret, ret2 = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
             if ret:
-                print("URL = {}".format(url), flush=True)
+                print("\tCPU: URL = {}".format(url), flush=True)
                 for p_dict in ret:
-                    print("\tHIGH CPU PROCESS : {}".format(p_dict["proc"].name()), flush=True)
+                    print("\t\tHIGH CPU PROCESS : {}".format(p_dict["proc"].name()), flush=True)
                 data_temp = dict()
                 data_temp['url'] = initial
                 data_temp['src'] = src
@@ -625,9 +626,9 @@ def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid):
             ret, ret2 = memory_checker(family, limit=memory_limit)
             if ret:
                 flag = True
-                print("URL = {}".format(current_browser_page["url"]), flush=True)
+                print("\tMemory: URL = {}".format(current_browser_page["url"]), flush=True)
                 for p_dict in ret:
-                    print("\tHIGH MEM PROCESS : {}".format(p_dict["proc"].name()), flush=True)
+                    print("\t\tHIGH MEM PROCESS : {}".format(p_dict["proc"].name()), flush=True)
                 data_temp = dict()
                 data_temp['url'] = initial
                 data_temp['src'] = src
@@ -646,11 +647,11 @@ def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid):
             if flag:
                 resource_event.clear()
                 for p in family:
-                    print("Terminate browser : URL:{}".format(url), flush=True)
+                    print("\tTerminate browser : URL:{}".format(url), flush=True)
                     try:
                         p.kill()
                     except Exception as e:
-                        print("Terminate Error :{}".format(e), flush=True)
+                        print("\tTerminate Error :{}".format(e), flush=True)
                 resource_terminate_flag = True
 
 
@@ -836,7 +837,7 @@ def crawler_main(args_dic):
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
             if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
-                print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
+                print("\t" + host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
             while threadId_set:
                 # print(host + ' : wait 3sec for finishing parse thread', flush=True)
                 sleep(3)
@@ -866,7 +867,8 @@ def crawler_main(args_dic):
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                 continue
-        print("get by urlopen : {}".format(page.url), flush=True)
+        if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+            print("\t" + "get by urlopen : {}".format(page.url), flush=True)
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
         if type(urlopen_result) is list:  # listが返るとエラー
             # URLがこのサーバの中でひとつ目だった場合

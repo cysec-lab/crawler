@@ -4,7 +4,6 @@ from sys_command import kill_chrome
 from multiprocessing import Process, set_start_method
 import os
 import shutil
-from send2trash import send2trash
 
 from make_filter_from_past_data import make_idf_dict_frequent_word_dict, make_request_url_iframeSrc_link_host_set
 from make_filter_from_past_data import make_filter, merge_filter
