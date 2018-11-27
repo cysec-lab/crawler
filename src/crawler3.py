@@ -401,8 +401,8 @@ def parser(parse_args_dic):
                             data_temp['url'] = page.url_initial
                             data_temp['src'] = page.src
                             data_temp['file_name'] = 'change_important_word.csv'
-                            data_temp['content'] = page.url_initial + page.url + ',' + str(top10)[1:-1] + ', ,' + \
-                                                   str(pre_top10)[1:-1]
+                            data_temp['content'] = page.url_initial + "," + page.url + ',' + str(top10)[1:-1] + ', ,' \
+                                                   + str(pre_top10)[1:-1]
                             data_temp['label'] = 'InitialURL,URL,TOP10,N/A,PRE'
                             with wfta_lock:
                                 write_file_to_alertdir.append(data_temp)
