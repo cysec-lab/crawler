@@ -38,7 +38,6 @@ url_cache = set()         # 接続を試したURLの集合。他サーバへの�
 urlDict = None            # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None    # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
-current_browser_page = None   # 現在ヘッドレスブラウザで接続しているページ
 
 word_idf_dict = dict()                 # 前回にこのサーバに出てきた単語とそのidf値
 word_df_dict = dict()                  # 今回、このサーバに出てきた単語と出現ページ数
@@ -67,7 +66,7 @@ resource_dict = dict()
 resource_dict["CPU"] = list()
 resource_dict["MEM"] = list()
 resource_terminate_flag = False
-resource_event = threading.Event()
+check_resource_threadId_set = set()
 
 
 def init(host, screenshots):
@@ -580,79 +579,74 @@ def del_thread(host):
 
 
 # 資源監視スレッド。大域変数を使いたいのでこのファイルに記述
-def resource_observer_thread(cpu_limit, cpu_num, memory_limit, ppid):
+def resource_observer_thread(args):
     global resource_terminate_flag, resource_dict
-    """
-    :param cpu_limit: limitation %
-    :param memory_limit: limitation MB
-    :param ppid: observed process's parent pid
-    :param cpu_num:
-    :param interval: time to sleep
-    :return:
-    """
+    cpu_limit = args["cpu"]
+    memory_limit = args["mem"]
+    cpu_num = args["cpu_num"]
+    initial = args["initial"]
+    src = args["src"]
+    url = args["url"]
     while True:
-        resource_event.wait()
-        print("\tResource Check :{}".format(current_browser_page))
-        if current_browser_page:
-            initial = current_browser_page["initial"]
-            src = current_browser_page["src"]
-            url = current_browser_page["url"]
-            flag = False
-            family = get_family(ppid)
-            if "falsification" in url:
-                print("\tResource check : {}".format(url), flush=True)
+        kill_flag = False
+        family = get_family(args["pid"])
+        if "falsification" in url:
+            print("\tResource check : {}".format(url), flush=True)
 
-            # CPU
-            ret, ret2 = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
-            if ret:
-                print("\tCPU: URL = {}".format(url), flush=True)
-                for p_dict in ret:
-                    print("\t\tHIGH CPU PROCESS : {}".format(p_dict["proc"].name()), flush=True)
-                data_temp = dict()
-                data_temp['url'] = initial
-                data_temp['src'] = src
-                data_temp['file_name'] = 'over_work_cpu.csv'
-                proc_info = [(p_dict["proc"].name(), p_dict["cpu_per"]) for p_dict in ret]
-                data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
-                data_temp['label'] = 'InitialURL,URL,Src,Info'
-                with wfta_lock:
-                    write_file_to_alertdir.append(data_temp)
-            # CPU使用率調査
-            for cpu in ret2:
-                apdata = [url, cpu]
-                resource_dict["CPU"].append(apdata)
+        # CPU
+        ret, ret2 = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
+        if ret:
+            print("\tCPU: URL = {}".format(url), flush=True)
+            for p_dict in ret:
+                print("\t\tHIGH CPU PROCESS : {}".format(p_dict["p_name"]), flush=True)
+            data_temp = dict()
+            data_temp['url'] = initial
+            data_temp['src'] = src
+            data_temp['file_name'] = 'over_work_cpu.csv'
+            proc_info = [(p_dict["p_name"], p_dict["cpu_per"]) for p_dict in ret]
+            data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
+            data_temp['label'] = 'InitialURL,URL,Src,Info'
+            with wfta_lock:
+                write_file_to_alertdir.append(data_temp)
+        # CPU使用率調査
+        for cpu in ret2:
+            apdata = [url, cpu]
+            resource_dict["CPU"].append(apdata)
 
-            # Memory
-            ret, ret2 = memory_checker(family, limit=memory_limit)
-            if ret:
-                flag = True
-                print("\tMemory: URL = {}".format(current_browser_page["url"]), flush=True)
-                for p_dict in ret:
-                    print("\t\tHIGH MEM PROCESS : {}".format(p_dict["proc"].name()), flush=True)
-                data_temp = dict()
-                data_temp['url'] = initial
-                data_temp['src'] = src
-                data_temp['file_name'] = 'over_work_memory.csv'
-                proc_info = [(p_dict["proc"].name(), p_dict["mem_used"]) for p_dict in ret]
-                data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
-                data_temp['label'] = 'InitialURL,URL,Src,Info'
-                with wfta_lock:
-                    write_file_to_alertdir.append(data_temp)
-            # メモリ使用率調査
-            for mem in ret2:
-                apdata = [url, mem]
-                resource_dict["MEM"].append(apdata)
+        # Memory
+        ret, ret2 = memory_checker(family, limit=memory_limit)
+        if ret:
+            kill_flag = True
+            print("\tMemory: URL = {}".format(url), flush=True)
+            for p_dict in ret:
+                print("\t\tHIGH MEM PROCESS : {}".format(p_dict["p_name"]), flush=True)
+            data_temp = dict()
+            data_temp['url'] = initial
+            data_temp['src'] = src
+            data_temp['file_name'] = 'over_work_memory.csv'
+            proc_info = [(p_dict["p_name"], p_dict["mem_used"]) for p_dict in ret]
+            data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
+            data_temp['label'] = 'InitialURL,URL,Src,Info'
+            with wfta_lock:
+                write_file_to_alertdir.append(data_temp)
+        # メモリ使用率調査
+        for mem in ret2:
+            apdata = [url, mem]
+            resource_dict["MEM"].append(apdata)
 
-            # terminate process's family with using much memory
-            if flag:
-                resource_event.clear()
-                for p in family:
-                    print("\tTerminate browser : URL:{}".format(url), flush=True)
-                    try:
-                        p.kill()
-                    except Exception as e:
-                        print("\tTerminate Error :{}".format(e), flush=True)
-                resource_terminate_flag = True
+        # kill process's family with using much memory
+        if kill_flag:
+            resource_terminate_flag = True
+            for p in family:
+                print("\tTerminate browser : URL:{}".format(url), flush=True)
+                try:
+                    p.kill()
+                except Exception as e:
+                    print("\tTerminate Error :{}".format(e), flush=True)
+
+        # このスレッドのidがcheck_resource_threadId_setから削除されていればbreak
+        if threading.get_ident() not in check_resource_threadId_set:
+            break
 
 
 # 5秒間受信キューに何も入っていなければFalseを返す
@@ -691,7 +685,7 @@ def check_redirect(page, host):
     return True
 
 
-def extract_extension_data_and_inspection(page, host, filtering_dict):
+def extract_extension_data_and_inspection(page, filtering_dict):
     global request_url_set
     # Watcher.htmlをスクレイピングするためのsoup
     try:
@@ -753,7 +747,7 @@ def extract_extension_data_and_inspection(page, host, filtering_dict):
 
 # 接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
 def crawler_main(args_dic):
-    global num_of_achievement, org_path, current_browser_page
+    global num_of_achievement, org_path
 
     page = None
     error_break = False
@@ -790,10 +784,6 @@ def crawler_main(args_dic):
         driver = driver_info["driver"]
         watcher_window = driver_info["watcher_window"]
         wait = driver_info["wait"]
-        # ヘッドレスブラウザのリソース使用率を監視するスレッドを作る
-        t = threading.Thread(target=resource_observer_thread, args=(60, cpu_count(), 2000, os.getpid()))
-        t.daemon = True  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
-        t.start()
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -805,7 +795,6 @@ def crawler_main(args_dic):
 
     # クローラプロセスメインループ
     while True:
-        resource_event.clear()
 
         # 動いていることを確認
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
@@ -825,6 +814,8 @@ def crawler_main(args_dic):
             driver.delete_all_cookies()   # クッキー削除
         except Exception:
             pass
+        # 前回の資源監視スレッドを終わらす
+        check_resource_threadId_set.clear()
 
         # クローリングするURLを取得
         send_to_parent(sendq=q_send, data='plz')   # 親プロセスにURLを要求
@@ -919,15 +910,21 @@ def crawler_main(args_dic):
                 if re is False:
                     error_break = True
                     break
+
+                # ヘッドレスブラウザのリソース使用率を監視するスレッドを作る
+                args = {"src": page.src, "url": page.url, "initial": page.url_initial, "cpu": 60,
+                        "cpu_num": cpu_count(), "mem": 2000, "pid": os.getpid()}
+                r_t = threading.Thread(target=resource_observer_thread, args=(args,))
+                r_t.daemon = True  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
+                check_resource_threadId_set.add(r_t.ident)
+                r_t.start()
+
                 # ブラウザからHTML文などの情報取得
-                current_browser_page = {"src": page.src, "url": page.url, "initial": page.url_initial}
-                resource_event.set()
                 browser_result = set_html(page=page, driver=driver)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
-                    current_browser_page = None
                     driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
@@ -947,7 +944,7 @@ def crawler_main(args_dic):
 
                 # watcher.htmlのHLTML文から、拡張機能によって取得した情報を抽出する
                 # parserスレッドでしない理由は、リダイレクトが行われていると、parserスレッドを起動しないから
-                extract_extension_data_and_inspection(page=page, host=host, filtering_dict=filtering_dict)
+                extract_extension_data_and_inspection(page=page, filtering_dict=filtering_dict)
 
                 # alertが出されていると、そのテキストを記録
                 if page.alert_txt:

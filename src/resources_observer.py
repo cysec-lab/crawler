@@ -52,7 +52,13 @@ def memory_checker(family, limit):
             pass
         else:
             if mem_used > limit:
-                ret.append({"proc": p, "mem_used": mem_used})
+                try:
+                    ret.append({"p_name": p.name(), "mem_used": mem_used})
+                except psutil._exceptions.NoSuchProcess:
+                    pass
+                except Exception as e:
+                    # print(location() + str(e), flush=True)
+                    pass
             ret2.append(mem_used)
     return ret, ret2
 
@@ -62,13 +68,19 @@ def cpu_checker(family, limit, cpu_num):
     ret2 = list()
     for p in family:
         try:
-            cpu_per = p.cpu_percent(interval=1) / cpu_num
+            cpu_per = p.cpu_percent(interval=0.5) / cpu_num
         except Exception as e:
             # print(location() + str(e), flush=True)
             pass
         else:
             if cpu_per > limit:
-                ret.append({"proc": p, "cpu_per": cpu_per})
+                try:
+                    ret.append({"p_name": p.name(), "cpu_per": cpu_per})
+                except psutil._exceptions.NoSuchProcess:
+                    pass
+                except Exception as e:
+                    # print(location() + str(e), flush=True)
+                    pass
             ret2.append(cpu_per)
     return ret, ret2
 
