@@ -45,8 +45,8 @@ class CheckSearchedIPAddressThread(Thread):
 # filtering_dictで調べて、接続許可が出ればTrue、拒否されればFalseかstr
 # IPアドレスのチェックまでするなら、thread Object が返る。
 def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
-    domain_deny = filtering_dict["DOMAIN"]["deny"]
     domain_allow = filtering_dict["DOMAIN"]["allow"]
+    domain_deny = filtering_dict["DOMAIN"]["deny"]
     white = filtering_dict["WHITE"]
     black = filtering_dict["BLACK"]
 

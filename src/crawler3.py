@@ -313,6 +313,8 @@ def parser(parse_args_dic):
     img_name = parse_args_dic['img_name']
     nth = parse_args_dic['nth']
     filtering_dict = parse_args_dic["filtering_dict"]
+    if "falsification.cysec" in host:
+        print("start parse : URL={}".format(page.url), flush=True)
 
     # スクレイピングするためのsoup
     try:
@@ -596,9 +598,9 @@ def resource_observer_thread(args):
         # CPU
         ret, ret2 = cpu_checker(family, limit=cpu_limit, cpu_num=cpu_num)
         if ret:
-            print("\tCPU: URL = {}".format(url), flush=True)
+            print("\t\t HIGH CPU: URL = {}".format(url), flush=True)
             for p_dict in ret:
-                print("\t\tHIGH CPU PROCESS : {}".format(p_dict["p_name"]), flush=True)
+                print("\t\t\tHIGH CPU: PROCESS = {}".format(p_dict["p_name"]), flush=True)
             data_temp = dict()
             data_temp['url'] = initial
             data_temp['src'] = src
@@ -608,18 +610,17 @@ def resource_observer_thread(args):
             data_temp['label'] = 'InitialURL,URL,Src,Info'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
-        # CPU使用率調査
-        for cpu in ret2:
-            apdata = [url, cpu]
-            resource_dict["CPU"].append(apdata)
+        # CPU使用率調査(ブラウザ関連プロセスの中で、一番CPU使用率が高かったものを記録)
+        apdata = [url, max(ret2)]
+        resource_dict["CPU"].append(apdata)
 
         # Memory
         ret, ret2 = memory_checker(family, limit=memory_limit)
         if ret:
             kill_flag = True
-            print("\tMemory: URL = {}".format(url), flush=True)
+            print("\t\tHIGH Memory: URL = {}".format(url), flush=True)
             for p_dict in ret:
-                print("\t\tHIGH MEM PROCESS : {}".format(p_dict["p_name"]), flush=True)
+                print("\t\t\tHIGH MEM: PROCESS = {}".format(p_dict["p_name"]), flush=True)
             data_temp = dict()
             data_temp['url'] = initial
             data_temp['src'] = src
@@ -629,23 +630,25 @@ def resource_observer_thread(args):
             data_temp['label'] = 'InitialURL,URL,Src,Info'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
-        # メモリ使用率調査
-        for mem in ret2:
-            apdata = [url, mem]
-            resource_dict["MEM"].append(apdata)
+        # メモリ使用率調査(ブラウザ関連プロセスの中で、一番メモリ使用率が高かったものを記録)
+        apdata = [url, max(ret2)]
+        resource_dict["MEM"].append(apdata)
 
         # kill process's family with using much memory
         if kill_flag:
             resource_terminate_flag = True
             for p in family:
-                print("\tTerminate browser : URL:{}".format(url), flush=True)
+                print("\tTerminate browser : URL={}".format(url), flush=True)
                 try:
                     p.kill()
                 except Exception as e:
                     print("\tTerminate Error :{}".format(e), flush=True)
+            break
 
         # このスレッドのidがcheck_resource_threadId_setから削除されていればbreak
         if threading.get_ident() not in check_resource_threadId_set:
+            if "falsification.cysec.cs" in url:
+                print("\tResource Check has completed : {}".format(url))
             break
 
 
@@ -828,7 +831,7 @@ def crawler_main(args_dic):
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
             if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
-                print("\t" + host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
+                print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
             while threadId_set:
                 # print(host + ' : wait 3sec for finishing parse thread', flush=True)
                 sleep(3)
@@ -1046,9 +1049,17 @@ def crawler_main(args_dic):
                 sleep(3)
             break
 
-    # error_break=Trueはブラウザ関連のエラーによりbreak。 resource_ter_flag=Trueは資源監視スレッドによるブラウザ強制終了
-    if error_break and not resource_terminate_flag:
-        print("{} : Browser Error break.".format(host), flush=True)
+    # error_break=Trueはブラウザ関連のエラーによりbreak
+    if error_break:
+        #  resource_ter_flag=Trueは資源監視スレッドによるブラウザ強制終了
+        if resource_terminate_flag:
+            print("{} : Browser is killed.".format(host), flush=True)
+            if page is not None:
+                url_cache.add(page.url_initial)  # 親から送られてきたURL
+                url_cache.add(page.url_urlopen)  # urlopenで得たURL
+                url_cache.add(page.url)  # 最終的にパースしたURL
+        else:
+            print("{} : Browser Error break.".format(host), flush=True)
     else:
         if page is not None:
             url_cache.add(page.url_initial)  # 親から送られてきたURL
