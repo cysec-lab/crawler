@@ -732,7 +732,7 @@ def extract_extension_data_and_inspection(page, filtering_dict):
 
     # URL遷移の記録があれば、リンクのフィルタを通し、ホワイトリストに引っかからなければアラート
     if page.among_url:
-        result_set = inspection_url_by_filter(url_list=page.request_url, filtering_dict=filtering_dict,
+        result_set = inspection_url_by_filter(url_list=page.among_url, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
@@ -924,6 +924,8 @@ def crawler_main(args_dic):
 
                 # ブラウザからHTML文などの情報取得
                 browser_result = set_html(page=page, driver=driver)
+                if "falsification.cysec.cs" in host:
+                    print("result of getting html by browser :{} :{}".format(page.url, browser_result), flush=True)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
