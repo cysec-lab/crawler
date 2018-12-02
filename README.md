@@ -4,17 +4,19 @@
 
 
 ### 構成
-* crawler/  
-  * src/  
-    * 各Pythonファイル  
-    * files/
-    * extensions/
-  * organization/  
-    * ritsumeikan/  
-      * ROD/  
-        * 各リスト  
-  * ex/  
-    * 今は使用していないファイル
+crawler/  
+　┣ src/  
+　┃　┣ Pythonファイル  
+　┃　┣ files/  
+　┃　┗ extensions/  
+　┣ organization/  
+　┃　┗ ritsumeikan/  
+　┃　　　┗ ROD/  
+　┃　　　　　┗ 各リスト  
+　┗ ex/  
+　　　┗今は使用していないファイル  
+    
+organization/ritsumeikan/の中にクローリング結果が保存されていく
       
 ### 必須ライブラリ
 * BeautifulSoup4  
