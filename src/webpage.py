@@ -230,11 +230,11 @@ class Page:
             if not (sharp == -1):
                 checked_url = checked_url[0:sharp]
 
-            # /./が含まれていたら./を消す
+            # /./が含まれていたら./を消す -> http://www.ritsumei.ac.jp/home/./index.htmlみたいなURLが見つかる
             if '/./' in checked_url:
                 checked_url = checked_url.replace('/./', '/')
 
-            # /..が含まれていたらパスを1つ上げて処理する (例： http://www.jp/dir/dir2/../html  -->  http://www.jp/dir/html
+            # /..が含まれていたらパスを1つ上げて処理する (例： http://www.jp/dir/dir2/../html  ->  http://www.jp/dir/html
             o = urlparse(checked_url)
             while '/..' in o.path:
                 path_list = o.path.split('/')

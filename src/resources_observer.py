@@ -1,7 +1,6 @@
 from threading import Thread
 import psutil
 from time import sleep
-from sys_command import kill_chrome
 from location import location
 
 
@@ -68,7 +67,7 @@ def cpu_checker(family, limit, cpu_num):
     ret2 = list()
     for p in family:
         try:
-            cpu_per = p.cpu_percent(interval=1) / cpu_num
+            cpu_per = p.cpu_percent(interval=0.9) / cpu_num
         except Exception as e:
             # print(location() + str(e), flush=True)
             pass
