@@ -31,11 +31,12 @@ dir_name = ''   # このプロセスの作業ディレクトリ
 f_name = ''     # このプロセスのホスト名をファイル名として使えるように変換したもの
 org_path = ""   # 組織のディレクトリ絶対パス
 
-threadId_set = set()      # パーサーのスレッドid集合
-threadId_time = dict()    # スレッドid : 実行時間
-num_of_achievement = 0    # 実際に取得してパースしたファイルやページの数。ジャンプ前URL、エラーだったURLは含まない。
-url_cache = set()         # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
-urlDict = None            # サーバ毎のurl_dictの辞書を扱うクラス
+threadId_set = set()    # パーサーのスレッドid集合
+threadId_time = dict()  # スレッドid : 実行時間
+num_of_pages = 0        # 実際に取得してパースしたページの数。リダイレクト後に外部になるURL、エラーだったURLは含まない。重複URLは含まない。
+num_of_files = 0        # 実際に取得してパースしたファイルの数。リダイレクト後に外部になるURL、エラーだったURLは含まない。重複URLは含まない。
+url_cache = set()       # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
+urlDict = None          # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None    # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
@@ -70,8 +71,8 @@ check_resource_threadId_set = set()
 
 
 def init(host, screenshots):
-    global html_special_char, script_src_set, script_src_set_pre, robots
-    global num_of_achievement, dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, frequent_word_list
+    global html_special_char, script_src_set, script_src_set_pre, robots, frequent_word_list
+    global dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, num_of_files, num_of_pages
     global request_url_set, request_url_filter, iframe_src_set, iframe_src_set_pre, link_set, link_url_filter
 
     src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
@@ -106,7 +107,8 @@ def init(host, screenshots):
     if os.path.exists(org_path + '/RAD/temp/progress_' + f_name + '.pickle'):
         with open(org_path + '/RAD/temp/progress_' + f_name + '.pickle', 'rb') as f:
             data_temp = pickle.load(f)
-            num_of_achievement = data_temp['num']
+            num_of_pages = data_temp['num_pages']
+            num_of_files = data_temp['num_files']
             url_cache = deepcopy(data_temp['cache'])
             request_url_set = deepcopy(data_temp['request'])
             iframe_src_set = deepcopy(data_temp['iframe'])
@@ -186,11 +188,12 @@ def save_result(alert_process_q):
         path = org_path + '/RAD/df_dict/' + f_name + '.pickle'
         with open(path, 'wb') as f:
             pickle.dump(word_df_dict, f)
-    if num_of_achievement:
+    if num_of_pages + num_of_files:
         with open(org_path + '/RAD/temp/progress_' + f_name + '.pickle', 'wb') as f:
-            pickle.dump({'num': num_of_achievement, 'cache': url_cache, 'request': request_url_set,
-                         'iframe': iframe_src_set, 'link': link_set, 'script': script_src_set, 'robots': robots}, f)
-    w_file('achievement.txt', str(num_of_achievement), mode="w")
+            pickle.dump({'num_pages': num_of_pages, 'cache': url_cache, 'request': request_url_set, 'robots': robots,
+                         "num_files": num_of_files, 'iframe': iframe_src_set, 'link': link_set,
+                         'script': script_src_set}, f)
+    w_file('achievement.txt', "{},{}".format(num_of_pages, num_of_files), mode="w")
 
     # 外部ファイルの保存する結果を出力
     for file_name, value in write_file_to_hostdir.items():
@@ -750,7 +753,7 @@ def extract_extension_data_and_inspection(page, filtering_dict):
 
 # 接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
 def crawler_main(args_dic):
-    global num_of_achievement, org_path
+    global org_path, num_of_pages, num_of_files
 
     page = None
     error_break = False
@@ -865,8 +868,8 @@ def crawler_main(args_dic):
             print("\t" + "get by urlopen : {}".format(page.url), flush=True)
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
         if type(urlopen_result) is list:  # listが返るとエラー
-            # URLがこのサーバの中でひとつ目だった場合
-            if num_of_achievement:
+            # URLがこのサーバの中でひとつ目じゃなかった場合、次のURLへ
+            if num_of_pages + num_of_files:
                 update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1])
                 continue
             # ひとつ目のURLだった場合、もう一度やってみる
@@ -972,8 +975,6 @@ def crawler_main(args_dic):
                     data_temp['label'] = 'InitialURL,src'
                     with wfta_lock:
                         write_file_to_alertdir.append(data_temp)
-                    with open('blank_file_' + str(num_of_achievement) + '.html_b', mode='wb') as f:
-                        f.write(page.html_urlopen)
                     continue
 
                 # リダイレクトのチェック
@@ -1016,6 +1017,9 @@ def crawler_main(args_dic):
             t.start()
             threadId_set.add(t.ident)  # スレッド集合に追加
             threadId_time[t.ident] = int(time())  # スレッド開始時刻保存
+
+            # ページの達成数をインクリメント
+            num_of_pages += 1
         else:    # ウェブページではないファイルだった場合(PDF,excel,word...
             send_to_parent(q_send, {'type': 'file_done'})   # mainプロセスにこのURLのクローリング完了を知らせる
             # ハッシュ値の比較
@@ -1042,9 +1046,11 @@ def crawler_main(args_dic):
             if clamd_q is not False:  # Falseの場合はclamdを使わない
                 clamd_q.put([page.url, page.src, page.html])
 
-        # 検索結果数をインクリメント
-        num_of_achievement += 1
-        if not (num_of_achievement % 100):  # 100URLをクローリングごとに保存して終了
+            # ファイルの達成数をインクリメント
+            num_of_files += 1
+
+        # 同じサーバばかり回り続けないように
+        if not (num_of_pages+num_of_files % 100):  # 100URLをクローリングごとに保存して終了
             # print(host + ' : achievement have reached ' + str(num_of_achievement), flush=True)
             while threadId_set:
                 # print(host + ' : wait 3sec for thread end.', flush=True)

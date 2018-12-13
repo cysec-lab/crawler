@@ -2,6 +2,7 @@
 import shutil
 from file_rw import r_file, w_file
 
+
 # result/result_*の中の途中保存jsonファイルとpickleファイルを削除する(waitingリストなど)
 def del_temp_file(path, j, k):
     if j == 0 and k == 0:
@@ -62,20 +63,18 @@ def del_dir(path, j, k):
 
 
 def make_achievement(dire):
-    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(check_resultディレクトリ)を絶対パスで取得
-
+    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置を絶対パスで取得
     file_dic = dict()
+
     os.chdir(dire)
-    lis = os.listdir()
-    lis.sort()
     os.mkdir('achievement')
+    lis = [result_dir for result_dir in os.listdir() if result_dir.startswith("result_")]  # result_*のディレクトリのリストを取得
+    lis.sort()
     run_time = 0
     all_achievement = 0
     iframe_count = 0
     lock = True
     for result in lis:
-        if not result.startswith('result_'):
-            continue
         os.chdir(result)
         result_list = os.listdir()
         for j in range(len(result_list)):
@@ -116,11 +115,45 @@ def make_achievement(dire):
     for key, value in file_dic.items():
         w_file('achievement/' + key, value, mode="a")
 
-    os.chdir(now_dir)  # check_resultにとぶ
-    os.chdir('..')     # 実行ディレクトリにとぶ
+    os.chdir(now_dir)  # 実行ディレクトリにとぶ
+
+
+# 各「result_*」ディレクトリの中の「server」の中のデータをサーバディレクトリごとにまとめる
+def merge_server_dir(path):
+    os.chdir(path)
+    lis = [result_dir for result_dir in os.listdir() if result_dir.startswith("result_")]  # result_*のディレクトリのリストを取得
+    lis.sort()
+
+    # result_1のserverディレクトリをachievementにコピー
+    shutil.copytree(path + "/" + lis[0] + "/server", path + "/achievement/server")
+
+    for result_dir in lis[1:]:
+        servers = os.listdir(path + "/" + result_dir + "/server")
+        achievement_servers = os.listdir(path + "/achievement/server")
+        for server in servers:
+            if not os.path.isdir(path + "/" + result_dir + "/server/" + server):
+                continue
+            if server in achievement_servers:
+                files = os.listdir(path + "/" + result_dir + "/server/" + server)
+                for file in files:
+                    with open("{}/{}/server/{}/{}".format(path, result_dir, server, file), mode="r") as f:
+                        content = f.read()
+                    with open("{}/achievement/server/{}/{}".format(path, server, file), mode="a") as f:
+                        f.write("\n" + content)
+            else:
+                shutil.copytree(path + "/" + result_dir + "/server/" + server, path + "/achievement/server/" + server)
 
 
 def del_and_make_achievement(path):
+    """
+    :param path: org_path / result_history / *
+    :return:
+    """
     del_temp_file(path, 0, 0)
     del_dir(path, 0, 0)
     make_achievement(path)
+    merge_server_dir(path)
+
+
+if __name__ == '__main__':
+    merge_server_dir(path="/home/cysec/Desktop/re1/ritsumeikan/result_history/2")
