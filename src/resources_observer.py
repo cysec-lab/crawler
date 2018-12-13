@@ -4,7 +4,6 @@ from time import sleep
 from location import location
 
 
-# メモリ使用量がlimitを超えるとゾンビのヘッドレスブラウザをkillするスレッド
 # だったが、60秒感覚でppidが1のブラウザをkillするスレッドに
 class MemoryObserverThread(Thread):
     def __init__(self, limit=0):
