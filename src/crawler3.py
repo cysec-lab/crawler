@@ -63,9 +63,9 @@ wftr_lock = threading.Lock()      # write_file_to_maindir更新の際のlock
 write_file_to_alertdir = list()   # result/alert/の中に作るファイルの内容。辞書のリスト
 wfta_lock = threading.Lock()      # write_file_to_alertdir更新の際のlock
 
-resource_dict = dict()
-resource_dict["CPU"] = list()
-resource_dict["MEM"] = list()
+resource_dict = dict()         # 資源使用率調査用
+resource_dict["CPU"] = list()  # CPU使用率調査用
+resource_dict["MEM"] = list()  # Memory使用率調査用
 resource_terminate_flag = False
 check_resource_threadId_set = set()
 

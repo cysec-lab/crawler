@@ -63,7 +63,6 @@ def del_dir(path, j, k):
 
 
 def make_achievement(dire):
-    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置を絶対パスで取得
     file_dic = dict()
 
     os.chdir(dire)
@@ -115,8 +114,6 @@ def make_achievement(dire):
     for key, value in file_dic.items():
         w_file('achievement/' + key, value, mode="a")
 
-    os.chdir(now_dir)  # 実行ディレクトリにとぶ
-
 
 # 各「result_*」ディレクトリの中の「server」の中のデータをサーバディレクトリごとにまとめる
 def merge_server_dir(path):
@@ -144,16 +141,46 @@ def merge_server_dir(path):
                 shutil.copytree(path + "/" + result_dir + "/server/" + server, path + "/achievement/server/" + server)
 
 
+def cal_num_of_achievement(path):
+    os.chdir(path + "/achievement/server")
+    lis = [server_dir for server_dir in os.listdir() if os.path.isdir(server_dir)]  # 各サーバディレクトリのリストを取得
+    server_dic = dict()
+    total_p = 0
+    total_f = 0
+
+    for server_dir in lis:
+        with open(server_dir + "/achievement.txt", "r") as f:
+            content = f.read()
+        num = content.split("\n")[-1]
+        page_num, file_num = num.split(",")
+        num = int(page_num) + int(file_num)
+        server_dic[server_dir] = ("{}(p: {}, f: {})".format(num, page_num, file_num), num)
+        total_p += int(page_num)
+        total_f += int(file_num)
+
+    total = int(total_p) + int(total_f)
+    server_dic["total"] = ("{}(p: {}, f: {})".format(total, total_p, total_f), total)
+    content = ""
+    for server, num in sorted(server_dic.items(), key=lambda x: x[1][1], reverse=True):
+        content += "{}: {}\n".format(num[0], server)
+    with open("num_of_achievement.txt", "w") as f:
+        f.write(content)
+
+
 def del_and_make_achievement(path):
     """
     :param path: org_path / result_history / *
     :return:
     """
+    now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置を絶対パスで取得
     del_temp_file(path, 0, 0)
     del_dir(path, 0, 0)
     make_achievement(path)
     merge_server_dir(path)
+    cal_num_of_achievement(path)
+
+    os.chdir(now_dir)  # 実行ディレクトリに戻る
 
 
 if __name__ == '__main__':
-    merge_server_dir(path="/home/cysec/Desktop/re1/ritsumeikan/result_history/2")
+    cal_num_of_achievement(path="/home/cysec/Desktop/crawler/organization/ritsumeikan/result_history/1")
