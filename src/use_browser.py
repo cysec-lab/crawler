@@ -1,16 +1,13 @@
 from time import sleep
 import csv
 import os
-from selenium.webdriver.chrome.options import Options as ChromeOptions
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoAlertPresentException
 from selenium.webdriver.common.alert import Alert
 from urllib.parse import urlparse
-from copy import deepcopy
 
 from FirefoxProfile_new import FirefoxProfile
 from get_web_driver_thread import GetFirefoxDriverThread
@@ -159,6 +156,8 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     mime_list = list()
     mime_file_dir = src_dir + '/files/mime'
     for csv_file in os.listdir(mime_file_dir):
+        if not csv_file.endswith(".csv"):
+            continue
         try:
             with open(mime_file_dir + "/" + csv_file) as f:
                 csv_reader = csv.DictReader(f)

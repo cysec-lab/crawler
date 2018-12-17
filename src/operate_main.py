@@ -12,7 +12,6 @@ from main_cr import del_and_make_achievement
 from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
 
 
-# 実行ディレクトリはcrawler_srcじゃないと、main_cr.pyのmake_achievement()のchdirでバグる?
 # 例： python3 operate_main.py ritsumeikan
 
 
