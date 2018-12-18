@@ -395,7 +395,7 @@ def get_alive_child_num():
 # not_send=Trueのとき、子プロセスにはURLを送信しない。子プロセスからのデータを受け取りたいだけの時に使う。
 def receive_and_send(not_send=False):
     # 受信する型は、辞書、タプル、文字列の3種類
-    # {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "page_url": URLが貼ってあったページURL, オプション}の辞書
+    # {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "url_src": URLが貼ってあったページURL, オプション}の辞書
     # (url, 'redirect')のタプル(リダイレクトが起こったが、ホスト名が変わらなかったためそのまま処理された場合)
     # "receive"の文字(子プロセスがURLのタプルを受け取るたびに送信する)
     # "plz"の文字(子プロセスがURLのタプルを要求)
@@ -431,11 +431,11 @@ def receive_and_send(not_send=False):
             url_db[received_data[0]] = 'True,' + str(nth)
         elif type(received_data) is dict:
             url_tuple_set = set()
-            page_url = "NOON"
+            url_src = "NOON"
             if "url_set" in received_data:
                 url_tuple_set = received_data["url_set"]
-            if "page_url" in received_data:
-                page_url = received_data["page_url"]
+            if "url_src" in received_data:
+                url_src = received_data["url_src"]
 
             if received_data['type'] == 'links':
                 hostName_achievement[host_name] += 1   # ページクローリング結果なので、検索済み数更新
@@ -446,9 +446,9 @@ def receive_and_send(not_send=False):
                 for url_tuple in url_tuple_set:
                     data_temp = dict()
                     data_temp['url'] = url_tuple[0]
-                    data_temp['src'] = page_url
+                    data_temp['src'] = url_src
                     data_temp['file_name'] = 'new_window_url.csv'
-                    data_temp['content'] = url_tuple[0] + ',' + page_url
+                    data_temp['content'] = url_tuple[0] + ',' + url_src
                     data_temp['label'] = 'NEW_WINDOW_URL,URL'
                     summarize_alert_q['recv'].put(data_temp)
             elif received_data['type'] == 'redirect':  # リダイレクトの場合、URLがホワイトリストにかからなければアラート
@@ -466,12 +466,13 @@ def receive_and_send(not_send=False):
                     if w_alert_flag:
                         data_temp = dict()
                         data_temp['url'] = url
-                        data_temp['src'] = page_url
+                        data_temp['src'] = url_src
                         data_temp['file_name'] = 'after_redirect_check.csv'
-                        data_temp['content'] = received_data["ini_url"] + ',' + page_url + ',' + url
+                        data_temp['content'] = received_data["ini_url"] + ',' + url_src + ',' + url
                         data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                         summarize_alert_q['recv'].put(data_temp)
-                w_file('after_redirect.csv', received_data["ini_url"] + ',' + received_data["page_url"] + ',' +
+                # リダイレクト状況調査用(リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
+                w_file('after_redirect.csv', received_data["ini_url"] + ',' + received_data["url_src"] + ',' +
                        url + "," + str(res) + '\n', mode="a")
 
             # urlリストに追加。既に割り当て済みの場合は追加しない。
@@ -480,7 +481,7 @@ def receive_and_send(not_send=False):
                 # 接続診断結果がTrueのURLをurl_listに追加
                 for url_tuple in url_tuple_set:
                     if url_tuple[1] is True:
-                        url_list.append((url_tuple[0], page_url))    # 分類待ちリストに入れる
+                        url_list.append((url_tuple[0], url_src))    # 分類待ちリストに入れる
                     # url_dbの更新
                     url_db[url_tuple[0]] = str(url_tuple[1]) + ',' + str(nth)
 

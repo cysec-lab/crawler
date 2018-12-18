@@ -47,7 +47,7 @@ def summarize_alert_main(recv_q, send_q, nth, org_path):
         content = str(nth) + ',' + content
 
         # "falsification.cysec.cs.ritsumei.ac.jp"がURLに含まれる場合、ファイル名を変更する
-        if "falsification.cysec.cs.ritsumei.ac.jp" in url:
+        if ("falsification.cysec.cs.ritsumei.ac.jp" in url) or ("192.168.0.233" in url):
             file_name = "TEST_" + file_name
 
         # label と content を出力

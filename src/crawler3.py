@@ -358,7 +358,7 @@ def parser(parse_args_dic):
                 write_file_to_alertdir.append(data_temp)
 
     # 組織内外をチェックしたリンクURLをすべて親に送信
-    send_data = {'type': 'links', 'url_set': result_set, "page_url": page.url}   # 親に送るデータ
+    send_data = {'type': 'links', 'url_set': result_set, "url_src": page.url}   # 親に送るデータ
     send_to_parent(q_send, send_data)    # 親にURLリストを送信
 
     # 検査
@@ -477,7 +477,7 @@ def parser(parse_args_dic):
         # 親にURLを送信する。リダイレクトと同じ扱いをするため、複数あっても(そんなページ怪しすぎるが)１つずつ送る
         result_set = inspection_url_by_filter(url_list=meta_refresh_list, filtering_dict=filtering_dict)
         while result_set:
-            send_to_parent(q_send, {'type': 'redirect', 'url_set': [result_set.pop()], "page_url": page.src,
+            send_to_parent(q_send, {'type': 'redirect', 'url_set': [result_set.pop()], "url_src": page.src,
                                     "ini_url": page.url_initial})
 
     # scriptの検査
@@ -883,7 +883,7 @@ def crawler_main(args_dic):
         if redirect is True:   # 別サーバへリダイレクトしていればTrue
             result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
             send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
-                                    "page_url": page.src})
+                                    "url_src": page.src})
             continue
         if redirect == "same":    # 同じホスト内のリダイレクトの場合、処理の続行を親プロセスに通知
             send_to_parent(sendq=q_send, data=(page.url, "redirect"))
@@ -982,7 +982,7 @@ def crawler_main(args_dic):
                 if redirect is True:    # リダイレクトでサーバが変わっていれば
                     result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
                     send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
-                                            "page_url": page.src})
+                                            "url_src": page.src})
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
                     send_to_parent(sendq=q_send, data=(page.url, "redirect"))
@@ -1006,7 +1006,7 @@ def crawler_main(args_dic):
                 else:
                     if window_url_list:   # URLがあった場合、リンクURLを渡すときと同じ形にして親プロセスに送信
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)
-                        send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "page_url": page.url})
+                        send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "url_src": page.url})
 
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
