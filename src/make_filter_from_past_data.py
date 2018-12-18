@@ -122,7 +122,7 @@ def make_filter(org_path):
 
         # ファイルロード
         if os.path.exists("{}/alert/{}_to_new_server.csv".format(org_path, obj)):
-            new_url_file = r_file(name="{}/alert/link_to_new_server.csv".format(org_path))
+            new_url_file = r_file(name="{}/alert/{}_to_new_server.csv".format(org_path, obj))
             # 4列目以降のデータを集合に追加
             for line in new_url_file.splitlines()[1:]:  # [1:]でヘッダを飛ばす
                 new_url_set = new_url_set.union(line.split(",")[3:])
@@ -130,7 +130,7 @@ def make_filter(org_path):
         # 新しいフィルタを作成 フィルタ-> {ホスト名: "", ホスト名: "", ...}
         if new_url_set:
             new_url_host_set = set([urlparse(url[1:-1]).netloc for url in new_url_set])  # [1:-1]でjsonの文字列を表す「'」を消す
-            new_url_host_set.discard("192.168.0.233")  # 研究室内の偽サーバの情報は削除
+            new_url_host_set.discard("192.168.0.233")  # 研究室内の偽サーバの情報は削除(別アラートファイルに保存するようにしたので、もういらない)
             new_url_filter = {host: [""] for host in new_url_host_set if host}
 
         # jsonとして保存
@@ -142,7 +142,7 @@ def merge_filter(org_path):
     obj_list = ["link", "request"]
     temp_dict = dict()
 
-    # link と request の文字以外は処理が同じなので、 for文でまとめる
+    # link と request の文字部分以外は処理が同じなので、 for文でまとめる
     for obj in obj_list:
         # 必要なdirがなければ作成
         if not os.path.exists("{}/ROD/{}_url".format(org_path, obj)):
