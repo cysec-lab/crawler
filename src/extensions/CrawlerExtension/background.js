@@ -25,7 +25,7 @@ function send_message(message){
 
 // receive message from Watcher.html
 browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    console.log("receiving data's description in background : " + message.description);
+    //console.log("receiving data's description in background : " + message.description);
     if (message.description == "start_watching"){
         running = true;
     }
@@ -49,20 +49,21 @@ browser.webRequest.onBeforeRequest.addListener(
         if (running){
             // console.log(details.url);
             request_num++;
-            var message = new Object({no: request_num, data: details});
-            request_list.push(message);
-
-//            console.log("details");
-//            console.log(details);
-//            let filter = browser.webRequest.filterResponseData(details.requestId);
-//            filter.ondata = event => {
-//                console.log("data");
-//                console.log(event.data);
-//                console.log("event")
-//                console.log(event)
-//                filter.write(event.data);
-//                filter.disconnect();
-//            }
+            if (details.url.indexOf("data:") != 0){
+                var message = new Object({no: request_num, data: details});
+                request_list.push(message);
+    //            console.log("details");
+    //            console.log(details);
+    //            let filter = browser.webRequest.filterResponseData(details.requestId);
+    //            filter.ondata = event => {
+    //                console.log("data");
+    //                console.log(event.data);
+    //                console.log("event")
+    //                console.log(event)
+    //                filter.write(event.data);
+    //                filter.disconnect();
+    //            }
+            }
         }
     },
     {urls: ['<all_urls>']},
