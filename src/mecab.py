@@ -6,7 +6,7 @@ import time
 import os
 
 
-# 以下3つの関数、ネットから取ってきたソース URL = http://d.hatena.ne.jp/s-yata/20100619/1276961636
+# 以下3つの関数、ネットから取ってきたソースに変更を加えたもの URL = http://d.hatena.ne.jp/s-yata/20100619/1276961636
 # 不要な空白を取り除き，空行以外を返す．
 def nonEmptyLines(text_target):
     for line in text_target.splitlines():
@@ -19,7 +19,7 @@ def getNavigableStrings(soup):
     if isinstance(soup, NavigableString):
         if type(soup) not in (Comment, Declaration, Doctype) and soup.strip():   # ここにDoctypeを追加
             yield soup
-    elif soup.name not in ('script', 'style', 'title'):
+    elif soup.name not in ('script', 'style', 'title'):  # titleを追加
         for c in soup.contents:
             for g in getNavigableStrings(c):
                 if not ('<iframe' in g):

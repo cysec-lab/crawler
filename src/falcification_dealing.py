@@ -51,3 +51,7 @@ def copy_ROD_from_cysec(org_path):
         # 保存
         with open(org_path + '/ROD/url_hash_json/falsification-cysec-cs-ritsumei-ac-jp.json', mode='w') as f:
             json.dump(falsification_hash_dict, f)
+
+
+if __name__ == '__main__':
+    copy_ROD_from_cysec(org_path="/home/cysec/Desktop/crawler/organization/ritsumeikan")

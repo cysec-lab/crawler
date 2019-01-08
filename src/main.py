@@ -767,7 +767,7 @@ def crawler_host(org_arg=None):
 
         url_db.close()
         # メインループをもう一度回すかどうか
-        if save:
+        if save and remaining:  # saveフラグが立っていても, remaining=0の場合はクローリングを終える
             print('main : Restart...')
             run_count += 1
             os.chdir('..')

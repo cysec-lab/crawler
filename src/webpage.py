@@ -45,20 +45,6 @@ class Page:
 
         # リクエストURLを集合に追加し、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
         self.request_url = set([elm.get_text() for elm in request_elements])
-        # for request_element in request_elements:
-        #     url = request_element.get_text()
-        #     if url in self.request_url:
-        #         continue
-        #     else:
-        #         self.request_url.add(url)
-        #
-        #     url_domain = urlparse(url).netloc
-        #     if self.hostName == url_domain:  # 同じホスト名(サーバ)のURLはそのまま保存
-        #         self.request_url_same_host.add(url)
-        #     # ドメイン名からネットワーク部だけ抽出して保存
-        #     if url_domain.count('.') > 2:  # xx.ac.jpのように「.」が2つしかないものはそのまま
-        #         url_domain = '.'.join(url_domain.split('.')[1:])  # www.ritsumei.ac.jpは、ritsumei.ac.jpにする
-        #     self.request_url_host.add(url_domain)  # ホスト名(ネットワーク部)だけ保存
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
         # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型

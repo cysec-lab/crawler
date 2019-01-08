@@ -125,6 +125,8 @@ def merge_server_dir(path):
     shutil.copytree(path + "/" + lis[0] + "/server", path + "/achievement/server")
 
     for result_dir in lis[1:]:
+        if not os.path.exists(path + "/" + result_dir + "/server"):
+            continue
         servers = os.listdir(path + "/" + result_dir + "/server")
         achievement_servers = os.listdir(path + "/achievement/server")
         for server in servers:

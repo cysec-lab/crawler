@@ -77,12 +77,12 @@ def dealing_after_fact(org_arg):
 
     # resultの移動
     print('move result to check_result : ', end='')
-    path = org_path + '/result_history/' + dir_name
-    shutil.move(src=org_path + '/result', dst=path)
+    result_history_path = org_path + '/result_history/' + dir_name
+    shutil.move(src=org_path + '/result', dst=result_history_path)
     print('done')
 
     # main_cr.pyの実行
-    del_and_make_achievement(path)
+    del_and_make_achievement(result_history_path)
 
     # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
     if '/organization/ritsumeikan' in org_path:
