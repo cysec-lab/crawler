@@ -15,7 +15,6 @@ import json
 from crawler3 import crawler_main
 from file_rw import r_file, w_json, r_json, w_file
 from summarize_alert import summarize_alert_main
-from sys_command import kill_chrome
 from resources_observer import MemoryObserverThread
 
 
@@ -669,9 +668,28 @@ def crawler_host(org_arg=None):
 
             # 本当の終了条件
             if end():
-                all_achievement += current_achievement
-                w_json(name='assignment_url_set', data=list(assignment_url_set))
-                break
+                # url_dbから過去発見したURLを取ってきて、クローリングしていないのがあればurl_listに追加する
+                try:
+                    k = url_db.firstkey()
+                    url_db_set = set()
+                    while k is not None:
+                        content = url_db[k].decode("utf-8")
+                        if "True" in content:
+                            url = k.decode("utf-8")
+                            url_db_set.add(url)
+                        k = url_db.nextkey(k)
+                    not_achieved = url_db_set.difference(assignment_url_set)
+                    if not_achieved:
+                        for url in not_achieved:
+                            url_list.append((url, "url_db"))
+                    else:
+                        all_achievement += current_achievement
+                        w_json(name='assignment_url_set', data=list(assignment_url_set))
+                        break
+                except Exception:
+                    all_achievement += current_achievement
+                    w_json(name='assignment_url_set', data=list(assignment_url_set))
+                    break
 
             # url_list(子プロセスに送るURLのタプルのリスト)からURLのタプルを取り出してホスト名で分類する
             while url_list:
