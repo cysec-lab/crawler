@@ -4,8 +4,7 @@ from urllib.parse import urlparse
 from time import sleep
 
 
-# クローリングするURLかどうかを判定するスレッド
-# もともとは全フィルタのチェックをスレッドでしていたが、今はIPアドレスのチェックだけ。
+# IPアドレスのチェックだけスレッドで行う(時間がかかる可能性があるため)
 class CheckSearchedIPAddressThread(Thread):
     def __init__(self, url_tuple, run_time, ip_address_dict):
         super(CheckSearchedIPAddressThread, self).__init__()
@@ -100,12 +99,15 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
 
 # url_listのURLが安全かどうかをフィルタを使って確かめる
 # 診断が終わったURLの集合。 要素はタプル(url, "診断結果")
+# "診断結果"にはそれぞれ、　クローリング対象URL： True、　組織内だがブラックリストでクローリングしないURL： "Black"、　組織外URL：　False、　
+# IPアドレス検査をしようとして失敗したURL： "Unknown"、　リンクやリクエストなどの特別ホワイトリストによってフィルタされたURL： "Special"　が入る
 def inspection_url_by_filter(url_list, filtering_dict, special_filter=None):
     result_set = set()
     thread_set = set()
     for url in url_list:
         res = check_searched_url(url_tuple=(url, ""), run_time=0, filtering_dict=filtering_dict,
                                  special_white=special_filter)
+        # 返り値のタイプがスレッド型の場合、IPアドレスのチェックを行っている
         if type(res) == CheckSearchedIPAddressThread:
             thread_set.add(res)
         else:

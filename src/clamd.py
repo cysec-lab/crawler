@@ -11,6 +11,7 @@ data_list = deque()   # 子プロセスから送られてきたデータリス�
 clamd_error = list()      # clamdでエラーが出たURLのリスト。100ごとにファイル書き込み。
 
 
+# "end"が送られてくるまで、データを受信する
 def receive(recvq):
     global end
     while True:
@@ -24,10 +25,13 @@ def receive(recvq):
 
 
 def clamd_main(recvq, sendq, org_path):
+    # clamAVのデーモンが動いているか確認
     while True:
         try:
+            print("clamd proc : connect to clamd, ", end="")
             cd = pyclamd.ClamdAgnostic()
             pin = cd.ping()
+            print("connected")
             break
         except ValueError:
             print('wait for clamd starting ...')
@@ -50,18 +54,20 @@ def clamd_main(recvq, sendq, org_path):
         if not data_list:
             if end:
                 break
-            sleep(3)
+            sleep(3)   # クローリングプロセスからデータが送られていなければ、3秒待機
             continue
         temp = data_list.popleft()
         url = temp[0]
         url_src = temp[1]
         byte = temp[2]
+        # clamdでスキャン
         try:
             result = cd.scan_stream(byte)
         except Exception as e:
             print('clamd : ERROR, URL = ' + url)
             clamd_error.append(url + '\n' + str(e))
         else:
+            # 検知されると結果を記録
             if result is not None:
                 w_file(org_path + '/alert/warning_clamd.txt', "{}\n\tURL={}\n\tsrc={}\n".format(result, url, url_src), mode="a")
                 if not os.path.exists(org_path + '/clamd_files'):
@@ -69,6 +75,8 @@ def clamd_main(recvq, sendq, org_path):
                 w_file(org_path + '/clamd_files/b_' + str(len(listdir(org_path + '/clamd_files'))+1) + '.clam',
                        url + '\n' + str(byte), mode="a")
             print('clamd : ' + url + ' have scanned.')
+
+        # エラーログが一定数を超えると外部ファイルに書き出す
         if len(clamd_error) > 100:
             text = ''
             for i in clamd_error:

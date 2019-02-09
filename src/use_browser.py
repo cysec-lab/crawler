@@ -15,9 +15,11 @@ from html_read_thread import WebDriverGetThread
 from location import location
 
 
+# Watcher.htmlのStop Watchingボタンをクリック。拡張機能が監視を終え、収集したデータを記録。
 def stop_watcher_and_get_data(driver, wait, watcher_window, page):
     try:
         # watcher.htmlに移動してstopをクリック
+        # クリックすると、Watcher.htmlのdivタグ(id="contents")の中に、収集したデータを記録する
         driver.switch_to.window(watcher_window)
         wait.until(expected_conditions.visibility_of_element_located((By.ID, "stop")))
         elm = driver.find_element_by_id("stop")
@@ -26,7 +28,7 @@ def stop_watcher_and_get_data(driver, wait, watcher_window, page):
         # contentsの最後の要素がDOMに現れるまで待つ
         wait.until(expected_conditions.presence_of_element_located((By.ID, "EndOfData")))
 
-        # watcher.htmlをpageのプロパティに保存
+        # watcher.htmlのHTMLをpageインスタンスのプロパテに保存
         page.watcher_html = driver.page_source
 
         # clearContentsをクリック
@@ -41,6 +43,7 @@ def stop_watcher_and_get_data(driver, wait, watcher_window, page):
         return True
 
 
+# watcher.htmlのStart Watchingボタンをクリック。拡張機能が監視を始める
 def start_watcher_and_move_blank(driver, wait, watcher_window, blank_window):
     try:
         driver.switch_to.window(watcher_window)
@@ -87,7 +90,7 @@ def create_blank_window(driver, wait, watcher_window):
         return blank_window
 
 
-# driverを取得した直後に呼ぶ。
+# driverを取得した直後に呼ぶ
 def get_watcher_window(driver, wait):
     watcher_window = False
     try:
@@ -122,9 +125,6 @@ def get_watcher_window(driver, wait):
 
 
 # Firefoxを使うためのdriverを返す
-# ファイルダウンロード可能
-# RequestURLの取得可能(アドオンを用いて)
-# ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
 def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     # headless FireFoxの設定
     options = FirefoxOptions()
@@ -168,12 +168,8 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
             print(location() + str(e), flush=True)
     fpro.set_preference('browser.helperApps.neverAsk.saveToDisk', ','.join(mime_list))
 
-    # コンソールログを取得するために必要(ffではすべてのログが見れない)
-    # d = DesiredCapabilities.FIREFOX
-    # d['loggingPrefs'] = {'browser': 'ALL', 'driver': 'ALL', 'client': 'ALL', 'performance': 'ALL', 'server': 'ALL'}
-
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
-    # メモリが足りなかったらドライバーの取得でフリーズする可能性大
+    # メモリが足りなかったらドライバーの取得でフリーズする可能性あり?
     try:
         t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
         t.daemon = True
@@ -211,8 +207,10 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     return {"driver": driver, "wait": wait, "watcher_window": watcher_window}
 
 
+# ブラウザでURLにアクセス、HTMLを取得する
 def set_html(page, driver):
     try:
+        # URLに接続する(フリーズすることがあるので、スレッドで行う)
         t = WebDriverGetThread(driver, page.url)
         t.start()
         t.join(timeout=60)   # 60秒のロード待機時間
@@ -226,12 +224,12 @@ def set_html(page, driver):
         except Exception as e:
             return ['makingWebDriverGetThreadError', page.url + '\n' + str(e)]
     re = True
-    if t.re is False:
+    if t.re is False:  # Getスレッドがどこかでフリーズしている場合、t.reがFalseのまま
         re = 'timeout'
-    elif t.re is not True:
+    elif t.re is not True:  # TrueとFalse以外の場合、GET中にエラー発生
         return ['Error_WebDriver', page.url + '\n' + str(t.re)]
 
-    # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
+    # レンダリング待機、連続アクセス防止の1秒間
     sleep(1)
 
     # JavaScriptのalertが実行されていると、それを消す作業が必要(しないと、driver.page_sourceでエラーが出る)
@@ -239,13 +237,14 @@ def set_html(page, driver):
         try:
             t = Alert(driver).text
             Alert(driver).dismiss()
-            page.alert_txt.append(t)
+            page.alert_txt.append(t)  # アラート内容を保存
             sleep(0.5)
         except NoAlertPresentException:
             break
         except Exception as e:
             return ["getAlertError_browser", page.url + "\n" + str(e)]
 
+    # ブラウザから、現在開いているURLとそのHTMLを取得
     try:
         page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = driver.page_source   # htmlソースを更新
@@ -260,7 +259,7 @@ def set_html(page, driver):
             return ['infoGetError_browser', page.url + '\n']
 
 
-# watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、そのURLをリストで返す
+# watcher と ベースのタブ(ウェブページを読み込むために作成するabout:blank)以外のタブまたはウィンドウが開いていると、そのURLをリストで返す
 def get_window_url(driver, watcher_id, base_id):
     url_list = list()
     try:
@@ -297,6 +296,7 @@ def quit_driver(driver):
         return False
     else:
         return True
+
 
 """
 # Chromeを使うためのdriverを返す

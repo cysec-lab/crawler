@@ -6,24 +6,24 @@ from copy import deepcopy
 from shutil import copyfile
 
 
-# url_dictの操作を行う。各Webサーバ毎に生成される。
+# url_dictの操作を行う。サイトごとに生成される。
 # jsonで保存するため、set集合はlistにしている
+# url_dictのkeyはURL、valueは辞書型
+# valueのkeyは、 hash, file_length, run_date, source, unchanged_num_of_days, important_words, request_url
 class UrlDict:
     def __init__(self, host, org_path=""):
         self.host = host
         self.org_path = org_path
         self.url_dict = dict()      # url : そのURLの情報の辞書
-        self.url_tags = dict()      # url : タグ順番保存
 
-    def load_url_dict(self, path=None):
+    def load_url_dict(self):
         copy_flag = ''
         rad_dir = self.org_path + '/RAD'
         rod_dir = self.org_path + '/ROD'
         # url_hashのロード
-        if path is None:
-            path = rad_dir + '/url_hash_json/' + self.host + '.json'
-        else:
-            path += self.host + '.json'    # test用
+        path = rad_dir + '/url_hash_json/' + self.host + '.json'
+
+        # jsonファイルの読み込みにエラーが出ると、過去のデータ(ROD)を遡って壊れていないファイルから修復しようとするので、すごいインデントになった
         if os.path.exists(path):
             if os.path.getsize(path) > 0:
                 f = open(path, 'r')
@@ -40,7 +40,7 @@ class UrlDict:
                             self.url_dict = json.load(f)
                         except json.decoder.JSONDecodeError:   # RODも破損していた場合
                             f.close()
-                            # 過去のRODから持ってくる
+                            # 過去のRODを遡って、エラーが出ないファイルを取ってくる
                             if os.path.exists(rod_dir + '_history'):
                                 rod_lis = os.listdir(rod_dir + '_history')
                                 latest_rods = sorted(rod_lis, reverse=True,
@@ -64,48 +64,6 @@ class UrlDict:
                             copy_flag = ' url_hash from ROD.'
                 else:
                     f.close()
-        # tag_dataのロード
-        path = rad_dir + '/tag_data/' + self.host + '.json'
-        if os.path.exists(path):
-            if os.path.getsize(path) > 0:
-                f = open(path, 'r')
-                try:
-                    self.url_tags = json.load(f)
-                except json.decoder.JSONDecodeError:   # JSONデータが破損していた場合
-                    f.close()
-                    # RODから持ってくる
-                    src = rod_dir + '/tag_data/' + self.host + '.json'
-                    if os.path.exists(src):
-                        copyfile(src, path)
-                        f = open(path, 'r')
-                        try:
-                            self.url_tags = json.load(f)
-                        except json.decoder.JSONDecodeError:  # RODも破損していた場合
-                            f.close()
-                            # 過去のRODから持ってくる
-                            if os.path.exists(rod_dir + '_history'):
-                                rod_lis = os.listdir(rod_dir + '_history')
-                                latest_rods = sorted(rod_lis, reverse=True,
-                                                     key=lambda dir_name: int(dir_name[dir_name.find('_') + 1:]))
-                                for latest_rod in latest_rods:
-                                    try:
-                                        src = rod_dir + '_history/' + latest_rod + '/tag_data/' + self.host + '.json'
-                                        if os.path.exists(src):
-                                            copyfile(src, path)
-                                            with open(path, 'r') as f:
-                                                self.url_tags = json.load(f)
-                                            copy_flag += ' tag_data from(' + latest_rod + ').'
-                                    except json.decoder.JSONDecodeError:
-                                        continue
-                                    else:
-                                        break
-                                if not self.url_tags:
-                                    copy_flag += ' tag_data has not loaded.'
-                        else:
-                            f.close()
-                            copy_flag += ' tag_data from ROD.'
-                else:
-                    f.close()
         return copy_flag
 
     def save_url_dict(self):
@@ -114,24 +72,6 @@ class UrlDict:
             f = open(data_dir + '/url_hash_json/' + self.host + '.json', 'w')
             json.dump(self.url_dict, f)
             f.close()
-        if len(self.url_tags) > 0:
-            f = open(data_dir + '/tag_data/' + self.host + '.json', 'w')
-            json.dump(self.url_tags, f)
-            f.close()
-
-    def add_tag_data(self, page, tags):
-        if tags:
-            if page.url in self.url_tags:
-                if tags not in self.url_tags[page.url]:
-                    if ('iframe' in tags) or ('invisible_iframe' in tags):
-                        self.url_tags[page.url].append(tags)   # iframeタグは読み込まれたりされなかったりすることが多いため、iframeタグがある場合は全パターン保存
-                    else:
-                        self.url_tags[page.url][0] = tags    # iframeタグのないパターンは最新のものだけ保存
-            else:
-                if ('iframe' in tags) or ('invisible_iframe' in tags):
-                    self.url_tags[page.url] = list([[], tags])    # tagリストのリスト(0番目はiframeタグのないものを入れる)
-                else:
-                    self.url_tags[page.url] = list([tags])    # tagリストのリスト
 
     def update_request_url_in_url_dict(self, page):
         if page.url in self.url_dict:
@@ -140,17 +80,6 @@ class UrlDict:
         else:
             return False
         return True
-
-    def compare_request_url(self, page):
-        if page.url in self.url_dict:
-            # if 'request_url_same_host' in self.url_dict[page.url]:
-            #     diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
-            # else:
-            #     diff = False
-            diff = False
-        else:
-            diff = False
-        return diff
 
     def add_top10_to_url_dict(self, url, top10):
         self.url_dict[url]['important_words'] = deepcopy(top10)
