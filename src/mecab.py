@@ -3,7 +3,6 @@ import json
 from bs4 import NavigableString, Comment, Declaration, Doctype
 import unicodedata
 import time
-import os
 
 
 # 以下3つの関数、ネットから取ってきたソースに変更を加えたもの URL = http://d.hatena.ne.jp/s-yata/20100619/1276961636
@@ -117,12 +116,6 @@ def get_top10_tfidf(tfidf_dict, nth):
 
         tmp.append(tfidf_list[i])
         top10.append(tfidf_list[i][0])
-
-    # try:
-    #     with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
-    #         f.write(str(tmp)[1:-1])
-    # except Exception:
-    #     pass
 
     return top10
 

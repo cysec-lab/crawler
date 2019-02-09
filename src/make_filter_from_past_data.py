@@ -13,6 +13,7 @@ tf-idf値
 ページのロードに行ったリクエストのURL集合
 iframeのsrc先URLの集合
 をまとめて保存する
+また、リンク、リクエストURLの既知サーバを示すホワイトリストのフィルタを作成する
 """
 
 request_url = set()  # matome.jsonに保存する内容
@@ -86,28 +87,6 @@ def make_idf_dict_frequent_word_dict(org_path):
             with open(org_path + '/ROD/idf_dict/' + file_name_json, 'w') as f:
                 json.dump(idf_dict, f)
         c += 1
-    """
-    # 過去すべてのdfデータから計算
-    c = 0
-    for server, dic in df_dict.items():
-        N = dic['NumOfPages']     # NumOfPageはそのサーバで辞書を更新した回数 = そのサーバのページ数
-        if N == 0:
-            continue
-        idf_dict = dict()
-        for word, count in dic.items():
-            if not word == 'NumOfPages':
-                idf = log(N / count) + 1
-                idf_dict[word] = idf
-        # 前回に出現していなかった単語のtf-idfを計算するためのidf値
-        idf = log(N) + 1   # 初登場の単語になるので、countを1で計算
-        idf_dict['NULLnullNULL'] = idf
-
-        if idf_dict:
-            f = open('ROD/idf_dict/' + server, 'w')
-            json.dump(idf_dict, f)
-            f.close()
-        c += 1
-    """
 
 
 # alertdirの link_to_new_server.csv と new_request_url.csv から フィルタを作る

@@ -1,4 +1,6 @@
-﻿import os
+﻿# クローリング完了後、複数のresult_*に分かれて保存されているデータをまとめる
+
+import os
 import shutil
 from file_rw import r_file, w_file
 
@@ -169,6 +171,8 @@ def cal_num_of_achievement(path):
         f.write(content)
 
 
+# クローリング完了後、複数のresult/result_*に分かれて保存されているデータをまとめて、result/achievement/に保存する
+# また、いらないtempファイルを削除する
 def del_and_make_achievement(path):
     """
     :param path: org_path / result_history / *

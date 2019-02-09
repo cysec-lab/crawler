@@ -1,3 +1,6 @@
+# 以下のページから取ってきた。たしかそのままのはず。。。
+# https://a-zumi.net/python-selenium-addon-install/
+
 import json
 import os
 import sys
