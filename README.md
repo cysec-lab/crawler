@@ -54,9 +54,18 @@ anacondaなどの仮想環境を使うと面倒くさくなる。
 理由は、operate_main.pyの一番最初でmultiproccessingのfork方法をspawnに変更しているから。  
 仮想環境だとこの一文でエラーが出たと思う。  
 
-### 実行結果  
-crawler/organization/組織名に
-* 保存ディレクトリ  
-  /に
-* 
+### 実行結果の保存場所とその中にあるディレクトリの説明  
+crawler/organization/組織名/の中に全て保存される  
+* ROD/LIST  
+  。
+* ROD/df_dicts  
+  
+* ROD/url_hash_json  
 
+* RAD  
+  実際にクローリングで使用するRODのデータ。RODをコピーして、クローリング中に書き換えながら使用する。クローリングが終わると、ディレクトリ名をRODに変更し、元のRODに上書きをする。
+* result  
+  何回か途中保存しているため、いくつか保存ディレクトリがある
+* alert  
+
+* result_history  
