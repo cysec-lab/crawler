@@ -1,9 +1,6 @@
 # crawler
 
 
-### ubuntuに変更したので、以下の記述からいろいろ変わってます。  
-
-
 ### 構成
 crawler/  
 　┣ src/  
@@ -41,12 +38,15 @@ organization/ritsumeikan/の中にクローリング結果が保存されてい�
 * selenium  
  ヘッドレスブラウザ(Firefox)を使うため。 
  Ubuntu16.04LTS のPython3なら最初から入っている。  
- Firefoxを使うためには、geckdriverが必要。
+ Firefoxを使うためには、geckodriverが必要。
 * lxml  
  BeatuifulSoupで使う。  
  lxmlを入れていない場合は、html.parserが使われるので入れなくてもいい。(処理がhtml.parserより速いらしい)  
 
-### 実行例  
+### 実行方法  
+実行ファイル名 ： operate_main.py  
+引数 ： 組織名(crawler/organization/以下にあるディレクトリ名)  
+### 例  
 python3 crawler/src/operate_main.py  ritsumeikan  
 
 ### 注意
