@@ -52,5 +52,11 @@ python3 crawler/src/operate_main.py  ritsumeikan
 ### 注意
 anacondaなどの仮想環境を使うと面倒くさくなる。  
 理由は、operate_main.pyの一番最初でmultiproccessingのfork方法をspawnに変更しているから。  
-仮想環境だとこの一文でエラーが出たと思う。
+仮想環境だとこの一文でエラーが出たと思う。  
+
+### 実行結果  
+crawler/organization/組織名に
+* 保存ディレクトリ  
+  /に
+* 
 
