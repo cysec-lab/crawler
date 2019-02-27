@@ -49,7 +49,7 @@ organization/ritsumeikan/の中にクローリング結果が保存されてい�
  Firefoxを使うためには、geckodriverが必要。
 * lxml  
  BeatuifulSoupで使う。  
- lxmlを入れていない場合は、html.parserが使われるので入れなくてもいい。(処理がhtml.parserより速いらしい)  
+ lxmlを入れていない場合は、html.parserが使われるので入れなくてもいい。(lxmlはhtml.parserより処理が速いらしい)  
 
 ### 実行方法  
 実行ファイル名 ： operate_main.py  
@@ -63,7 +63,7 @@ anacondaなどの仮想環境を使うと面倒くさくなる。
 仮想環境だとこの一文でエラーが出たと思う。  
 
 ### 実行結果の保存場所とその中にあるディレクトリの説明  
-crawler/organization/組織名/の中に全て保存される  
+以下は、crawler/organization/組織名/の中に全て保存される。  
 * ROD/LIST  
   クローリングするURLを判別するためのリストファイルが保存されている
 * ROD/df_dicts  
