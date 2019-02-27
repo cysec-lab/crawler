@@ -17,10 +17,16 @@ crawler/
 　┃　┗ ritsumeikan/  
 　┃　　　┗ ROD/  
 　┃　　　　　┗ 各リスト  
+　┣ falsification/  
+　┃　┣ test_site/  
+　┃　┃　┗ 研究室内自作改ざんサイト(falsification.cysec.cs.ritsumei.ac.jp)のHTML  
+　┃　┗ mal_site/  
+　┃　　　┗ 研究室内自作悪性サーバ(192.168.0.233)のHTML  
 　┗ ex/  
 　　　┗今は使用していないファイル  
     
-organization/ritsumeikan/の中にクローリング結果が保存されていく
+organization/ritsumeikan/の中にクローリング結果が保存されていく。  
+研究室内自作改ざんサイトや悪性サーバは、proxmox上に作っている。
       
 ### 必須ライブラリ
 * BeautifulSoup4  
