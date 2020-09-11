@@ -1,0 +1,69 @@
+# 全ての変数の行には空白を含まない、コメントを追加する際には行頭に#を入れる。
+
+# MAX_page
+# 最大検索数。この数のURLを調べたら終了する。
+# 数値
+MAX_page=200000
+
+# MAX_time
+# 最大実行時間。この時間内に終わらなければセーブして終了する。
+# 単位は秒。0は無制限(回りきるまで)。
+# 数値か*(掛け算)のみ
+MAX_time=3600*0
+
+# SAVE_time
+# セーブのための区切り時間。この時間経つと途中経過を保存し、再スタートする。MAX_time以内ならば何度でもセーブする。
+# 単位は秒。0は途中セーブなし。
+# 設定して変数のリセットをかけないと、15時間くらいで too many open files のOSERRORが出る?
+# 数値か掛け算のみ
+SAVE_time=3600*6
+
+# run_count
+# 今何回目の実行か。最初から始める場合は0。
+# それ以外は途中保存したフォルダであるresult/result_*の数字を入れる。
+# 数値のみ
+run_count=0
+
+# MAX_process
+# 各サーバを担当する子プロセスの最大作成数。多すぎると重くなって結果が安定しない(てかフリーズする)。
+# 0は論理プロセッサ数を使用。負数は論理プロセッサ数から引く。最低１。
+# 数値のみ
+MAX_process=-1
+
+# screenshots
+# 各ページのスクリーンショットを撮るかどうか。スクショによる判別をする場合は必須。
+# TrueかFalseのみ
+screenshots=False
+
+# clamd_scan
+# ウェブページ以外のデータ(PDFやIMGなど)をclamdでウイルス検査するかどうか。
+# 検査するならTrue、しないならFalse
+clamd_scan=True
+
+# headless_browser
+# ヘッドレスブラウザを使うかどうか。
+# Falseの場合、python標準ライブラリのみのクローリングをする。
+# TrueかFalseのみ
+headless_browser=False
+
+# mecab
+# MeCabで形態素解析をして重要度の高い単語を抽出や文字列検索をするかどうか
+# TrueかFalseのみ
+mecab=True
+
+# assignOrAchievement
+# MAX_pageで指定した数を達成したか、割り当てたかのどちらの判断基準を使うかどうか。
+# Trueは割り当て、Falseは達成。この2値のみ使用可能。
+# True(割り当て)にした場合、1つの子プロセスに多数が割り当てられ、終了に時間がかかる可能性が出る。
+# 開発用なのでもう使っていない
+assignOrAchievement=False
+
+# screenshots_svc
+# 機械学習でスクショによる分類を使うか。
+# TrueかFalseのみ
+screenshots_svc=False
+
+# machine_learning
+# 機械学習でtagによる分類を使うか。
+# TrueかFalseのみ
+machine_learning=False
