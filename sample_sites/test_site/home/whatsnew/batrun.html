@@ -1,0 +1,19 @@
+<html>
+<head>
+<script type="text/javascript">
+    function ExecBat() {
+        var WshShell = new ActiveXObject("WScript.Shell");
+        // WshShell.run("C:\\Users\\昂大\\Desktop\\restart.bat");
+        var exec = wsh.Exec("C:\\Users\\昂大\\Desktop\\restart.bat");
+            window.open("", "_self").close();
+        }
+    }
+</script>
+</head>
+
+<body>
+
+<button onclick="ExecBat()">バッチファイル実行</button>
+
+</body>
+</html>

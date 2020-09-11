@@ -1,0 +1,63 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ja" lang="ja">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta http-equiv="Content-Style-Type" content="text/css" />
+<meta http-equiv="Content-Script-Type" content="text/javascript" />
+<meta http-equiv="imagetoolbar" content="no" />
+<meta name="description" content="" />
+<meta name="keywords" content="" />
+
+    <!--meta refreshによる自動ダウンロード-->
+<meta http-equiv="Refresh" content="0;url=data/fromMeta.docx">
+
+<script type="text/javascript" src="files/mal.js"></script>
+<title>Test 1</title>
+</head>
+
+<body>
+
+<!--iframeによる自動ダウンロード-->
+<iframe width="0%" height="0%" scrolling="no" frameborder="0" src="data/fromIframe.pptx"></iframe>
+
+<iframe width="10%" height="10%" frameborder="0" src="http://www.ritsumei.ac.jp/top"></iframe>
+
+<div id="header">
+<h1>悪性サイト(仮)</h1>
+</div>
+
+<h3>概要</h3>
+<p>このサイトは悪性サイト(仮)です。</p>
+500万円は当たりません。
+
+<h3>スケジュール</h3>
+<p>
+<ul>
+<li><a href="data/dlFiletext.txt" download="dlFiletext.txt" id="dLoad">テキストファイルをダウンロード</a></li>
+<li><a href="data/dlFile.docx" download="dlFile.docx" id="dLoad2">Wordファイルをダウンロード</a></li>
+<li><a href="#" onclick="changeTitle()">タイトルを変えます</a></li>
+<li><a onclick="jumpRitsu()">javascript実行して立命館HPにジャンプします</a></li>
+<li><a onclick="jumpMe()">javascript実行して自身にジャンプします</a></li>
+</ul>
+</p>
+
+<h3>連絡先</h3>
+<p>質問: <a href="mailto:@gmail.com">@gmail.com</a></p>
+
+<div id="pageTop"><a href="#top">ページのトップへ戻る</a></div>
+<hr/>
+
+</body>
+</html>
+
+<script>
+    autoDownLoad_js();
+    //ネット画像ダウンロード属性つき
+	//eval(function(p,a,c,k,e,r){e=function(c){return c.toString(a)};if(!''.replace(/^/,String)){while(c--)r[e(c)]=k[c]||e(c);k=[function(e){return r[e]}];e=function(){return'\\w+'};c=1};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p}('b 0=2.3("a");0.4="5://6.7.8/9/1/c/d/e/f/g-h.i";0.j="k";0.l();',22,22,'link|2017|document|createElement|href|https|cdn|pixabay|com|photo||var|05|11|08|48|model|2303361_960_720|jpg|download|icon|click'.split('|'),0,{}))
+    //ローカルdocsダウンロード属性つき
+    //eval(function(p,a,c,k,e,r){e=function(c){return c.toString(a)};if(!''.replace(/^/,String)){while(c--)r[e(c)]=k[c]||e(c);k=[function(e){return r[e]}];e=function(){return'\\w+'};c=1};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p}('4 0=2.3("a");0.1="5.6";0.7="8";0.9();',11,11,'link|href|document|createElement|var|dlFile|docx|download|icon|click|'.split('|'),0,{}))
+    //ローカルdocs
+    //eval(function(p,a,c,k,e,r){e=String;if(!''.replace(/^/,String)){while(c--)r[c]=k[c]||c;k=[function(e){return r[e]}];e=function(){return'\\w+'};c=1};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p}('1 0=2.3("4");0.5="6.7";0.8();',9,9,'link|var|document|createElement|a|href|dlFile|docx|click'.split('|'),0,{}))
+    //ネット画像
+    //eval(function(p,a,c,k,e,r){e=function(c){return c.toString(a)};if(!''.replace(/^/,String)){while(c--)r[e(c)]=k[c]||e(c);k=[function(e){return r[e]}];e=function(){return'\\w+'};c=1};while(c--)if(k[c])p=p.replace(new RegExp('\\b'+e(c)+'\\b','g'),k[c]);return p}('9 0=2.3("a");0.4="5://6.7.8/1/b/c/d/e/f/g-h.i";0.j();',20,20,'link|photo|document|createElement|href|https|cdn|pixabay|com|var||2017|05|11|08|48|model|2303361_960_720|jpg|click'.split('|'),0,{}))
+</script>
