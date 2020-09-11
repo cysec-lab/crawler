@@ -3,3 +3,5 @@ src/.idea
 src/test
 src/check_result
 organization
+crawler
+.vscode
