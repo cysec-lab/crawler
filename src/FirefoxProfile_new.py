@@ -4,6 +4,8 @@ import sys
 
 from selenium import webdriver
 
+# 以下のページから取ってきた。たしかそのままのはず。。。
+# https://a-zumi.net/python-selenium-addon-install/
 
 class FirefoxProfile(webdriver.FirefoxProfile):
     """

@@ -1,4 +1,4 @@
-
+# そのうち消す？
 def check_content_type(content_type):
     if content_type == 'application/x-shockwave-flash':
         return True

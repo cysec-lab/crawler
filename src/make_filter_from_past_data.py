@@ -13,6 +13,7 @@ tf-idf値
 ページのロードに行ったリクエストのURL集合
 iframeのsrc先URLの集合
 をまとめて保存する
+また、リンク、リクエストURLの既知サーバを示すホワイトリストのフィルタを作成する
 """
 
 request_url = set()  # matome.jsonに保存する内容

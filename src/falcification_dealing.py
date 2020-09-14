@@ -2,7 +2,10 @@ import shutil
 import os
 import json
 
+# サイバーセキュリティ研究室のサイトのクローリング結果(RODデータ)から、自作改ざんサイトの検出に使うデータ(RODデータ)を作成する
+# 端的に言うと、ホスト名を変えているだけ。だった気がする
 
+# RADに自作改ざんサイトの結果が残っていると、それを含めたデータが作成されてしまう(次回以降のクローリングに影響が出てしまう)ため、削除する
 def del_falsification_RAD(org_path):
     if os.path.exists(org_path + '/RAD/df_dict/falsification-cysec-cs-ritsumei-ac-jp.pickle'):
         os.remove(org_path + '/RAD/df_dict/falsification-cysec-cs-ritsumei-ac-jp.pickle')
@@ -14,6 +17,7 @@ def del_falsification_RAD(org_path):
         os.remove(org_path + '/RAD/temp/progress_falsification-cysec-cs-ritsumei-ac-jp.pickle')
 
 
+# www.cysecからfalsification.cysecのデータを作成する
 def copy_ROD_from_cysec(org_path):
 
     # 頻出単語、idf辞書はそのままコピー

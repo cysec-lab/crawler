@@ -25,36 +25,36 @@ from check_allow_url import inspection_url_by_filter
 from sys_command import kill_chrome
 from resources_observer import cpu_checker, memory_checker, get_family
 
-html_special_char = list()       # URLの特殊文字を置換するためのリスト
+html_special_char = list()  # URLの特殊文字を置換するためのリスト
 
 dir_name = ''   # このプロセスの作業ディレクトリ
 f_name = ''     # このプロセスのホスト名をファイル名として使えるように変換したもの
 org_path = ""   # 組織のディレクトリ絶対パス
 
-threadId_set = set()    # パーサーのスレッドid集合
-threadId_time = dict()  # スレッドid : 実行時間
-num_of_pages = 0        # 実際に取得してパースしたページの数。リダイレクト後に外部になるURL、エラーだったURLは含まない。重複URLは含まない。
-num_of_files = 0        # 実際に取得してパースしたファイルの数。リダイレクト後に外部になるURL、エラーだったURLは含まない。重複URLは含まない。
-url_cache = set()       # 接続を試したURLの集合。他サーバへのリダイレクトURLも入る。プロセスが終わっても消さずに保存する。
-urlDict = None          # サーバ毎のurl_dictの辞書を扱うクラス
-robots = None    # robots.txtを解析するクラス
+parser_threadId_set = set()     # パーサのスレッドid集合
+parser_threadId_time = dict()   # スレッドid : 実行時間
+num_of_pages = 0                # 取得してパースした重複なしページ数. リダイレクト後が外部URL, エラーだったURLを含まない
+num_of_files = 0                # 取得してパースした重複なしファイル数. リダイレクト後に外部になるURL, エラーだったURLは含まない
+url_cache = set()               # 接続を試したURL集合. 他サーバへのリダイレクトURL含む. プロセスが終わっても消さずに保存
+urlDict = None                  # サーバ毎のurl_dictの辞書を扱うクラス
+robots = None                   # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
-word_idf_dict = dict()                 # 前回にこのサーバに出てきた単語とそのidf値
-word_df_dict = dict()                  # 今回、このサーバに出てきた単語と出現ページ数
-word_df_lock = threading.Lock()        # word_df_dict更新の際のlock
-iframe_src_set = set()      # iframeのsrc先urlの集合
-iframe_src_set_pre = set()  # 前回までのクローリング時のやつ
-iframe_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
-script_src_set = set()      # scriptのsrc先urlの集合
-script_src_set_pre = set()  # 前回までのクローリング時のやつ
-script_src_set_lock = threading.Lock()   # これは更新をcrawlerスレッド内で行うため排他制御しておく
-request_url_set = set()       # 各ページを構成するためにGETしたurlのネットワーク名の集合
-request_url_filter = dict()   # 前回までのクローリング時のやつ
-link_set = set()      # ページに貼られていたリンク先URLのネットワーク名の集合
-link_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
-link_url_filter = dict()  # 前回までのクローリング時のやつ
-frequent_word_list = list()   # 前回までこのサーバに出てきた頻出単語top50
+word_idf_dict = dict()                  # 前回にこのサーバに出てきた単語とそのidf値
+word_df_dict = dict()                   # 今回, このサーバに出てきた単語と出現ページ数
+word_df_lock = threading.Lock()         # word_df_dict更新の際のlock
+iframe_src_set = set()                  # iframeのsrc先urlの集合
+iframe_src_set_pre = set()              # 前回までのクローリング時のやつ
+iframe_src_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
+script_src_set = set()                  # scriptのsrc先urlの集合
+script_src_set_pre = set()              # 前回までのクローリング時のやつ
+script_src_set_lock = threading.Lock()  # これは更新をcrawlerスレッド内で行うため排他制御しておく
+request_url_set = set()                 # 各ページを構成するためにGETしたurlのネットワーク名の集合
+request_url_filter = dict()             # 前回までのクローリング時のやつ
+link_set = set()                        # ページに貼られていたリンク先URLのネットワーク名の集合
+link_set_lock = threading.Lock()        # これは更新をcrawlerスレッド内で行うため排他制御しておく
+link_url_filter = dict()                # 前回までのクローリング時のやつ
+frequent_word_list = list()             # 前回までこのサーバに出てきた頻出単語top50
 
 write_file_to_hostdir = dict()    # server/ホスト名/の中に作るファイルの内容。{file名 : [文字, 内容, ...], file名 : []}
 wfth_lock = threading.Lock()      # write_file_to_hostdir更新の際のlock
@@ -71,11 +71,41 @@ check_resource_threadId_set = set()
 
 
 def init(host, screenshots):
+    """
+    クローラ初期設定
+    - URL置換文字辞書の作成
+    - 検査対象ホストの検査結果格納用ディレクトリ作成
+    - これまでのクローリングデータを取得
+      - request_url_filter
+        - request url のホワイトリストのフィルタ
+      - link_url_filter
+        - リンクURLのホワイトリストのフィルタ
+      - iframe_src_set_pre
+        - これまでに集めたこの組織の全iframeタグのsrc値
+      - script_src_set_pre
+        - これまでに集めたこの組織の全scriptタグのsrc値をロード
+      - frequent_word_list
+        - これまでに集めた頻出単語をロード
+      - word_idf_dict
+        - idf辞書
+      - word_df_dict
+        - df辞書
+
+    実行ディレクトリ:
+        organization/<>/result/result_*/
+
+    args:
+        host: 検査対象ホスト名
+        screenshots(bool): スクリーンショットを撮る
+    """
     global html_special_char, script_src_set, script_src_set_pre, robots, frequent_word_list
     global dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, num_of_files, num_of_pages
     global request_url_set, request_url_filter, iframe_src_set, iframe_src_set_pre, link_set, link_url_filter
 
-    src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
+    # このファイル位置の絶対パスで取得 「*/src」
+    src_dir = os.path.dirname(os.path.abspath(__file__))
+
+    # URLにおける特殊文字置換用データ読み出し
     data_temp = r_file(src_dir + '/files/HTML_SPECHAR.txt')
     data_temp = data_temp.split('\n')
     for line in data_temp:
@@ -83,12 +113,16 @@ def init(host, screenshots):
         html_special_char.append(tuple(line))
     html_special_char.append(('\r', ''))
     html_special_char.append(('\n', ''))
+
+    # organization/<>/result/result_*/ にserverを作成
     if not os.path.exists('server'):
         try:
             os.mkdir('server')
         except FileExistsError:
             pass
+    # ディレクトリ名の作成
     dir_name = host.replace(':', '-')
+    # ファイル名を作成
     f_name = dir_name.replace('.', '-')
     if not os.path.exists('server/' + dir_name):
         try:
@@ -123,8 +157,10 @@ def init(host, screenshots):
             robots.read()
         except urllib.error.URLError:   # サーバに接続できなければエラーが出る。
             robots = None               # robots.txtがなかったら、全てTrueを出すようになる。
-        except Exception as e:    # 上記以外のエラーとして、  http.client.RemoteDisconnected などのエラーが出る
-            print(host + ": " + location() + str(e))  # 'utf-8' codec can't decode byte (http://ritsapu-kr.com/)
+        except Exception as e:
+            # エラーとして, http.client.RemoteDisconnected などのエラーが出る
+            # 'utf-8' codec can't decode byte (http://ritsapu-kr.com/)
+            print("crawler: Error " + host + ": " + location() + str(e))
             robots = None
 
     # request url のホワイトリストのフィルタをロード
@@ -132,6 +168,7 @@ def init(host, screenshots):
     if os.path.exists(path):
         with open(path, 'r') as f:
             request_url_filter = json.load(f)
+
     # リンクURLのホワイトリストのフィルタをロード
     path = org_path + '/ROD/link_url/filter.json'
     if os.path.exists(path):
@@ -144,24 +181,28 @@ def init(host, screenshots):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             iframe_src_set_pre = set(data_temp)
+
     # 今までのクローリングで集めた、この組織の全scriptタグのsrc値をロード
     path = org_path + '/ROD/script_url/matome.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             script_src_set_pre = set(data_temp)
+
     # 今までのクローリングで集めた、このサーバの頻出単語をロード
     path = org_path + '/ROD/frequent_word_100/' + f_name + '.json'
     if os.path.exists(path):
         with open(path, 'r') as f:
             data_temp = json.load(f)
             frequent_word_list = list(data_temp)
+
     # idf辞書をロード
     path = org_path + '/ROD/idf_dict/' + f_name + '.json'
     if os.path.exists(path):
         if os.path.getsize(path) > 0:
             with open(path, 'r') as f:
                 word_idf_dict = json.load(f)
+
     # df辞書をロード
     path = org_path + '/RAD/df_dict/' + f_name + '.pickle'
     if os.path.exists(path):
@@ -174,6 +215,7 @@ def init(host, screenshots):
     if copy_flag:
         w_file('../../notice.txt', host + ' : ' + copy_flag + '\n', mode="a")
 
+    # CPUやメモリの使用率データをロード
     key_list = ["CPU", "MEM"]
     for key in key_list:
         if os.path.exists("{}/result/{}/{}.pickle".format(org_path, key, f_name)):
@@ -181,13 +223,25 @@ def init(host, screenshots):
                 resource_dict[key] = pickle.load(f)
 
 
-# クローリングして得たページの情報を外部ファイルに記録
 def save_result(alert_process_q):
+    """
+    クローリングして得たページの情報を外部ファイルに記録
+    (url_dict, word_df_dict, num_pages, chache, request, robots, num_files, iframe, link, script)
+
+    実行ディレクトリ: result/result_*/server/
+
+    args:
+        alert_process_q: 
+    """
     urlDict.save_url_dict()
     if word_df_dict:
+        print('crawler3: dict exist')
         path = org_path + '/RAD/df_dict/' + f_name + '.pickle'
         with open(path, 'wb') as f:
+            print('crawler3: save dict')
             pickle.dump(word_df_dict, f)
+    else:
+        print('crawler3: dict not exist')
     if num_of_pages + num_of_files:
         with open(org_path + '/RAD/temp/progress_' + f_name + '.pickle', 'wb') as f:
             pickle.dump({'num_pages': num_of_pages, 'cache': url_cache, 'request': request_url_set, 'robots': robots,
@@ -195,7 +249,8 @@ def save_result(alert_process_q):
                          'script': script_src_set}, f)
     w_file('achievement.txt', "{},{}".format(num_of_pages, num_of_files), mode="w")
 
-    # 外部ファイルの保存する結果を出力
+    # result_*/server/ホスト名/の中にファイルを確認
+    # write_file_to_hostdir: {file名 : [文字, 内容, ...], file名 : []...}
     for file_name, value in write_file_to_hostdir.items():
         text = ''
         for i in value:
@@ -205,7 +260,9 @@ def save_result(alert_process_q):
                 text += i[1] + '\n'
             else:
                 text += i + '\n'
+        print("crawler3: <Debug 263> write to '{}'".format(file_name))
         w_file(file_name, text, mode="a")
+
     for file_name, value in write_file_to_resultdir.items():
         text = ''
         for i in value:
@@ -217,10 +274,13 @@ def save_result(alert_process_q):
                 text += i + '\n'
         # 偽サイトの結果ファイルはresultディレに書かない
         if 'falsification.cysec.cs.ritsumei.ac.jp' in dir_name:
+            print("crawler3: <Debug 277> write to '{}'".format(file_name))
             w_file(file_name, text, mode="a")
         else:
+            print("crawler3: <Debug 280> write to '../../{}'".format(file_name))
             w_file('../../' + file_name, text, mode="a")
-    # アラートディレクトリに保存するデータを送信
+
+    # アラートディレクトリに保存するデータをalert出力専用プロセスに送信
     for data_dict in write_file_to_alertdir:
         alert_process_q.put(data_dict)
 
@@ -232,10 +292,25 @@ def save_result(alert_process_q):
             pickle.dump(resource_dict[key], f)
 
 
-# クローリングの結果を外部ファイルに出力したいが、毎度していてはディスク書き込みが頻発するため
-# 変数に内容を保存して置き、このプロセスが終わる時に一気に書き込む。そのための変数に保存をする関数。
 def update_write_file_dict(dic_type, key, content):
-    lock = None   # マルチスレッドの中から呼び出されることもあるため、排他制御をしておく
+    """
+    クローリング結果をこのプロセス終了時に一気に書き込む処理用の一時変数に値を保存する関数  
+    dic_typeによって、出力ファイルの保存場所が変化
+    - "host"
+      - organization/ritsumeikan/result/result_*/server/各ホスト名/の中
+    - "result"
+      - organization/ritsumeikan/result/result_*/の中
+    警告を表すalertディレクトリに書き出す場合専用のプロセスを用いる -> summaraize_alert.py
+    alertディレクトリに書き出す内容は、write_file_to_alertdirというリストに保存しておき、save_result()で、専用のプロセスに送信する
+
+    args:
+        dic_type: "host", "result"
+        key: ファイル名
+        content: ファイルに入れる内容(csvファイルなら: [ヘッダ, 内容], その他: textファイル)
+    """
+
+    # マルチスレッドの中から呼び出されることもあるため、排他制御
+    lock = None
     dic = None
     # どのフォルダに保存するファイルか選択
     if dic_type == 'host':
@@ -245,22 +320,28 @@ def update_write_file_dict(dic_type, key, content):
         dic = write_file_to_resultdir
         lock = wftr_lock
     # 各辞書は、ファイル名：[内容, 内容, ...]になるように
-    # alertディレだけ、ファイル名：[辞書, 辞書, ...]  (summarize_alertプロセスに渡すため)
+    # alertDirだけ、ファイル名：[辞書, 辞書, ...]  (summarize_alertプロセスに渡すため)
     with lock:
-        if key.endswith('.csv'):         # csvファイルの場合、contentはリストで[ヘッダ, 内容]となっている
+        if key.endswith('.csv'):
+            # csvファイルの場合、contentはリストで[ヘッダ, 内容]となっている
             if key not in dic:
-                dic[key] = [content]     # csvファイルの一行目はヘッダも入れる
+                # 初回はヘッダを含めて書き込み
+                dic[key] = [content]
             else:
-                dic[key].append(content[1])   # 1行目以降は、内容だけ入れる
-        else:   # textファイルの場合
+                # 1行目以降は、内容だけ入れる
+                dic[key].append(content[1])
+        else:
+            # textファイルの場合
             if key not in dic:
                 dic[key] = [content]
             else:
                 dic[key].append(content)
 
 
-# 親プロセスにdataを送信する
 def send_to_parent(sendq, data):
+    """
+    親プロセスにdataを送信する
+    """
     if not sendq.full():
         sendq.put(data)  # 親にdataを送信
     else:
@@ -268,52 +349,52 @@ def send_to_parent(sendq, data):
         sendq.put(data)
 
 
-# iframeタグをさらに枠が設定されているかどうかで分けたタグのリスト
-def special_course(tags):
-    tag_list = list()
-    for tag in tags:
-        if tag.name == 'iframe':
-            re = invisible([tag])    # 枠が0のiframeタグを探すときに使っている関数を借りる
-            if re:   # width、heightのどちらかが0だった、もしくはwidth、height属性値が設定されていなかった場合
-                tag_list.append('invisible_iframe')
-            else:
-                tag_list.append('iframe')   # width、heightに0以外が設定されていた
-        else:
-            tag_list.append(tag.name)
-    return tag_list
+# # iframeタグをさらに枠が設定されているかどうかで分けたタグのリスト
+# def special_course(tags):
+#     tag_list = list()
+#     for tag in tags:
+#         if tag.name == 'iframe':
+#             re = invisible([tag])    # 枠が0のiframeタグを探すときに使っている関数を借りる
+#             if re:   # width、heightのどちらかが0だった、もしくはwidth、height属性値が設定されていなかった場合
+#                 tag_list.append('invisible_iframe')
+#             else:
+#                 tag_list.append('iframe')   # width、heightに0以外が設定されていた
+#         else:
+#             tag_list.append(tag.name)
+#     return tag_list
 
 
-def get_tags_from_html(soup, page, machine_learning_q):
-    # 正確にタグ情報を取得するためにprettifyで整形したソースコードからもう一度soupを作る
-    try:
-        soup2 = BeautifulSoup(soup.prettify(), 'lxml')
-    except Exception:
-        soup2 = BeautifulSoup(soup.prettify(), 'html.parser')
+# def get_tags_from_html(soup, page, machine_learning_q):
+#     # 正確にタグ情報を取得するためにprettifyで整形したソースコードからもう一度soupを作る
+#     try:
+#         soup2 = BeautifulSoup(soup.prettify(), 'lxml')
+#     except Exception:
+#         soup2 = BeautifulSoup(soup.prettify(), 'html.parser')
 
-    # 全てのtagを取り出し、MLプロセスへ送信
-    tags = soup2.find_all()
-    tag_list = [tag.name for tag in tags]   # tagの名前だけ取り出す
-    if tag_list:
-        if 'iframe' in tag_list:   # iframeがあれは
-            tag_list = special_course(tags)   # ちょっといじる
+#     # 全てのtagを取り出し、MLプロセスへ送信
+#     tags = soup2.find_all()
+#     tag_list = [tag.name for tag in tags]   # tagの名前だけ取り出す
+#     if tag_list:
+#         if 'iframe' in tag_list:   # iframeがあれは
+#             tag_list = special_course(tags)   # ちょっといじる
 
-        urlDict.add_tag_data(page, tag_list)   # 外部ファイルへ保存するためのクラスへ格納
-        if machine_learning_q is not False:
-            # 機械学習プロセスへ送信
-            dic = {'url': page.url, 'src': page.src, 'tags': tag_list, 'host': f_name}
-            machine_learning_q.put(dic)
+#         urlDict.add_tag_data(page, tag_list)   # 外部ファイルへ保存するためのクラスへ格納
+#         if machine_learning_q is not False:
+#             # 機械学習プロセスへ送信
+#             dic = {'url': page.url, 'src': page.src, 'tags': tag_list, 'host': f_name}
+#             machine_learning_q.put(dic)
 
 
 def parser(parse_args_dic):
-    global word_df_dict
+    # global word_df_dict
     host = parse_args_dic['host']
     page = parse_args_dic['page']
     q_send = parse_args_dic['q_send']
     file_type = parse_args_dic['file_type']
-    machine_learning_q = parse_args_dic['machine_learning_q']
+    # machine_learning_q = parse_args_dic['machine_learning_q']
     use_mecab = parse_args_dic['use_mecab']
-    screenshots_svc_q = parse_args_dic['screenshots_svc_q']
-    img_name = parse_args_dic['img_name']
+    # screenshots_svc_q = parse_args_dic['screenshots_svc_q']
+    # img_name = parse_args_dic['img_name']
     nth = parse_args_dic['nth']
     filtering_dict = parse_args_dic["filtering_dict"]
     if "falsification.cysec" in host:
@@ -337,14 +418,15 @@ def parser(parse_args_dic):
         page.make_links_html(soup)  # htmlページのリンク抽出
     page.complete_links(html_special_char)    # pageのリンク集のURLを補完する
 
+    # 未知サーバのリンクが貼られていないかをチェック
     result_set = set()
-    # 貼られていたリンクの中に、このサーバのウェブページが今まで貼ったことのないサーバへのリンクがあるかチェック
     if page.normalized_links:
         with link_set_lock:  # リンク集合の更新
             link_set.update(page.normalized_links)
-        # フィルタを通して疑わしいリンクがあればアラート
+        # フィルタを通してURLを判定
         result_set = inspection_url_by_filter(url_list=page.normalized_links, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
+        # 検査結果がFalse(組織外)、もしくは"Unknown"(不明)だったURLを外部ファイルに出力
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
             data_temp = dict()
@@ -357,14 +439,18 @@ def parser(parse_args_dic):
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
 
-    # 組織内外をチェックしたリンクURLをすべて親に送信
+    # 組織内かどうかをチェックしたリンクURLをすべて親に送信
     send_data = {'type': 'links', 'url_set': result_set, "url_src": page.url}   # 親に送るデータ
     send_to_parent(q_send, send_data)    # 親にURLリストを送信
 
     # 検査
     # 前回とのハッシュ値を比較
     num_of_days, file_len = urlDict.compere_hash(page)
-    if type(num_of_days) == int:  # int型ならハッシュ値が違う。Trueは変化なし。Falseは新規ページ、Noneはエラー。
+    # int型: ハッシュ値が違う。
+    # True : 変化なし
+    # False: 新規ページ
+    # None : どこかでエラー。
+    if type(num_of_days) == int:
         update_write_file_dict('result', 'change_hash_page.csv',
                                content=['URL,num of no-change days', page.url + ',' + str(num_of_days)])
     elif num_of_days is True:
@@ -380,6 +466,7 @@ def parser(parse_args_dic):
             if hack_level == 1:
                 update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
             else:
+                # "hacked"が文章に含まれていると外部ファイルに保存
                 data_temp = dict()
                 data_temp['url'] = page.url_initial
                 data_temp['src'] = page.src
@@ -391,6 +478,8 @@ def parser(parse_args_dic):
         if word_tf_dict is not False:
             with word_df_lock:
                 word_df_dict = add_word_dic(word_df_dict, word_tf_dict)  # サーバのidf計算のために単語と出現ページ数を更新
+
+            # 前回のクローリング結果から計算したidf辞書があれば、重要単語を抽出
             if word_idf_dict:
                 word_tfidf = make_tfidf_dict(idf_dict=word_idf_dict, tf_dict=word_tf_dict)  # tf-idf値を計算
                 top10 = get_top10_tfidf(tfidf_dict=word_tfidf, nth=nth)   # top10を取得。ページ内に単語がなかった場合は空リストが返る
@@ -410,10 +499,10 @@ def parser(parse_args_dic):
                             data_temp['label'] = 'InitialURL,URL,TOP10,N/A,PRE'
                             with wfta_lock:
                                 write_file_to_alertdir.append(data_temp)
-                            if screenshots_svc_q is not False:
-                                data_dic = {'host': dir_name, 'url': page.url, 'img_name': img_name,
-                                            'num_diff_word': len(symmetric_difference)}
-                                screenshots_svc_q.put(data_dic)
+                            # if screenshots_svc_q is not False:
+                            #     data_dic = {'host': dir_name, 'url': page.url, 'img_name': img_name,
+                            #                 'num_diff_word': len(symmetric_difference)}
+                            #     screenshots_svc_q.put(data_dic)
                         update_write_file_dict('result', 'symmetric_diff_of_word.csv',
                                                content=['URL,length,top10,pre top10', page.url + ',' +
                                                         str(len(symmetric_difference)) + ',' + str(top10)[1:-1] + ', ,'
@@ -494,7 +583,7 @@ def parser(parse_args_dic):
         if script_result['script_in_title']:
             update_write_file_dict('result', 'script_in_title.csv',
                                    content=['URL', page.url, str(script_result['script_in_title'])])
-        # 前回のクローリングで見つかっていないscript名があるか
+        # 前回のクローリングで見つかっていないscriptのsrcがあるか
         if script_result['script_src_list']:    # scriptのsrcURLのリストがあれば
             with script_src_set_lock:   # 今回見つかったscriptのsrc集合の更新
                 script_src_set.update(set(script_result['script_src_list']))
@@ -523,16 +612,17 @@ def parser(parse_args_dic):
                 if url == '#':  # 'javascript:'から始まるものや'#'から始まるもの
                     continue
             url_list_temp.append(url)
-        # リンクURLのフィルタに通す
+        # リンクURLのフィルタに通す(本当はformURL専用のホワイトリストを作成するべきだが、時間がなかった)
         result_set = inspection_url_by_filter(url_list=url_list_temp, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
+        # リンクURLのフィルタを通した結果、False(組織外)もしくは"Unknown"(不明)だったものを
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            # 疑わしいものはリクエストURLのフィルタを通す
+            # 次はリクエストURLのフィルタに通す
             result_set = inspection_url_by_filter(url_list=strange_set, filtering_dict=filtering_dict,
                                                   special_filter=request_url_filter)
-            strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
             # ２つのフィルタを通しても未知のサーバだと判断されたらアラート
+            strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
             if strange_set:
                 data_temp = dict()
                 data_temp['url'] = page.url_initial
@@ -544,24 +634,26 @@ def parser(parse_args_dic):
                 with wfta_lock:
                     write_file_to_alertdir.append(data_temp)
 
-    # requestURL を url_dictに追加
+    # requestURL を url_dictに追加(ページをレンダリングする際のリクエストURLを、各ページごとに保存。しかし、何かに使っているわけではない。)
     if page.request_url:
         urlDict.update_request_url_in_url_dict(page)
 
-    # スレッド集合から削除
+    # スレッド集合から削除して、検査終了
     try:
-        threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
-        del threadId_time[threading.get_ident()]
+        parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
+        del parser_threadId_time[threading.get_ident()]
     except KeyError as e:
         # print(location() + host + ' : ' + 'thread was deleted. : ' + str(e), flush=True)
         pass
 
 
-# 180秒以上続いているスレッドのリストを返す
 def check_thread_time():
+    """
+    180秒以上続いているparserスレッドのリストを返す
+    """
     thread_list = list()
     try:
-        for threadId, th_time in threadId_time.items():
+        for threadId, th_time in parser_threadId_time.items():
             if (int(time()) - th_time) > 180:
                 thread_list.append(threadId)
     except RuntimeError as e:
@@ -569,22 +661,26 @@ def check_thread_time():
     return thread_list
 
 
-# 5秒間隔で180秒以上続いているparserスレッドがあるかチェックし、あるとリストから削除
 def del_thread(host):
+    """
+    5秒間隔で180秒以上続いているparserスレッドがあるかチェックし、あるとリストから削除
+    """
     while True:
         sleep(5)
         del_thread_list = check_thread_time()
         for th in del_thread_list:
             print(host + ' del: ' + str(th), flush=True)
             try:
-                threadId_set.remove(th)   # 消去処理がパーススレッドとほぼ同時に行われるとなるかも？(多分ない)
-                del threadId_time[th]
+                parser_threadId_set.remove(th)   # 消去処理がパーススレッドとほぼ同時に行われるとなるかも？(多分ない)
+                del parser_threadId_time[th]
             except KeyError:
                 pass
 
 
-# 資源監視スレッド。大域変数を使いたいのでこのファイルに記述
 def resource_observer_thread(args):
+    """
+    資源監視スレッド
+    """
     global resource_terminate_flag, resource_dict
     cpu_limit = args["cpu"]
     memory_limit = args["mem"]
@@ -655,9 +751,15 @@ def resource_observer_thread(args):
             break
 
 
-# 5秒間受信キューに何も入っていなければFalseを返す
-# 送られてくるのは、(URL, src)　か　'nothing'
 def receive(recv_r):
+    """
+    5秒間受信キューに何も入っていなければFalseを返す
+    送られてくるのは、(URL, src) or 'nothing'
+
+    args:
+        recv_r: 
+    """
+
     try:
         temp_r = recv_r.get(block=True, timeout=5)
     except Exception as e:
@@ -666,8 +768,16 @@ def receive(recv_r):
     return temp_r
 
 
-# ウェブページなら文字列、そうでないならFalseを返す
 def page_or_file(page):
+    """
+    ページの content_type を調査
+    ウェブページなら文字列、そうでないならFalseを返す
+
+    args:
+        page: 
+    return:
+        文字列 or False
+    """
     if page.content_type == '':
         return False
     elif 'plain/xml' in page.content_type:
@@ -682,8 +792,19 @@ def page_or_file(page):
         return False
 
 
-# URLが変わっていなければFalse、リダイレクトしていても同じサーバ内ならば'same'、違うサーバならTrue
 def check_redirect(page, host):
+    """
+    リダイレクト先の調査
+    - URLが変わっていなければFalse
+    - リダイレクトしていても同じサーバ内ならば'same'
+    - 違うサーバならTrue
+
+    args:
+        page:
+        host:
+    return:
+        文字列 or bool
+    """
     if page.url_initial == page.url:
         return False
     if host == page.hostName:
@@ -692,6 +813,9 @@ def check_redirect(page, host):
 
 
 def extract_extension_data_and_inspection(page, filtering_dict):
+    """
+    拡張機能の専用ページから、拡張機能が集めたデータを取得し、検査
+    """
     global request_url_set
     # Watcher.htmlをスクレイピングするためのsoup
     try:
@@ -733,7 +857,7 @@ def extract_extension_data_and_inspection(page, filtering_dict):
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
 
-    # URL遷移の記録があれば、リンクのフィルタを通し、ホワイトリストに引っかからなければアラート
+    # URL遷移の記録があれば、リンクのフィルタを通し、疑わしいURLを含んでいればアラート
     if page.among_url:
         result_set = inspection_url_by_filter(url_list=page.among_url, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
@@ -751,8 +875,10 @@ def extract_extension_data_and_inspection(page, filtering_dict):
                 write_file_to_alertdir.append(data_temp)
 
 
-# 接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
 def crawler_main(args_dic):
+    """
+    接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
+    """
     global org_path, num_of_pages, num_of_files
 
     page = None
@@ -764,8 +890,8 @@ def crawler_main(args_dic):
     q_send = args_dic['child_sendq']
     clamd_q = args_dic['clamd_q']
     screenshots = args_dic['screenshots']
-    machine_learning_q = args_dic['machine_learning_q']
-    screenshots_svc_q = args_dic['screenshots_svc_q']
+    # machine_learning_q = args_dic['machine_learning_q']
+    # screenshots_svc_q = args_dic['screenshots_svc_q']
     use_browser = args_dic['headless_browser']
     use_mecab = args_dic['mecab']
     alert_process_q = args_dic['alert_process_q']
@@ -773,7 +899,7 @@ def crawler_main(args_dic):
     org_path = args_dic['org_path']
     filtering_dict = args_dic["filtering_dict"]
 
-    if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+    if "falsification" in host:
         import sys
         f = open(host + ".log", "a")
         sys.stdout = f
@@ -803,42 +929,45 @@ def crawler_main(args_dic):
     while True:
 
         # 動いていることを確認
-        if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+        if "falsification" in host:
             pid = os.getpid()
             if page is None:
                 print(host + '(' + str(pid) + ') : main loop is running...', flush=True)
             else:
                 print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE', flush=True)
 
-        # 前回(一個前のループ)のURLを保存、driverはクッキー消去
+        # 前回(一個前のループ)にクローリングしたURLを保存し、driverのクッキー消去
         if page is not None:
-            url_cache.add(page.url_initial)   # 親から送られてきたURL
+            url_cache.add(page.url_initial)   # 親プロセス(main.py)から送られてきたURL
             url_cache.add(page.url_urlopen)   # urlopenで得たURL
-            url_cache.add(page.url)           # 最終的にパースしたURL
+            url_cache.add(page.url)           # 最終的にパースしたURL(urlopenで得たURLとブラウザで得たURLは異なる可能性がある)
             page = None
         try:
             driver.delete_all_cookies()   # クッキー削除
         except Exception:
             pass
-        # 前回の資源監視スレッドを終わらす
+        # 前回のウェブページの資源監視スレッドを終わらす
+        # 資源監視スレッドは、この集合(check_resource_threadId_set)に自身のスレッドIDがある場合は無限に資源監視を行うため、この集合をクリアする
         check_resource_threadId_set.clear()
 
         # クローリングするURLを取得
-        send_to_parent(sendq=q_send, data='plz')   # 親プロセスにURLを要求
-        search_tuple = receive(q_recv)             # 5秒間何も届かなければFalse
-        if search_tuple is False:
-            #print(host + " : couldn't get data from main process.", flush=True)
-            while threadId_set:   # 実行中のパーススレッドがあるならば
-                #print(host + ' : wait 3sec because the queue is empty.', flush=True)
+        send_to_parent(sendq=q_send, data='plz')   # 親プロセス(main.py)に自身が担当しているサイトのURLを要求
+        search_tuple = receive(q_recv)
+        if search_tuple is False:  # 5秒間何も届かなければFalse
+            # print(host + " : couldn't get data from main process.", flush=True)
+            # 実行中のパーススレッドが処理を終えると、クローラメインプロセスをbreakする
+            while parser_threadId_set:
+                # print(host + ' : wait 3sec because the queue is empty.', flush=True)
                 sleep(3)
             break
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
-            if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
+            if "falsification" in host:
                 print(host + ' : nothing!!!!!!!!!!!!!!!!!!!!!!', flush=True)
-            while threadId_set:
+            while parser_threadId_set:
+                # 実行中のパーススレッドが処理を終えるまで待つ
                 # print(host + ' : wait 3sec for finishing parse thread', flush=True)
                 sleep(3)
-            # 3秒待機後、もう一度要求する
+            # 3秒待機後、親プロセスにURLをもう一度要求する
             sleep(3)
             send_to_parent(sendq=q_send, data='plz')   # plz要求
             search_tuple = receive(q_recv)             # 応答確認
@@ -855,32 +984,35 @@ def crawler_main(args_dic):
         # 検索するURLを取得
         url, url_src = search_tuple  # 親から送られてくるURLは、(URL, リンク元URL)のタプル
         if url in url_cache:    # 既にクローリング済ならば次へ。
-            continue           # ここに当てはまるのは、NOT FOUNDページとかリダイレクトされた後のURLとか？
+            continue           # ここでキャッシュに当てはまるのは、NOT FOUNDページにリダイレクトされた後のURLとか？
 
-        # Pageオブジェクトを作成
+        # Pageオブジェクトを作成(robots.txtの確認の前に作成しておかないと、次のループの最初に済URL集合(url_cache)に保存されない)
         page = Page(url, url_src)
 
-        # urlopenで接続
+        # robots.txtがあれば、それに準拠する
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             print("\t" + "get by urlopen : {}".format(page.url), flush=True)
+
+        # urlopenで接続
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
         if type(urlopen_result) is list:  # listが返るとエラー
             # URLがこのサーバの中でひとつ目じゃなかった場合、次のURLへ
             if num_of_pages + num_of_files:
                 update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1])
                 continue
-            # ひとつ目のURLだった場合、もう一度やってみる
+            # ひとつ目のURLだった場合、もう一度やってみる(これにアクセスできなかったら、そのサイトの全てのページを取得できない可能性があるため)
             update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1] + ', and try again')
             urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=90)  # 次は90秒待機する
-            if type(urlopen_result) is list:  # それでも無理なら諦める
+            if type(urlopen_result) is list:  # 二回目も無理なら諦める
                 update_write_file_dict('host', urlopen_result[0] + '.txt', content=urlopen_result[1])
                 continue
+
         # リダイレクトのチェック
         redirect = check_redirect(page, host)
-        if redirect is True:   # 別サーバへリダイレクトしていればTrue
+        if redirect is True:   # 別サーバへリダイレクトしていればTrue、親プロセス(main.py)にそのURLを送信して、次のURLへ
             result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
             send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                     "url_src": page.src})
@@ -888,7 +1020,7 @@ def crawler_main(args_dic):
         if redirect == "same":    # 同じホスト内のリダイレクトの場合、処理の続行を親プロセスに通知
             send_to_parent(sendq=q_send, data=(page.url, "redirect"))
 
-        # urlopenでurlが変わっている可能性があるため再度チェック
+        # urlopenでurlが変わっている可能性があるため再度重複チェック
         if page.url in url_cache:
             continue
 
@@ -1010,13 +1142,15 @@ def crawler_main(args_dic):
 
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-                                      'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab, 'nth': nth,
-                                      'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name,
-                                      "filtering_dict": filtering_dict}
+                                      'use_mecab': use_mecab, 'nth': nth, "filtering_dict": filtering_dict}
+            # parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
+            #                           'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab, 'nth': nth,
+            #                           'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name,
+            #                           "filtering_dict": filtering_dict}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
-            threadId_set.add(t.ident)  # スレッド集合に追加
-            threadId_time[t.ident] = int(time())  # スレッド開始時刻保存
+            parser_threadId_set.add(t.ident)  # スレッド集合に追加
+            parser_threadId_time[t.ident] = int(time())  # スレッド開始時刻保存
 
             # ページの達成数をインクリメント
             num_of_pages += 1
@@ -1052,7 +1186,7 @@ def crawler_main(args_dic):
         # 同じサーバばかり回り続けないように
         if not (num_of_pages+num_of_files % 100):  # 100URLをクローリングごとに保存して終了
             # print(host + ' : achievement have reached ' + str(num_of_achievement), flush=True)
-            while threadId_set:
+            while parser_threadId_set:
                 # print(host + ' : wait 3sec for thread end.', flush=True)
                 sleep(3)
             break

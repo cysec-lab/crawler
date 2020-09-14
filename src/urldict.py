@@ -6,8 +6,10 @@ from copy import deepcopy
 from shutil import copyfile
 
 
-# url_dictの操作を行う。各Webサーバ毎に生成される。
+# url_dictの操作を行う。サイトごとに生成される。
 # jsonで保存するため、set集合はlistにしている
+# url_dictのkeyはURL、valueは辞書型
+# valueのkeyは、 hash, file_length, run_date, source, unchanged_num_of_days, important_words, request_url
 class UrlDict:
     def __init__(self, host, org_path=""):
         self.host = host
@@ -40,7 +42,7 @@ class UrlDict:
                             self.url_dict = json.load(f)
                         except json.decoder.JSONDecodeError:   # RODも破損していた場合
                             f.close()
-                            # 過去のRODから持ってくる
+                            # 過去のRODを遡って、エラーが出ないファイルを取ってくる
                             if os.path.exists(rod_dir + '_history'):
                                 rod_lis = os.listdir(rod_dir + '_history')
                                 latest_rods = sorted(rod_lis, reverse=True,

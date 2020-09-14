@@ -3,12 +3,11 @@ import json
 from bs4 import NavigableString, Comment, Declaration, Doctype
 import unicodedata
 import time
-import os
 
-
-# 以下3つの関数、ネットから取ってきたソースに変更を加えたもの URL = http://d.hatena.ne.jp/s-yata/20100619/1276961636
-# 不要な空白を取り除き，空行以外を返す．
 def nonEmptyLines(text_target):
+    """
+    不要な空白を取り除き，空行以外を返す．
+    """
     for line in text_target.splitlines():
         line = ' '.join(line.split())
         if line:
@@ -16,6 +15,13 @@ def nonEmptyLines(text_target):
 
 
 def getNavigableStrings(soup):
+    """
+    soupのオブジェクトに沿って文字列を返すように調整
+    args:
+        soup: soupオブジェクト
+    return:
+        必要とされるsoupオブジェクトのみを返す
+    """
     if isinstance(soup, NavigableString):
         if type(soup) not in (Comment, Declaration, Doctype) and soup.strip():   # ここにDoctypeを追加
             yield soup
@@ -26,13 +32,24 @@ def getNavigableStrings(soup):
                     yield g
 
 
-# 正規化の後で不要な空白・改行を取り除く．
 def normalizeText(target_text):
+    """
+    正規化の後に nonEmptyLines()を呼び出して不要な空白, 改行を取り除く
+    """
     target_text = unicodedata.normalize('NFKC', target_text)
     return '\n'.join(nonEmptyLines(target_text))
 
 
 def detect_hack(text):
+    """
+    Hackの文字列を見つける
+    hackレベルは "hack" が見つかれば1, "hacked" が見つかれば2, "hacked by" が見つかれば3
+
+    args:
+        text: 文字列
+    return:
+        result: hackレベル
+    """
     text = text.strip().replace(' ', '')     # 空白、改行を削除する
     result = 0
     while text:
@@ -55,10 +72,18 @@ def detect_hack(text):
 
 
 def get_tf_dict_by_mecab(soup):
+    """
+    MeCabで形態素解析を行い辞書を作成する
+    args:
+        soup: 
+    return:
+        hacklevel: Hackedの文字列レベル
+        ?tf_dict: 出現文字の辞書(文字列, tf値)
+    """
+
     # HTML文のタグを除去(タイトルのcontentも削除)
     text = '\n'.join(getNavigableStrings(soup))
     text = normalizeText(text)
-    # hacked byの文字列を探す。「hack」が見つかれば1、「hacked」が見つかれば2、「hacked by」が見つかれば3とする。
     hack_level = detect_hack(text)
 
     # mecabで形態素解析
@@ -71,32 +96,44 @@ def get_tf_dict_by_mecab(soup):
         except RuntimeError:
             return hack_level, False
 
-    mecab.parse('')    # エラー回避のおまじない
+    # エラー回避ようおまじない
+    mecab.parse('')
+    # textに対して形態素解析を実行
     node = mecab.parseToNode(text)
     tf_dict = dict()
     word_counter = 0
+    # 辞書に名刺を追加していく
     while node:
         kind = node.feature.split(',')[0]
         if kind == '名詞':
             word = node.surface
-            if word.isdigit():    # 数字は無視
+
+            # 無視するものたち
+            # 数字, "http://", 英字1文字
+            if word.isdigit():
                 node = node.next
                 continue
-            if len(word) == 1:   # str.isalpha()という英字を判別する関数があるが、なぜか漢字もTrueを返していた
-                if ('a' <= word <= 'z') or ('A' <= word <= 'Z'):   # 英字一文字は無視
+            if len(word) == 1:
+                # str.isalpha()という英字を判別する関数があるが、なぜか漢字もTrueを返していた
+                if ('a' <= word <= 'z') or ('A' <= word <= 'Z'):
                     node = node.next
                     continue
-            if 'http://' in word:  # http:// が頻発していたので消す
+            if 'http://' in word:
                 node = node.next
                 continue
+
+            # 辞書に文字列が存在していなければ追加
+            # すでに存在していればカウントを増やす
             if word in tf_dict:
                 tf_dict[word] += 1
             else:
                 tf_dict[word] = 1
             word_counter += 1
         node = node.next
+
+    # 辞書に文字列が含まれているならばtf値を計算
+    # 辞書のvalueを数え上げからtf値に変換
     if word_counter:
-        # tf値計算
         for word, count in tf_dict.items():
             tf = count / word_counter
             tf_dict[word] = tf
@@ -106,9 +143,23 @@ def get_tf_dict_by_mecab(soup):
 
 
 def get_top10_tfidf(tfidf_dict, nth):
-    tfidf_list = sorted(tfidf_dict.items(), key=lambda x: x[0], reverse=False)   # 文字でソートする
-    tfidf_list = sorted(tfidf_list, key=lambda x: x[1], reverse=True)            # tfidf値でソートし直す
-    # 以上の処理で、tfidf値が高いもの順で、値が同じの場合は文字でソートされたリストが出来る
+    """
+    tfidfの辞書からトップ10を取り出す関数
+
+    args:
+        tfidf_dict: 単語の重要度が記載された辞書
+        nth: ToDo これはなに
+    return:
+        top10: tf-idfが大きいものトップ10のリスト
+    """
+
+    # 文字列ソート
+    tfidf_list = sorted(tfidf_dict.items(), key=lambda x: x[0], reverse=False)
+    # tf-idf値でソート
+    tfidf_list = sorted(tfidf_list, key=lambda x: x[1], reverse=True)
+    # → tf-idf値が高いもの順, 値が同じの場合は文字でソートされたリスト
+
+    # ToDo: refact
     top10 = list()
     tmp = list()
     for i in range(len(tfidf_list)):
@@ -118,16 +169,20 @@ def get_top10_tfidf(tfidf_dict, nth):
         tmp.append(tfidf_list[i])
         top10.append(tfidf_list[i][0])
 
-    # try:
-    #     with open('../../../../../tfidf_' + nth + '.txt', 'a') as f:
-    #         f.write(str(tmp)[1:-1])
-    # except Exception:
-    #     pass
-
     return top10
 
 
 def make_tfidf_dict(idf_dict, tf_dict):
+    """
+    tf-idf辞書を作成する
+
+    args:
+        idf_dict: 各サーバにおいて現れる語それぞれの重み
+        tf_dict: 各サーバにおける文字列の出現頻度辞書
+    retrun:
+        tfidf_dict: valueが重要度の単語辞書を作成
+    """
+
     tfidf_dict = dict()
     for word, tf in tf_dict.items():
         if word in idf_dict:
@@ -140,11 +195,23 @@ def make_tfidf_dict(idf_dict, tf_dict):
 
 
 def add_word_dic(src_dic, dic):
+    """
+    Webサーバごとの辞書を各サイトの辞書をもとにアップデートする
+
+    args:
+        src_dict: 各サーバの辞書
+        dic: 各サイトの辞書
+    return:
+        src_dict: サイトの辞書分の単語が追加された辞書
+    """
+
     for word in dic.keys():
         if word in src_dic:
             src_dic[word] += 1
         else:
             src_dic[word] = 1
+
+    # サーバ辞書内の総ページ数を更新する
     if 'NumOfPages' in src_dic:
         src_dic['NumOfPages'] += 1
     else:
@@ -152,9 +219,16 @@ def add_word_dic(src_dic, dic):
     return src_dic
 
 
-def save_dict(host, dic, dic_type):
-    if len(dic_type) > 0:
-        f = open('../../../../' + dic_type + '/' + host + '.json', 'w')
-        json.dump(dic, f)
-        f.close()
+# def save_dict(host, dic, dic_type):
+#     """
+#     サイトに対して作成した文字列辞書を保存する
 
+#     Args:
+#         host: 調べたサイトのホスト名
+#         dic: 形態素解析によって得られた文字列辞書
+#         dic_type: 
+#     """
+#     if len(dic_type) > 0:
+#         f = open('../../../../' + dic_type + '/' + host + '.json', 'w')
+#         json.dump(dic, f)
+#         f.close()

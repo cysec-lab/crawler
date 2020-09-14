@@ -55,6 +55,21 @@ organization/ritsumeikan/の中にクローリング結果が保存されてい�
  BeatuifulSoupで使う。  
  lxmlを入れていない場合は、html.parserが使われるので入れなくてもいい。(lxmlはhtml.parserより処理が速いらしい)  
 
+### 設定ファイル
+
+- DOMAIN.json
+  - allow: 検索を許可するドメイン名(リスト)。ドメイン名がこの文字列で終わるURLは組織内とする。
+  - deny: 検索しないドメイン名(リスト)。ドメイン名が以下の文字列で終わるURLは検索しない。
+- WHITE.json
+- ホスト名: パス(リスト)。ホスト名のURLで、リストの文字列を含む場合はクローリングする。
+- IPAddress.json
+  - allow: 検索を許可するIPアドレス(リスト)。
+- REDIRECT.json
+  - allow: リダイレクト後として安全なホスト名の辞書。keyはホスト名(の後半部分)。valueはパス(の途中)のリスト。
+  - deny: リダイレクト後として危険なホスト名の辞書。(処理は未実装)
+- BLACK.json
+  - 文字のリスト。この文字を含むURLは検索しない。
+
 ### 実行方法  
 実行ファイル名 ： operate_main.py  
 引数 ： 組織名(crawler/organization/以下にあるディレクトリ名)  
