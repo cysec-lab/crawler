@@ -210,14 +210,20 @@ def cal_num_of_achievement(path):
 
     for server_dir in lis:
         # 各サーバのachievement.txtを開く
-        with open(server_dir + "/achievement.txt", "r") as f:
-            content = f.read()
-        num = content.split("\n")[-1]
-        page_num, file_num = num.split(",")
-        num = int(page_num) + int(file_num)
-        server_dic[server_dir] = ("{}(p: {}, f: {})".format(num, page_num, file_num), num)
-        total_page += int(page_num)
-        total_file += int(file_num)
+        try:
+            with open(server_dir + "/achievement.txt", "r") as f:
+                content = f.read()
+            num = content.split("\n")[-1]
+            page_num, file_num = num.split(",")
+            num = int(page_num) + int(file_num)
+            server_dic[server_dir] = ("{}(p: {}, f: {})".format(num, page_num, file_num), num)
+            total_page += int(page_num)
+            total_file += int(file_num)
+        except FileNotFoundError:
+            # 子プロセスが検査を終了する前に結果まとめ処理が始まってしまうのでえらる
+            # そのうち子プロセス側から検査したURLを消すように変更する
+            with open(path + "errors.txt", "a") as f:
+                f.write("Error : cal_num_of_achievement failed to open " + server_dir + "achievement.txt / FileNotFoundError")
 
     total = int(total_page) + int(total_file)
     server_dic["total"] = ("{}(p: {}, f: {})".format(total, total_page, total_file), total)
