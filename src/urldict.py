@@ -4,20 +4,26 @@ import os
 from datetime import date
 from copy import deepcopy
 from shutil import copyfile
+from typing import Optional, Any, Tuple, Union, Dict
+from webpage import Page
 
 
-# url_dictの操作を行う。サイトごとに生成される。
-# jsonで保存するため、set集合はlistにしている
-# url_dictのkeyはURL、valueは辞書型
-# valueのkeyは、 hash, file_length, run_date, source, unchanged_num_of_days, important_words, request_url
 class UrlDict:
-    def __init__(self, host, org_path=""):
+    """
+    url_dictの操作を行う。サイトごとに生成される。
+    jsonで保存するため、set集合はlistにしている
+    url_dictのkeyはURL、valueは辞書型
+    valueのkeyは、 hash, file_length, run_date, source, unchanged_num_of_days, important_words, request_url
+    """
+
+    def __init__(self, host: str, org_path: str=""):
         self.host = host
         self.org_path = org_path
-        self.url_dict = dict()      # url : そのURLの情報の辞書
-        self.url_tags = dict()      # url : タグ順番保存
+        self.url_dict: Dict[str, Dict[str, Any]] = dict()      # url : そのURLの情報の辞書
+        self.url_tags: Dict[str, list[Union[list[Any], str]]] = dict()      # url : タグ順番保存
 
-    def load_url_dict(self, path=None):
+
+    def load_url_dict(self, path: Optional[str]=None):
         copy_flag = ''
         rad_dir = self.org_path + '/RAD'
         rod_dir = self.org_path + '/ROD'
@@ -110,7 +116,14 @@ class UrlDict:
                     f.close()
         return copy_flag
 
-    def save_url_dict(self):
+    def save_url_dict(self) -> None:
+        """
+        ホストのurl_hash_jsonからurl_dictとurl_tagsを取得する
+        - url_hash_json/<HOST>.json
+          - self.url_dict に格納
+        - /tag_data/<HOST>.json
+          - self.url_tags に格納
+        """
         data_dir = self.org_path + '/RAD'
         if len(self.url_dict) > 0:
             f = open(data_dir + '/url_hash_json/' + self.host + '.json', 'w')
@@ -121,7 +134,7 @@ class UrlDict:
             json.dump(self.url_tags, f)
             f.close()
 
-    def add_tag_data(self, page, tags):
+    def add_tag_data(self, page: Page, tags: str):
         if tags:
             if page.url in self.url_tags:
                 if tags not in self.url_tags[page.url]:
@@ -135,7 +148,7 @@ class UrlDict:
                 else:
                     self.url_tags[page.url] = list([tags])    # tagリストのリスト
 
-    def update_request_url_in_url_dict(self, page):
+    def update_request_url_in_url_dict(self, page: Page):
         if page.url in self.url_dict:
             # self.url_dict[page.url]['request_url_same_host'] = list(deepcopy(page.request_url_same_host))
             self.url_dict[page.url]["request_url"] = list(deepcopy(page.request_url))
@@ -143,7 +156,7 @@ class UrlDict:
             return False
         return True
 
-    def compare_request_url(self, page):
+    def compare_request_url(self, page: Page):
         if page.url in self.url_dict:
             # if 'request_url_same_host' in self.url_dict[page.url]:
             #     diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
@@ -154,10 +167,10 @@ class UrlDict:
             diff = False
         return diff
 
-    def add_top10_to_url_dict(self, url, top10):
+    def add_top10_to_url_dict(self, url: str, top10: Any):
         self.url_dict[url]['important_words'] = deepcopy(top10)
 
-    def get_top10_from_url_dict(self, url):
+    def get_top10_from_url_dict(self, url: str)->Optional[Any]:
         if url in self.url_dict:
             if 'important_words' in self.url_dict[url]:
                 top10 = self.url_dict[url]['important_words']
@@ -167,20 +180,23 @@ class UrlDict:
         else:
             return None
 
-    # ハッシュ値を比較する。変わっていなければTrueを、変わっていると前回までの不変日数を返す。Falseは新規、Noneはエラー
-    # 二つ目はファイルサイズが同じだったかどうか、全て読み込まれているかどうか分からないため(途中切断はなさそうなため不要?)
-    def compere_hash(self, page):
-        file_length = len(page.html)
+    def compere_hash(self, page: Page)->Tuple[Union[Any, None], int]:
+        """
+        ハッシュ値を比較する。
+        変わっていなければTrueを、変わっていると前回までの不変日数を返す。Falseは新規、Noneはエラー
+        二つ目はファイルサイズが同じだったかどうか、全て読み込まれているかどうか分からないため(途中切断はなさそうなため不要?)
+        """
+        file_length = len(str(page.html))
         if file_length:
             if type(page.html) == str:
                 try:
-                    html_hash = page.html.encode('utf-8')
+                    html_hash = page.html.encode('utf-8') # type: ignore
                 except Exception:
                     return None, False
             else:
                 html_hash = page.html
             try:
-                sha = sha256(html_hash).hexdigest()
+                sha = sha256(html_hash).hexdigest() # type: ignore
             except Exception:
                 return None, False
         else:
@@ -211,7 +227,7 @@ class UrlDict:
                 if pre_info['file_length']:
                     length_difference = file_length - pre_info['file_length']    # 今回と前回のファイルサイズ差
                 else:
-                    length_difference = None     # 前回のファイルサイズが0の場合
+                    length_difference = 0     # 前回のファイルサイズが0の場合
                 return pre_info['unchanged_num_of_days'], length_difference
         else:
             self.url_dict[page.url] = dict()

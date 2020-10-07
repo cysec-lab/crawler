@@ -10,12 +10,13 @@ from make_filter_from_past_data import make_filter, merge_filter
 from main_cr import del_and_make_achievement
 # from SVC_screenshot import del_0size
 from falcification_dealing import del_falsification_RAD, copy_ROD_from_cysec
+from typing import Dict, Optional
 
 
 # 例： python3 operate_main.py ritsumeikan
 
 
-def dealing_after_fact(org_arg):
+def dealing_after_fact(org_arg: Dict[str,str]):
     dir_name = org_arg['result_no']
     org_path = org_arg['org_path']
 
@@ -48,14 +49,14 @@ def dealing_after_fact(org_arg):
 
     # make_filter_from_past_data.pyの実行 (tfidfの計算には少し時間(1分くらい)がかかるのでプロセスを分けて
     print('run function of tf_idf.py : ', end='')
-    p = Process(target=make_idf_dict_frequent_word_dict, args=(org_path,))
+    p = Process(target=make_idf_dict_frequent_word_dict, args=(org_path,)) # type: ignore
     p.start()
 
     # 立命館サイトは make_host_set()を自動で実行。
     # 今回の収集データと過去のデータをマージする作業なので、自動実行すると、今回検出された外部URLが安全なURLとして登録されてしまうため
     # ちゃんと人が判断してから追加したほうがいい。立命館サイトは面倒なので自動でやっちゃう。
     if '/organization/ritsumeikan' in org_path:
-        p2 = Process(target=make_request_url_iframeSrc_link_host_set, args=(org_path,))
+        p2 = Process(target=make_request_url_iframeSrc_link_host_set, args=(org_path,)) # type: ignore
         p2.start()
     else:
         p2 = None
@@ -89,7 +90,7 @@ def dealing_after_fact(org_arg):
         copy_ROD_from_cysec(org_path=org_path)
 
 
-def save_rod(org_arg):
+def save_rod(org_arg: Dict[str, str]):
     dir_name = org_arg['result_no']
     org_path = org_arg['org_path']
 
@@ -99,10 +100,10 @@ def save_rod(org_arg):
     dst_dir = org_path + '/ROD_history/ROD_' + dir_name
     shutil.copytree(org_path + '/ROD', dst_dir)
     with open(dst_dir + '/read.txt', 'w') as f:
-        f.writelines('This ROD directory is used by ' + dir_name + "'th crawling.")
+        f.writelines(['This ROD directory is used by ' + dir_name + "'th crawling."])
 
 
-def main(organization):
+def main(organization: str):
     from main import crawler_host
     # 以下のwhileループ内で
     # このファイル位置のパスを取ってきてchdirする
@@ -137,11 +138,11 @@ def main(organization):
     while True:
         # クローラを実行
         print('--- ' + organization + ' : ' + org_arg['result_no'] + ' th crawling---')
-        p = Process(target=crawler_host, args=(org_arg,))
+        p = Process(target=crawler_host, args=(org_arg,)) # type: ignore
         p.start()
         p.join()
-        exitcode = p.exitcode
-        if (exitcode == 255) or (exitcode < 0):  # エラー落ちの場合?
+        exitcode: Optional[int] = p.exitcode
+        if (exitcode == 255) or (exitcode < 0): # type: ignore # エラー落ちの場合?
             print('operate_main ended by crawler error')
             break
         print('crawling has finished.')

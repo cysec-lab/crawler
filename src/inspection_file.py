@@ -1,5 +1,5 @@
 # そのうち消す？
-def check_content_type(content_type):
+def check_content_type(content_type: str):
     if content_type == 'application/x-shockwave-flash':
         return True
     elif content_type == 'application/octet-stream':

@@ -1,7 +1,9 @@
 from time import sleep
 import csv
 import os
+
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
@@ -13,10 +15,14 @@ from FirefoxProfile_new import FirefoxProfile
 from get_web_driver_thread import GetFirefoxDriverThread
 from html_read_thread import WebDriverGetThread
 from location import location
+from typing import Union, Dict, Any, cast, List
+from webpage import Page
 
-
-# Watcher.htmlのStop Watchingボタンをクリック。拡張機能が監視を終え、収集したデータを記録。
-def stop_watcher_and_get_data(driver, wait, watcher_window, page):
+def stop_watcher_and_get_data(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int], page: Page) -> bool:
+    """
+    Watcher.htmlのStop Watchingボタンをクリック。
+    拡張機能が監視を終え、収集したデータを記録。
+    """
     try:
         # watcher.htmlに移動してstopをクリック
         # クリックすると、Watcher.htmlのdivタグ(id="contents")の中に、収集したデータを記録する
@@ -29,10 +35,10 @@ def stop_watcher_and_get_data(driver, wait, watcher_window, page):
         wait.until(expected_conditions.presence_of_element_located((By.ID, "EndOfData")))
 
         # watcher.htmlのHTMLをpageインスタンスのプロパティに保存
-        page.watcher_html = driver.page_source
+        page.watcher_html = driver.page_source # type: ignore
 
         # clearContentsをクリック
-        elm = driver.find_element_by_id("clearContents")
+        elm: Any = driver.find_element_by_id("clearContents")
         elm.click()
         # 最後の要素が消えるまで待つ
         wait.until(expected_conditions.invisibility_of_element_located((By.ID, "EndOfData")))
@@ -43,15 +49,17 @@ def stop_watcher_and_get_data(driver, wait, watcher_window, page):
         return True
 
 
-# watcher.htmlのStart Watchingボタンをクリック。拡張機能が監視を始める
-def start_watcher_and_move_blank(driver, wait, watcher_window, blank_window):
+def start_watcher_and_move_blank(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[int, str], blank_window: str) -> bool:
+    """
+    watcher.htmlのStart Watchingボタンをクリック。拡張機能が監視を始める
+    """
     try:
         driver.switch_to.window(watcher_window)
         wait.until(expected_conditions.visibility_of_element_located((By.ID, "start")))
-        elm = driver.find_element_by_id("start")
+        elm: Any = driver.find_element_by_id("start")
         elm.click()
         driver.switch_to.window(blank_window)
-        wait.until(lambda d: "Watcher" != driver.title)
+        wait.until(lambda d: "Watcher" != driver.title) # type: ignore
     except Exception as e:
         print(location() + str(e), flush=True)
         return False
@@ -59,17 +67,20 @@ def start_watcher_and_move_blank(driver, wait, watcher_window, blank_window):
         return True
 
 
-# ページを読み込むためのabout:blankのページを作る。blankページとwatcherページ以外は閉じる
-# blankページが作れなければFalse
-def create_blank_window(driver, wait, watcher_window):
+def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int]) -> Union[bool, str]:
+    """
+    ページを読み込むためのabout:blankのページを作る。
+    blankページとwatcherページ以外は閉じる
+    blankページが作れなければFalse
+    """
     blank_window = False
     try:
         driver.switch_to.window(watcher_window)
         wait.until(expected_conditions.visibility_of_element_located((By.ID, "createBlankTab")))
-        elm = driver.find_element_by_id("createBlankTab")
+        elm: Any = driver.find_element_by_id("createBlankTab")
         elm.click()
-        for i in range(30):
-            windows = driver.window_handles
+        for _ in range(30):
+            windows: list[str] = driver.window_handles # type: ignore
             if len(windows) > 1:
                 for window in windows:
                     if watcher_window == window:
@@ -90,8 +101,10 @@ def create_blank_window(driver, wait, watcher_window):
         return blank_window
 
 
-# driverを取得した直後に呼ぶ
-def get_watcher_window(driver, wait):
+def get_watcher_window(driver: WebDriver, wait: WebDriverWait) -> Union[bool, int, str]:
+    """
+    driverを取得した直後に呼ぶ
+    """
     watcher_window = False
     try:
         wait.until(expected_conditions.visibility_of_all_elements_located((By.ID, "button")))
@@ -103,10 +116,10 @@ def get_watcher_window(driver, wait):
         print(location() + str(e), flush=True)
         return False
     try:
-        windows = driver.window_handles
+        windows: list[Union[int, str]] = driver.window_handles # type: ignore
         for window in windows:
             driver.switch_to.window(window)
-            title = driver.title
+            title = driver.title # type: ignore
             # print("windowId : {}, title : {}".format(window, title), flush=True)
             if title == "Watcher":
                 watcher_window = window
@@ -123,15 +136,16 @@ def get_watcher_window(driver, wait):
     else:
         return watcher_window
 
-
-# Firefoxを使うためのdriverを返す
-# ファイルダウンロード可能
-# RequestURLの取得可能(アドオンを用いて)
-# ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
-def get_fox_driver(screenshots=False, user_agent='', org_path=''):
+def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
+    """
+    Firefoxを使うためのdriverをヘッドレスモードで起動
+    ファイルダウンロード可能
+    RequestURLの取得可能(アドオンを用いて)
+    ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
+    """
     # headless FireFoxの設定
-    options = FirefoxOptions()
-    fpro = FirefoxProfile()
+    options: FirefoxOptions = FirefoxOptions()
+    fpro: FirefoxProfile = FirefoxProfile()
 
     # ヘッドレスモードに
     options.add_argument('-headless')
@@ -147,16 +161,21 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
 
     # ファイルダウンロードできるように
     if org_path:
-        fpro.set_preference('browser.download.folderList', 2)  # 0:デスクトップ　1:Downloadフォルダ 　2:ユーザ定義フォルダ
-        fpro.set_preference('browser.download.dir', org_path + '/result/Download')  # なければ作られる
+        fpro.set_preference('browser.download.folderList', 2)
+        # 0:デスクトップ
+        # 1:Downloadフォルダ
+        # 2:ユーザ定義フォルダ
+        fpro.set_preference('browser.download.dir', org_path + '/result/Download')
+        # なければ作られる
     else:
         fpro.set_preference('browser.download.folderList', 0)
-    fpro.set_preference('browser.download.manager.showWhenStarting', False)  # ダウンロードマネージャ起動しないように
+    # ダウンロードマネージャ起動しないように
+    fpro.set_preference('browser.download.manager.showWhenStarting', False)
     fpro.set_preference('browser.helpApps.alwaysAsk.force', False)
     fpro.set_preference('browser.download.manager.alertOnEXEOpen', False)
     fpro.set_preference('browser.download.manager.closeWhenDone', True)
     # ダウンロード可能なMimeタイプの設定
-    mime_list = list()
+    mime_list: list[str] = list()
     mime_file_dir = src_dir + '/files/mime'
     for csv_file in os.listdir(mime_file_dir):
         if not csv_file.endswith(".csv"):
@@ -193,14 +212,19 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
         except Exception:
             return False
     if t.re is False:   # ドライバ取得でフリーズしている場合
-        quit_driver(t.driver)   # 一応終了させて
+        if type(t.driver) == WebDriver:
+            driver = cast(WebDriver, t.driver)
+            quit_driver(driver) # 一応終了させて
         print("Freeze while getting driver.")
         return False
     if t.driver is False:  # 単にエラーで取得できなかった場合
         print("Error while getting driver.")
         return False
-    driver = t.driver
-    driver.set_window_size(1280, 1024)
+    if type(t.driver) == WebDriver:
+        driver = cast(WebDriver, t.driver)
+        driver.set_window_size(1280, 1024)
+    else:
+        return False
 
     # 拡張機能のwindowIDを取得し、それ以外のwindowを閉じる
     # geckodriver 0.21.0 から HTTP/1.1 になった？ Keep-Aliveの設定が5秒のせいで、5秒間driverにコマンドがいかなかったらPipeが壊れる.
@@ -210,12 +234,15 @@ def get_fox_driver(screenshots=False, user_agent='', org_path=''):
     if watcher_window is False:
         print("Couldn't get Watcher Window.")
         return False
+    watcher_window = cast(Union[str, int], watcher_window)
 
     return {"driver": driver, "wait": wait, "watcher_window": watcher_window}
 
 
-# ブラウザでURLにアクセス、HTMLを取得する
-def set_html(page, driver):
+def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
+    """
+    ブラウザでURLにアクセス、HTMLを取得する
+    """
     try:
         # URLに接続する(フリーズすることがあるので、スレッドで行う)
         t = WebDriverGetThread(driver, page.url)
@@ -236,7 +263,8 @@ def set_html(page, driver):
         re = 'timeout'
     elif t.re is not True:
         # TrueとFalse以外の場合、GET中にエラー発生
-        return ['Error_WebDriver', page.url + '\n' + str(t.re)]
+        exce: Union[bool, Exception] = t.re
+        return ['Error_WebDriver', page.url + '\n' + str(exce)]
 
     # 読み込み、リダイレクト待機、連続アクセス防止の1秒間
     sleep(1)
@@ -244,10 +272,10 @@ def set_html(page, driver):
     # JavaScriptのalertが実行されていると、それを消す作業が必要(しないと、driver.page_sourceでエラーが出る)
     while True:
         try:
-            t = Alert(driver).text
+            text: str = Alert(driver).text
             Alert(driver).dismiss()
             # アラート内容を保存
-            page.alert_txt.append(t)
+            page.alert_txt.append(text)
             sleep(0.5)
         except NoAlertPresentException:
             break
@@ -256,29 +284,32 @@ def set_html(page, driver):
 
     # ブラウザから、現在開いているURLとそのHTMLを取得
     try:
-        page.url = driver.current_url    # リダイレクトで違うURLの情報を取っている可能性があるため
-        page.html = driver.page_source   # htmlソースを更新
+        page.url = cast(str, driver.current_url)    # リダイレクトで違うURLの情報を取っている可能性があるため
+        page.html = cast(str, driver.page_source)   # htmlソースを更新
     except Exception as e:
-        return ['infoGetError_browser', page.url + '\n' + str(e)]
+        return ['infoGetError_browser', page.url + '\n' + str(e)] # type: ignore
     else:
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
         if page.html:
             return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
         else:
-            return ['infoGetError_browser', page.url + '\n']
+            return ['infoGetError_browser', page.url + '\n'] # type: ignore
 
 
-# watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、そのURLをリストで返す
-def get_window_url(driver, watcher_id, base_id):
-    url_list = list()
+def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str) -> List[str]:
+    """
+    watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、
+    そのURLをリストで返す
+    """
+    url_list: list[str] = list()
     try:
-        windows = driver.window_handles
+        windows: list[str] = driver.window_handles # type: ignore
         for window in windows:
             if (window == watcher_id) or (window == base_id):
                 continue
             driver.switch_to.window(window)
-            url_list.append(driver.current_url)
+            url_list.append(cast(str, driver.current_url))
             driver.close()
         driver.switch_to.window(watcher_id)
     except Exception as e:
@@ -287,7 +318,11 @@ def get_window_url(driver, watcher_id, base_id):
     return url_list
 
 
-def take_screenshots(path, driver):
+def take_screenshots(path: str, driver: WebDriver) -> bool:
+    """
+    スクリーンショットを撮影する
+    成功したら True, 失敗したら False
+    """
     try:
         img_name = str(len(os.listdir(path)))
         driver.save_screenshot(path + '/' + img_name + '.png')
@@ -299,7 +334,10 @@ def take_screenshots(path, driver):
     return False
 
 
-def quit_driver(driver):
+def quit_driver(driver: WebDriver) -> bool:
+    """
+    WebDriverを終了させる
+    """
     try:
         driver.quit()
     except Exception:

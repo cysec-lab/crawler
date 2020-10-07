@@ -4,7 +4,7 @@ from file_rw import r_file, w_file
 
 # クローリング完了後、複数のresult_*に分かれて保存されているデータをまとめる
 
-def del_temp_file(path, j, k):
+def del_temp_file(path: str, j: int, k: int):
     """
     result/result_*の中の途中保存ファイルを削除
     - jsonファイル
@@ -43,7 +43,7 @@ def del_temp_file(path, j, k):
                     pass
 
 
-def del_pickle(path):
+def del_pickle(path: str):
     """
     未使用
     """
@@ -58,7 +58,7 @@ def del_pickle(path):
                     pass
 
 
-def del_dir(path, j, k):
+def del_dir(path: str, j: int, k: int):
     """
     path内のresult_*ディレクトリ下のディレクトリを削除
     例外: clamd, serverディレクトリ
@@ -88,14 +88,14 @@ def del_dir(path, j, k):
                         pass
 
 
-def make_achievement(dire):
+def make_achievement(dire: str):
     """
     result_history/*/下にachieventディレクトリを作る
 
     args:
         dire: organization/result_history/*/ へのパス
     """
-    file_dic = dict()
+    file_dic: dict[str, str] = dict()
 
     os.chdir(dire)
     os.mkdir('achievement')
@@ -104,7 +104,6 @@ def make_achievement(dire):
     lis.sort()
     run_time = 0
     all_achievement = 0
-    iframe_count = 0
     lock = True
     for result in lis:
         os.chdir(result)
@@ -155,7 +154,7 @@ def make_achievement(dire):
         w_file('achievement/' + key, value, mode="a")
 
 
-def merge_server_dir(path):
+def merge_server_dir(path: str):
     """
     各「result_*」ディレクトリの中の「server」の中のデータをサーバディレクトリごとにまとめる
 
@@ -193,7 +192,7 @@ def merge_server_dir(path):
                 shutil.copytree(path + "/" + result_dir + "/server/" + server, path + "/achievement/server/" + server)
 
 
-def cal_num_of_achievement(path):
+def cal_num_of_achievement(path: str):
     """
     各サーバのページ到達数とファイル到達数, 合計数を数える
     /result_history/*/achievement/server/num_of_achievement.txtに記録
@@ -204,7 +203,7 @@ def cal_num_of_achievement(path):
     os.chdir(path + "/achievement/server")
     # 各サーバディレクトリのリストを取得
     lis = [server_dir for server_dir in os.listdir() if os.path.isdir(server_dir)]
-    server_dic = dict()
+    server_dic: dict[str, tuple[str, int]] = dict()
     total_page = 0
     total_file = 0
 
@@ -234,7 +233,7 @@ def cal_num_of_achievement(path):
         f.write(content)
 
 
-def del_and_make_achievement(path):
+def del_and_make_achievement(path: str):
     """
     クローリング完了後に実行
     result/result_*に分けて保存されているデータをまとめて、result/achievement/に保存
@@ -254,7 +253,6 @@ def del_and_make_achievement(path):
 
     # 実行ディレクトリに戻る
     os.chdir(now_dir)
-
 
 if __name__ == '__main__':
     cal_num_of_achievement(path="/home/cysec/Desktop/crawler/organization/ritsumeikan/result_history/1")

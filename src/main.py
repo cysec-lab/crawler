@@ -1,52 +1,52 @@
-﻿from multiprocessing import Process, Queue, cpu_count, get_context
-from urllib.parse import urlparse
+﻿from __future__ import annotations
+from multiprocessing import Process, Queue, cpu_count
 from collections import deque
 from time import time, sleep
 import os
-from datetime import datetime
 from clamd import clamd_main
-from shutil import copytree, copyfile
 import dbm
 import pickle
 import json
-
-# from machine_learning_screenshots import screenshots_learning_main
-# from machine_learning_tag import machine_learning_main
+from shutil import copytree, copyfile
 from crawler3 import crawler_main
-from file_rw import r_file, w_json, r_json, w_file
-from summarize_alert import summarize_alert_main
+from typing import Any, Union, Dict, Deque, Tuple, cast, List
+from urllib.parse import urlparse
+import datetime
+import psutil
+
+from file_rw import w_file, r_file, w_json, r_json
 from resources_observer import MemoryObserverThread
+from summarize_alert import summarize_alert_main
 
-
-filtering_dict = dict()     # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
-clamd_q = dict()
-# machine_learning_q = dict()
-# screenshots_svc_q = dict()
-summarize_alert_q = dict()
+# 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
+filtering_dict: Dict[str, Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]]] = dict()
+clamd_q: Dict[str, Union[Queue[str], Process]] = dict()
+summarize_alert_q: Dict[str, Union[Queue[Dict[str, str]], Queue[str], Process, Dict[str, str]]] = dict()
 
 # これらホスト名辞書はまとめてもいいが、まとめるとどこで何を使ってるか分かりにくくなる
-hostName_remaining = dict()    # ホスト名 : {"URL_list": 待機URLのリスト, "update_time": リストからURLをpopした時の時間}
-hostName_achievement = dict()  # ホスト名 : 達成数
+# ホスト名 : {"URL_list": 待機URLのリスト[(deque)], "update_time": リストからURLをpopした時の時間int}
+# Dict[str, Union[Dict[str, Union[str, deque[Tuple[str, ...]]]], int, Any]]
+hostName_remaining: Dict[str, Dict[str, Any]] = dict()
+hostName_achievement: Dict[str, int] = dict()   # ホスト名 : 達成数
 
 # 以下の三つはkeyの作成、削除タイミングが同じ
-hostName_process = dict()      # ホスト名 : 子プロセス
-hostName_queue = dict()        # ホスト名 : 通信キュー
-hostName_args = dict()         # ホスト名 : 子プロセスの引数
-fewest_host = None             # 待機URL数が一番少ないホスト名
+hostName_process: Dict[str, Process] = dict()   # ホスト名 : 子プロセス
+hostName_queue: Dict[str, Any] = dict()         # ホスト名 : 通信キュー
+hostName_args: Dict[str, Any] = dict()          # ホスト名 : 子プロセスの引数
+fewest_host = None                              # 待機URL数が一番少ないホスト名
 
-url_db = None                  # key-valueデータベース. URL : (True or False or Black or Unknown or Special) + , +  nth
-nth = None                     # 何回目のクローリングか
-org_path = ""                  # 組織ごとのディレクトリの絶対パス  /home/ユーザ名/.../organization/組織名
+url_db = None               # key-valueデータベース. URL : (True or False or Black or Unknown or Special) + , +  nth
+nth: Union[int, str] = 0    # 何回目のクローリングか
+org_path: str = ""          # 組織ごとのディレクトリの絶対パス  /home/ユーザ名/.../organization/組織名
 
-url_list = deque()             # (URL, リンク元)のタプルのリスト(子プロセスに送信用)
-assignment_url_set = set()     # 割り当て済みのURLの集合
-remaining = 0                  # 途中保存で終わったときの残りURL数
-send_num = 0                   # 途中経過で表示する5秒ごとの子プロセスに送ったURL数
-recv_num = 0                   # 途中経過で表示する5秒ごとの子プロセスから受け取ったURL数
-all_achievement = 0
+url_list: Deque[Tuple[str, ...]] = deque()  # (URL, リンク元)のタプルのリスト(子プロセスに送信用)
+assignment_url_set = set()                  # 割り当て済みのURLの集合
+remaining = 0                               # 途中保存で終わったときの残りURL数
+send_num = 0                                # 途中経過で表示する5秒ごとの子プロセスに送ったURL数
+recv_num = 0                                # 途中経過で表示する5秒ごとの子プロセスから受け取ったURL数
+all_achievement: int = 0
 
-
-def get_setting_dict(path):
+def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     """
     設定ファイルの読み込み
 
@@ -56,7 +56,7 @@ def get_setting_dict(path):
         setting dict: 設定が書かれた辞書型
     """
 
-    setting = dict()
+    setting: dict[str, Union[str, int, bool, None]] = dict()
     bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab']
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
@@ -149,7 +149,7 @@ def get_setting_dict(path):
     return setting
 
 
-def import_file(path):
+def import_file(path: str):
     """
     フィルタ設定ファイルたちが存在すればインポート
     接続すべきURLかどうか判断するfiltering_dictを作成する
@@ -166,7 +166,7 @@ def import_file(path):
             filtering_dict[filter_] = dict()
 
 
-def make_dir(screenshots):
+def make_dir(screenshots: bool):
     """
     必要なディレクトリが存在しなければ作成する.
     実行ディレクトリは ".../crawler/organization/'hoge'"
@@ -194,7 +194,7 @@ def make_dir(screenshots):
             os.mkdir(org_path + '/RAD/screenshots')
 
 
-def init(process_run_count, setting_dict):
+def init(process_run_count: int, setting_dict: dict[str, Union[str, int, bool, None]]):
     """
     初期設定
     実行ディレクトリは「result」, 最後の方に「result_*」に移動
@@ -218,9 +218,9 @@ def init(process_run_count, setting_dict):
     global all_achievement
     if process_run_count == 0:
         # 初回実行の場合は, START_LIST.txt だけ読み込む
-        data_temp = r_file(org_path + '/ROD/LIST/START_LIST.txt')
-        data_temp = data_temp.split('\n')
-        url_list.extend([(ini, "START") for ini in data_temp if ini])
+        data_temp_startlist: str = r_file(org_path + '/ROD/LIST/START_LIST.txt')
+        data_temp_startlist_split: List[str] = data_temp_startlist.split('\n')
+        url_list.extend([(ini, "START") for ini in data_temp_startlist_split if ini])
 
     else:
         # 2回め以降の実行ならresultからデータを読み出す
@@ -229,16 +229,16 @@ def init(process_run_count, setting_dict):
                 ' that is the result of previous crawling is not found.')
             return False
         # 総達成数
-        data_temp = r_json('result_' + str(process_run_count) + '/all_achievement')
-        all_achievement = data_temp
+        data_all_achievement: int = r_json('result_' + str(process_run_count) + '/all_achievement')
+        all_achievement = data_all_achievement
 
         # 子プロセスに割り当てたURLの集合
-        data_temp = r_json('result_' + str(process_run_count) + '/assignment_url_set')
-        assignment_url_set.update(set(data_temp))
+        data_assignment_url_set = r_json('result_' + str(process_run_count) + '/assignment_url_set')
+        assignment_url_set.update(set(data_assignment_url_set))
 
         # ホスト名を見て分類する前のリスト
-        data_temp = r_json('result_' + str(process_run_count) + '/url_list')
-        url_list.extend([tuple(i) for i in data_temp])
+        data_utl_list: List[List[str]] = r_json('result_' + str(process_run_count) + '/url_list')
+        url_list.extend([tuple(i) for i in data_utl_list])
 
         # 各ホストごとに分類されたURLの辞書
         with open('result_' + str(process_run_count) + '/host_remaining.pickle', 'rb') as f:
@@ -256,8 +256,8 @@ def init(process_run_count, setting_dict):
         return False
 
     # summarize_alertのプロセスを起動
-    recvq = Queue()
-    sendq = Queue()
+    recvq: Queue[str] = Queue()
+    sendq: Queue[str] = Queue()
     summarize_alert_q['recv'] = recvq  # 子プロセスが受け取る用のキュー
     summarize_alert_q['send'] = sendq  # 子プロセスから送信する用のキュー
     p = Process(target=summarize_alert_main, args=(recvq, sendq, nth, org_path))
@@ -267,8 +267,8 @@ def init(process_run_count, setting_dict):
 
     # clamdを使うためのプロセスを起動(その子プロセスでclamdを起動)
     if clamd_scan:
-        recvq = Queue()
-        sendq = Queue()
+        recvq: Queue[str] = Queue()
+        sendq: Queue[str] = Queue()
         clamd_q['recv'] = recvq   # clamdプロセスが受け取る用のキュー
         clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
         p = Process(target=clamd_main, args=(recvq, sendq, org_path))
@@ -317,7 +317,21 @@ def init(process_run_count, setting_dict):
     return True
 
 
-def get_achievement_amount():
+def get_alive_child_num() -> int:
+    """
+    クローリング子プロセスの中で生きている数を返す
+
+    return:
+        count: 子プロセスの数
+    """
+    count = 0
+    for host_temp in hostName_process.values():
+        if host_temp.is_alive():
+            count += 1
+    return count
+
+
+def get_achievement_amount()-> int:
     """
     各子プロセスから集約した達成数を返す
     達成数 = ページ数(リンク集が返ってきた数) + ファイル数(ファイルの達成通知の数)
@@ -326,13 +340,13 @@ def get_achievement_amount():
         achievement int: 達成数
     """
 
-    achievement = 0
+    achievement: int = 0
     for achievement_num in hostName_achievement.values():
         achievement += achievement_num
     return achievement
 
 
-def print_progress(run_time_pp, current_achievement):
+def print_progress(run_time_pp: int, current_achievement: int):
     """
     10秒ごとにmainループから呼び出されて途中経過を表示する
     メインループが動いてることを確認するためにスレッド化していない
@@ -342,11 +356,11 @@ def print_progress(run_time_pp, current_achievement):
         current_achievement: 現在の検査終了ページ数
     """
 
-    global send_num, recv_num
+    global send_num, recv_num, all_achievement
     alive_count = get_alive_child_num()
 
     count = 0
-    for host, remaining_dict in hostName_remaining.items():
+    for _, remaining_dict in hostName_remaining.items():
         remaining_num = len(remaining_dict['URL_list'])
 
         # URL待機リストが空のホスト数をカウント
@@ -416,7 +430,8 @@ def end():
         return False
 
     # キューに要素があるか
-    for host, remaining_temp in hostName_remaining.items():
+    for _, remaining_temp in hostName_remaining.items():
+        remaining_temp = cast(Dict[str, deque[Tuple[str]]], remaining_temp)
         if len(remaining_temp['URL_list']):
             return False
 
@@ -424,8 +439,7 @@ def end():
     return True
 
 
-# クローリングプロセスを生成する、既に一度作ったことがある場合は、プロセスだけ作る
-def make_process(host_name, setting_dict):
+def make_process(host_name: str, setting_dict: dict[str, Union[str, bool, int, None]]):
     """
     クローリングプロセスの生成
     すでに一度作ったことがあるならばプロセスを生成するのみ
@@ -439,11 +453,11 @@ def make_process(host_name, setting_dict):
         # まだ一度もプロセスを作ったことのないホストに対して、プロセス作成
 
         # 子プロセスと通信するキュー
-        child_sendq = Queue()
-        parent_sendq = Queue()
+        child_sendq: Queue[str] = Queue()
+        parent_sendq: Queue[str] = Queue()
 
         # 子プロセスに渡す引数辞書
-        args_dic = dict()
+        args_dic: dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Dict[str, List[str]]]] = dict()
         args_dic['host_name'] = host_name                       # ホスト名
         args_dic['parent_sendq'] = parent_sendq                 # 通信用キュー
         args_dic['child_sendq'] = child_sendq                   # 通信用キュー
@@ -460,12 +474,13 @@ def make_process(host_name, setting_dict):
         #     args_dic['screenshots_svc_q'] = screenshots_svc_q['recv']
         # else:
         #     args_dic['screenshots_svc_q'] = False
-        args_dic['nth'] = nth                                   # ToDo: ????
-        args_dic['headless_browser'] = setting_dict['headless_browser']
-        args_dic['mecab'] = setting_dict['mecab']               # Mecabを利用するか否か
-        args_dic['screenshots'] = setting_dict['screenshots']   # スクリーンショットを撮るか否か
-        args_dic['org_path'] = org_path                         # ToDo: ???
-        args_dic["filtering_dict"] = filtering_dict             # ToDo: ???
+
+        args_dic['nth'] = cast(int, nth)
+        args_dic['headless_browser'] = cast(bool, setting_dict['headless_browser'])
+        args_dic['mecab'] = cast(bool, setting_dict['mecab'])               # Mecabを利用するか否か
+        args_dic['screenshots'] = cast(bool, setting_dict['screenshots'])   # スクリーンショットを撮るか否か
+        args_dic['org_path'] = org_path
+        args_dic["filtering_dict"] = cast(Dict[str, List[str]], filtering_dict)
 
         # クローリングプロセスの引数は、サーバ毎に毎回同じ
         # hostName_args[]に設定を保存しておく
@@ -503,21 +518,7 @@ def make_process(host_name, setting_dict):
         print('main : ' + host_name + " 's process start. " + 'pid =' + str(p.pid))
 
 
-def get_alive_child_num():
-    """
-    クローリング子プロセスの中で生きている数を返す
-
-    return:
-        count: 子プロセスの数
-    """
-    count = 0
-    for host_temp in hostName_process.values():
-        if host_temp.is_alive():
-            count += 1
-    return count
-
-
-def receive_and_send(not_send=False):
+def receive_and_send(not_send: bool=False):
     """
     子プロセスからの情報を受信する、plzを受け取るとURLを子プロセスに送信する
 
@@ -561,8 +562,9 @@ def receive_and_send(not_send=False):
                 else:
                     if hostName_remaining[host_name]['URL_list']:
                         # クローリング対象URLが残っていればクローリングするurlを送信
+                        remain = cast(deque[str], hostName_remaining[host_name]['URL_list'])
                         while True:
-                            url_tuple = hostName_remaining[host_name]['URL_list'].popleft()
+                            url_tuple: str = remain.popleft()
                             if url_tuple[0] not in assignment_url_set:
                                 # まだ送信していないURLならばURLを送信してBreak
                                 assignment_url_set.add(url_tuple[0])
@@ -620,12 +622,13 @@ def receive_and_send(not_send=False):
                 url, check_result = list(url_tuple_set)[0]
                 if (check_result is False) or (check_result == "Unknown"):
                     # リダイレクト先を調べる
-                    redirect_host = urlparse(url).netloc
-                    redirect_path = urlparse(url).path
+                    redirect_host: str = urlparse(url).netloc
+                    redirect_path: str = urlparse(url).path
                     w_alert_flag = True
 
                     # ホスト名+パスの途中までを見てホワイトリストに引っかかるか
-                    for white_host, white_path_list in filtering_dict["REDIRECT"]["allow"].items():
+                    filering_dictionaly= cast(Dict[str, Dict[str, List[str]]], filtering_dict["REDIRECT"]["allow"])
+                    for white_host, white_path_list in filering_dictionaly.items():
                         if redirect_host.endswith(white_host) and \
                                 [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
                             # ホワイトリスト内にリダイレクト先が存在するならアラート撤回
@@ -635,7 +638,7 @@ def receive_and_send(not_send=False):
                     #######################################
                     # ToDo: Ifいらないと思う
                     if w_alert_flag:
-                        data_temp = dict()
+                        data_temp: dict[str, str] = dict()
                         data_temp['url'] = url
                         data_temp['src'] = url_src
                         data_temp['file_name'] = 'after_redirect_check.csv'
@@ -662,7 +665,7 @@ def receive_and_send(not_send=False):
                     url_db[url_tuple[0]] = str(url_tuple[1]) + ',' + str(nth)
 
 
-def allocate_to_host_remaining(url_tuple):
+def allocate_to_host_remaining(url_tuple: Tuple[str, ...]):
     """
     url_tupleの中にあるリンクURLをクローリングするための辞書(hostName_remaining)に登録
     hostName_remaining[host] = {URL_list: [(deque)], update_time: int(time.time())}
@@ -681,7 +684,7 @@ def allocate_to_host_remaining(url_tuple):
     hostName_remaining[host_name]['URL_list'].append(url_tuple)
 
 
-def del_child(now):
+def del_child(now: int):
     """
     hostName_processの整理
     - 死んでいるプロセスの情報を辞書から削除、queueの削除
@@ -692,17 +695,17 @@ def del_child(now):
         now: ToDo
     """
 
-    del_process_list = list()
+    del_process_list: List[str] = list()
     for host_name, process_dc in hostName_process.items():
         if process_dc.is_alive():
             # プロセスが生きている
-            print('main : alive process : ' + str(process_dc))
+            print('main : alive process : ' + process_dc.name + ', pid=' + str(process_dc.pid))
             # 通信路が空だった最後の時間をリセット
             if 'latest_time' in hostName_queue[host_name]:
                 del hostName_queue[host_name]['latest_time']
             # 300秒間子プロセスから通信がなかった場合は強制終了する
             if host_name in hostName_remaining:
-                update_time = hostName_remaining[host_name]["update_time"]
+                update_time: int = hostName_remaining[host_name]["update_time"]
                 if update_time and ((now - update_time) > 300):
                     # update_timeに時間が入っていて、かつ300秒経っていた場合終了しnotice.txtに記録
                     process_dc.terminate()
@@ -726,7 +729,7 @@ def del_child(now):
                 del_process_list.append(host_name)
 
 
-def crawler_host(org_arg=None):
+def crawler_host(org_arg: Dict[str, Union[str, int]] = {}):
     """
     こいつはなに、強そう
     Crawring開始処理,
@@ -735,13 +738,12 @@ def crawler_host(org_arg=None):
 
     global nth, org_path
     # spawnで子プロセスを生成しているかチェック(windowsではデフォ、unixではforkがデフォ)
-    print(get_context())
 
     if org_arg is None:
-        os._exit(255)
+        os._exit(255) # type: ignore
 
-    nth = org_arg['result_no']      # str型  result_historyの中のresultの数+1(何回目のクローリングか)
-    org_path = org_arg['org_path']  # 組織ごとのディレクトリパス。設定ファイルや結果を保存するところ "/home/.../organization/組織名"
+    nth = org_arg['result_no'] # str型  result_historyの中のresultの数+1(何回目のクローリングか)
+    org_path = cast(str, org_arg['org_path'])   # 組織ごとのディレクトリパス。設定ファイルや結果を保存するところ "/home/.../organization/組織名"
 
     global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, fewest_host
     global url_list, assignment_url_set
@@ -754,15 +756,15 @@ def crawler_host(org_arg=None):
     if None in setting_dict.values():
         # 設定が読み込めなかった場合にエラーを出して終了
         print(' main : check the SETTING.txt in ' + org_path + '/ROD/LIST')
-        os._exit(255)
+        os._exit(255) # type: ignore
 
     assign_or_achievement = setting_dict['assignOrAchievement']
-    max_process = setting_dict['MAX_process']
-    max_page = setting_dict['MAX_page']
+    max_process = cast(int, setting_dict['MAX_process'])
+    max_page = cast(int, setting_dict['MAX_page'])
     max_time = setting_dict['MAX_time']
-    save_time = setting_dict['SAVE_time']
-    run_count = setting_dict['run_count']
-    screenshots = setting_dict['screenshots']
+    save_time = cast(int, setting_dict['SAVE_time'])
+    run_count = cast(int, setting_dict['run_count'])
+    screenshots = cast(bool, setting_dict['screenshots'])
 
     # 一回目の実行の場合
     if run_count == 0:
@@ -771,7 +773,7 @@ def crawler_host(org_arg=None):
             print('RAD directory exists.')
             print('If this running is at first time, please delete this one.')
             print('Else, you should check the run_count in SETTING.txt.')
-            os._exit(255)
+            os._exit(255) # type: ignore
 
         os.mkdir(org_path + '/RAD')
         make_dir(screenshots=screenshots)
@@ -780,18 +782,18 @@ def crawler_host(org_arg=None):
         if os.path.exists(org_path + '/ROD/url_db'):
             copyfile(org_path + '/ROD/url_db', org_path + '/RAD/url_db')
         with open(org_path + '/RAD/READ.txt', 'w') as f:
-            f.writelines("This directory's files can be read and written.\n")
-            f.writelines("On the other hand, ROD directory's files are not written, Read Only Data.\n\n")
-            f.writelines('------------------------------------\n')
-            f.writelines('When crawling is finished, you should overwrite the ROD/...\n')
-            f.writelines('tag_data/, url_hash_json/\n')
-            f.writelines("... by this directory's ones for next crawling by yourself.\n")
-            f.writelines('Then, you move df_dict in this directory to ROD/df_dicts/ to calculate idf_dict.\n')
-            f.writelines('After you done these, you may delete this(RAD) directory.\n')
-            f.writelines("To calculate idf_dict, you must run 'tf_idf.py'.\n")
-            f.writelines('------------------------------------\n')
-            f.writelines('Above mentioned comment can be ignored.\n')
-            f.writelines('Because it is automatically carried out.')
+            f.writelines(["This directory's files can be read and written.\n",
+                "On the other hand, ROD directory's files are not written, Read Only Data.\n\n",
+                '------------------------------------\n',
+                'When crawling is finished, you should overwrite the ROD/...\n',
+                'tag_data/, url_hash_json/\n',
+                "... by this directory's ones for next crawling by yourself.\n",
+                'Then, you move df_dict in this directory to ROD/df_dicts/ to calculate idf_dict.\n',
+                'After you done these, you may delete this(RAD) directory.\n',
+                "To calculate idf_dict, you must run 'tf_idf.py'.\n",
+                '------------------------------------\n',
+                'Above mentioned comment can be ignored.\n',
+                'Because it is automatically carried out.'])
 
     # 必要なリストを読み込む
     import_file(path=org_path + '/ROD/LIST')
@@ -803,7 +805,7 @@ def crawler_host(org_arg=None):
         print('main - 809: You should check the run_count in setting file.')
 
     # メモリ使用量監視スレッドの立ち上げ
-    t = MemoryObserverThread()
+    t: MemoryObserverThread = MemoryObserverThread()
     t.setDaemon(True) # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
     t.start()
 
@@ -826,7 +828,7 @@ def crawler_host(org_arg=None):
 
         # init()から返ってきたとき、実行ディレクトリは result からその中の result/result_* に移動している
         if not init(process_run_count=run_count, setting_dict=setting_dict):
-            os._exit(255)
+            os._exit(255) # type: ignore
 
         # メインループ
         while True:
@@ -844,7 +846,7 @@ def crawler_host(org_arg=None):
             # 途中保存関連オプション
             if max_time:
                 # max_timeオプションが指定されている場合
-                if now - start >= max_time:
+                if now - start >= int(max_time):
                     # 指定時間経過したら
                     print('main :spend time reached to max_time')
                     forced_termination()
@@ -863,7 +865,7 @@ def crawler_host(org_arg=None):
                         sleep(3)
                         for temp in hostName_process.values():
                             if temp.is_alive():
-                                print('main : alived process [' + temp + ']')
+                                print('main : alived process [' + str(temp) + ']')
                     break
             #####################
             ### Todo
@@ -887,18 +889,18 @@ def crawler_host(org_arg=None):
             # 終了条件
             if end():
                 # url_dbから過去発見したURLを取ってきて、クローリングしていないのがあればurl_listに追加する
-                # Todo: うまく動いていない可能性あり
+                # TODO: うまく動いていない可能性あり
                 try:
-                    k = url_db.firstkey()
+                    k: str = url_db.firstkey()
                     url_db_set = set()
                     while k is not None:
                         # url_dbにデータがある間ループする
                         content = url_db[k].decode("utf-8")
                         if "True" in content:
                             # url_dbからクローリングすべきurlたちをurl_db_setに追加する
-                            url = k.decode("utf-8")
+                            url: str = k.decode("utf-8")
                             url_db_set.add(url)
-                        k = url_db.nextkey(k)
+                        k: str = url_db.nextkey(k)
                     # すでに探索したurlとurl_dbから取った探索すべきurlの差集合をとる
                     not_achieved = url_db_set.difference(assignment_url_set)
                     if not_achieved:
@@ -933,7 +935,7 @@ def crawler_host(org_arg=None):
             #             make_process(host, setting_dict)
 
             # 生成可能なプロセス数を計算しプロセスを作成する
-            num_of_runnable_process = max_process - get_alive_child_num()
+            num_of_runnable_process: int = max_process - get_alive_child_num()
             if num_of_runnable_process > 0:
                 # プロセス数にゆとりがあるならば
                 # hostName_remainingを待機URL数が多い順にソートする
@@ -987,7 +989,7 @@ def crawler_host(org_arg=None):
                'number of child-process = ' + str(len(hostName_achievement)) + '\n' +
                'run time = ' + str(run_time) + '\n' +
                'remaining = ' + str(remaining) + '\n' +
-               'date = ' + datetime.now().strftime('%Y/%m/%d, %H:%M:%S') + '\n', mode="a")
+               'date = ' + str(datetime.now().strftime('%Y/%m/%d, %H:%M:%S')) + '\n', mode="a")
 
         print('main : save...')   # 途中結果を保存する
         copytree(org_path + '/RAD', 'TEMP')

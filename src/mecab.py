@@ -1,10 +1,10 @@
 import MeCab
-import json
-from bs4 import NavigableString, Comment, Declaration, Doctype
+from bs4 import BeautifulSoup, NavigableString, Comment, Declaration, Doctype
 import unicodedata
 import time
+from typing import Any, Dict, Tuple, Union, List
 
-def nonEmptyLines(text_target):
+def nonEmptyLines(text_target: str):
     """
     不要な空白を取り除き，空行以外を返す．
     """
@@ -14,7 +14,7 @@ def nonEmptyLines(text_target):
             yield line
 
 
-def getNavigableStrings(soup):
+def getNavigableStrings(soup: Any) -> Any:
     """
     soupのオブジェクトに沿って文字列を返すように調整
     args:
@@ -32,7 +32,7 @@ def getNavigableStrings(soup):
                     yield g
 
 
-def normalizeText(target_text):
+def normalizeText(target_text: str) -> str:
     """
     正規化の後に nonEmptyLines()を呼び出して不要な空白, 改行を取り除く
     """
@@ -40,7 +40,7 @@ def normalizeText(target_text):
     return '\n'.join(nonEmptyLines(target_text))
 
 
-def detect_hack(text):
+def detect_hack(text: str) -> int:
     """
     Hackの文字列を見つける
     hackレベルは "hack" が見つかれば1, "hacked" が見つかれば2, "hacked by" が見つかれば3
@@ -71,7 +71,7 @@ def detect_hack(text):
     return result
 
 
-def get_tf_dict_by_mecab(soup):
+def get_tf_dict_by_mecab(soup: BeautifulSoup) -> Tuple[int, Union[bool, Dict[str, float]]]:
     """
     MeCabで形態素解析を行い辞書を作成する
     args:
@@ -88,19 +88,19 @@ def get_tf_dict_by_mecab(soup):
 
     # mecabで形態素解析
     try:
-        mecab = MeCab.Tagger('-Ochasen')  # -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
+        mecab: MeCab.Tagger = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd') # ('-Ochasen')
     except RuntimeError:
         time.sleep(1)
         try:
-            mecab = MeCab.Tagger('-Ochasen')  # -d /usr/lib/mecab/dic/mecab-ipadic-neologd')
+            mecab: MeCab.Tagger = MeCab.Tagger('-d /usr/local/lib/mecab/dic/mecab-ipadic-neologd') # ('-Ochasen')
         except RuntimeError:
             return hack_level, False
 
-    # エラー回避ようおまじない
+    # エラー回避用おまじない
     mecab.parse('')
     # textに対して形態素解析を実行
-    node = mecab.parseToNode(text)
-    tf_dict = dict()
+    node: Any = mecab.parseToNode(text)
+    tf_dict: Dict[str, float] = dict()
     word_counter = 0
     # 辞書に名刺を追加していく
     while node:
@@ -142,7 +142,7 @@ def get_tf_dict_by_mecab(soup):
         return hack_level, False
 
 
-def get_top10_tfidf(tfidf_dict, nth):
+def get_top10_tfidf(tfidf_dict: Dict[str, float], nth: Any) -> List[str]:
     """
     tfidfの辞書からトップ10を取り出す関数
 
@@ -160,8 +160,8 @@ def get_top10_tfidf(tfidf_dict, nth):
     # → tf-idf値が高いもの順, 値が同じの場合は文字でソートされたリスト
 
     # ToDo: refact
-    top10 = list()
-    tmp = list()
+    top10: list[str] = list()
+    tmp: list[Tuple[str, float]] = list()
     for i in range(len(tfidf_list)):
         if i >= 10:
             break
@@ -172,7 +172,7 @@ def get_top10_tfidf(tfidf_dict, nth):
     return top10
 
 
-def make_tfidf_dict(idf_dict, tf_dict):
+def make_tfidf_dict(idf_dict: Dict[str, int], tf_dict: Dict[str, float]) -> Dict[str, float]:
     """
     tf-idf辞書を作成する
 
@@ -183,7 +183,7 @@ def make_tfidf_dict(idf_dict, tf_dict):
         tfidf_dict: valueが重要度の単語辞書を作成
     """
 
-    tfidf_dict = dict()
+    tfidf_dict: Dict[str, float] = dict()
     for word, tf in tf_dict.items():
         if word in idf_dict:
             tfidf = tf * idf_dict[word]
@@ -194,13 +194,13 @@ def make_tfidf_dict(idf_dict, tf_dict):
     return tfidf_dict
 
 
-def add_word_dic(src_dic, dic):
+def add_word_dic(src_dic: Dict[str, int], dic: Dict[str, float]):
     """
     Webサーバごとの辞書を各サイトの辞書をもとにアップデートする
 
     args:
         src_dict: 各サーバの辞書
-        dic: 各サイトの辞書
+        dic: 各サイトのtf辞書
     return:
         src_dict: サイトの辞書分の単語が追加された辞書
     """

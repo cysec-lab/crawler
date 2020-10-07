@@ -1,18 +1,25 @@
-﻿import pyclamd
+﻿from queue import Queue
+import pyclamd
 import os
 from time import sleep
 from os import listdir
 from threading import Thread
 from collections import deque
 from file_rw import w_file
+from typing import Union, List
 
 end = False          # メインプロセスから'end'が送られてくると終了
 data_list = deque()   # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
-clamd_error = list()      # clamdでエラーが出たURLのリスト。100ごとにファイル書き込み。
+clamd_error: List[str] = list()      # clamdでエラーが出たURLのリスト。100ごとにファイル書き込み。
 
 
-# "end"が送られてくるまで、データを受信する
-def receive(recvq):
+def receive(recvq: Queue[str]):
+    """
+    "end"が送られてくるまで、データを受信する
+
+    args:
+        reqvq: キュー
+    """
     global end
     while True:
         recv = recvq.get(block=True)
@@ -24,11 +31,12 @@ def receive(recvq):
             data_list.append(recv)
 
 
-def clamd_main(recvq, sendq, org_path):
+def clamd_main(recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str):
     # clamAVのデーモンが動いているか確認
     while True:
         try:
             print("clamd proc : connect to clamd, ", end="")
+            # type: ignore
             cd = pyclamd.ClamdAgnostic()
             pin = cd.ping()
             print("connected")
@@ -42,11 +50,11 @@ def clamd_main(recvq, sendq, org_path):
             break
     sendq.put(pin)   # 親プロセスにclamdに接続できたかどうかの結果を送る
     if pin is False:
-        os._exit(0)    # 接続できなければ終わる
+        os._exit(0) # type: ignore # 接続できなければ終わる
 
     # EICARテスト
-    eicar = cd.EICAR()
-    cd.scan_stream(eicar)
+    eicar = cd.EICAR() # type: ignore
+    cd.scan_stream(eicar) # type: ignore
 
     t = Thread(target=receive, args=(recvq,))    # クローリングプロセスからのデータを受信するスレッド
     t.start()
@@ -63,7 +71,7 @@ def clamd_main(recvq, sendq, org_path):
         byte = temp[2]
         # clamdでスキャン
         try:
-            result = cd.scan_stream(byte)
+            result = cd.scan_stream(byte) # type: ignore
         except Exception as e:
             print('clamd : ERROR, URL = ' + url)
             clamd_error.append(url + '\n' + str(e))

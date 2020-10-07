@@ -1,4 +1,5 @@
 from collections import deque
+from queue import Queue
 from threading import Thread, Event
 from file_rw import w_file
 from os import path, mkdir
@@ -7,7 +8,7 @@ data_list = deque()
 event = Event()
 
 
-def receive_alert(recv_q):
+def receive_alert(recv_q: Queue[str]):
     while True:
         recv_data = recv_q.get(block=True)
         data_list.append(recv_data)
@@ -17,7 +18,7 @@ def receive_alert(recv_q):
             break
 
 
-def summarize_alert_main(recv_q, send_q, nth, org_path):
+def summarize_alert_main(recv_q: Queue[str], send_q: Queue[str], nth: int, org_path: str):
 
     alert_dir_path = org_path + '/alert'
     # alertディレクトリを作成
@@ -37,7 +38,7 @@ def summarize_alert_main(recv_q, send_q, nth, org_path):
             break
 
         url = temp['url']
-        url_src = temp['src']
+        # url_src = temp['src']
         file_name = temp['file_name']
         content = temp['content']
         label = temp['label']

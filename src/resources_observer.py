@@ -2,16 +2,21 @@ from threading import Thread
 import psutil
 from time import sleep
 from location import location
+from typing import Tuple, Dict, Union
+from psutil import Process
 
 
 # だったが、60秒感覚でppidが1のブラウザをkillするスレッドに
 class MemoryObserverThread(Thread):
-    def __init__(self, limit=0):
+    def __init__(self, limit: int=0):
         super(MemoryObserverThread, self).__init__()
         self.limit = limit
 
-    def run(self):
-        proc_name = ["geckodriver", "firefox"]
+    def run(self): # type: ignore
+        """
+        TODO オーバライドしていいのここ？？
+        """
+        proc_name: list[str] = ["geckodriver", "firefox"]
         while True:
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")
@@ -21,7 +26,7 @@ class MemoryObserverThread(Thread):
                 try:
                     if proc.ppid() == 1:
                         print("kill {}".format(proc))
-                        kill_process_list = get_family(proc.pid)
+                        kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
                             try:
@@ -37,22 +42,22 @@ class MemoryObserverThread(Thread):
             sleep(60)
 
 
-def memory_checker(family, limit):
-    ret = list()
-    ret2 = list()
+def memory_checker(family: list[Process], limit: int)->Tuple[list[Dict[str, Union[str, int]]], list[int]]:
+    ret: list[Dict[str, Union[str, int]]] = list()
+    ret2: list[int] = list()
 
     for p in family:
         try:
-            mem_used = p.memory_full_info()[0]  # index: rss, vms, shared, text, lib, data, dirty, uss, pss, swap
+            mem_used: float = p.memory_full_info()[0]  # index: rss, vms, shared, text, lib, data, dirty, uss, pss, swap
             mem_used = int(mem_used/1000000)    # translate to Mb
         except Exception as e:
-            # print(location() + str(e), flush=True)
+            print(location() + str(e), flush=True)
             pass
         else:
             if mem_used > limit:
                 try:
                     ret.append({"p_name": p.name(), "mem_used": mem_used})
-                except psutil._exceptions.NoSuchProcess:
+                except psutil._exceptions.NoSuchProcess: # type: ignore
                     pass
                 except Exception as e:
                     # print(location() + str(e), flush=True)
@@ -61,20 +66,20 @@ def memory_checker(family, limit):
     return ret, ret2
 
 
-def cpu_checker(family, limit, cpu_num):
-    ret = list()
-    ret2 = list()
+def cpu_checker(family: list[Process], limit: float, cpu_num: float)->Tuple[list[Dict[str, Union[str, float]]], list[float]]:
+    ret: list[Dict[str, Union[str, float]]] = list()
+    ret2: list[float] = list()
     for p in family:
         try:
             cpu_per = p.cpu_percent(interval=0.9) / cpu_num
         except Exception as e:
-            # print(location() + str(e), flush=True)
+            print(location() + str(e), flush=True)
             pass
         else:
             if cpu_per > limit:
                 try:
                     ret.append({"p_name": p.name(), "cpu_per": cpu_per})
-                except psutil._exceptions.NoSuchProcess:
+                except psutil._exceptions.NoSuchProcess: # type: ignore
                     pass
                 except Exception as e:
                     # print(location() + str(e), flush=True)
@@ -83,13 +88,13 @@ def cpu_checker(family, limit, cpu_num):
     return ret, ret2
 
 
-def get_relate_browser_proc(proc_name):
+def get_relate_browser_proc(proc_name: list[str])->list[Process]:
     # proc_name = ["Web Content", "firefox", "geckodriver", "WebExtensions"]
-    res = list()
-    proc_list = list()
+    res: list[Process] = list()
+    proc_list: list[Process] = list()
     try:
         pid_list = psutil.pids()
-    except psutil._exceptions.NoSuchProcess:
+    except psutil._exceptions.NoSuchProcess: # type: ignore
         return res
     except Exception as e:
         print(location() + str(e), flush=True)
@@ -97,7 +102,7 @@ def get_relate_browser_proc(proc_name):
     for pid in pid_list:
         try:
             proc_list.append(psutil.Process(pid))
-        except psutil._exceptions.NoSuchProcess:
+        except psutil._exceptions.NoSuchProcess: # type: ignore
             pass
         except Exception as e:
             print(location() + str(e), flush=True)
@@ -111,8 +116,8 @@ def get_relate_browser_proc(proc_name):
     return res
 
 
-def get_family(ppid):
-    family = list()
+def get_family(ppid: int):
+    family: list[Process] = list()
     try:
         family.extend(psutil.Process(ppid).children())
     except Exception as e:
@@ -127,7 +132,7 @@ def get_family(ppid):
             try:
                 family.extend(proc.children())
             except Exception as e:
-                # print(location() + str(e), flush=True)
+                print('resources_observer.py: ' + location() + str(e), flush=True)
                 pass
                 del family[i]
             else:
@@ -157,7 +162,7 @@ def main():
                 reboot_flag = False
 
     # メモリ使用量確認
-    mem_per = psutil.virtual_memory().percent
+    mem_per: float = psutil.virtual_memory().percent # type: ignore
     print("Used RAM percent is {}%.".format(mem_per))
 
     # クローラが実行されていないのに、メモリを50%使っているのはおかしいので再起動

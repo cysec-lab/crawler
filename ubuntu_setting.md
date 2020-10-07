@@ -12,6 +12,7 @@ Ubuntuがとびまくっていたので、Ubuntuを入れなおした時に環�
 - ubuntuでpip3時にエラーが出るとき(python.hが見つからないよ的な)
     - `sudo apt install python3-pip python3-dev`
 - pip install
+  - `pip install selenium mecab-python3 pyclamd psutil beautifulsoup4`
   - selenium
   - mecab-python3
   - pyclamd
