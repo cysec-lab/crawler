@@ -3,7 +3,6 @@ import psutil
 from time import sleep
 from location import location
 from typing import Tuple, Dict, Union
-from psutil import Process
 
 
 # だったが、60秒感覚でppidが1のブラウザをkillするスレッドに
@@ -42,7 +41,14 @@ class MemoryObserverThread(Thread):
             sleep(60)
 
 
-def memory_checker(family: list[Process], limit: int)->Tuple[list[Dict[str, Union[str, int]]], list[int]]:
+def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[str, Union[str, int]]], list[int]]:
+    """
+    メモリ使用率を調査する
+
+    return:
+        ret: 各プロセスについてLimitをこえた場合にプロセス名と使用率を返す
+        ret2: 各プロセスの使用率を返す
+    """
     ret: list[Dict[str, Union[str, int]]] = list()
     ret2: list[int] = list()
 
@@ -50,75 +56,90 @@ def memory_checker(family: list[Process], limit: int)->Tuple[list[Dict[str, Unio
         try:
             mem_used: float = p.memory_full_info()[0]  # index: rss, vms, shared, text, lib, data, dirty, uss, pss, swap
             mem_used = int(mem_used/1000000)    # translate to Mb
+            p_name = p.name()
+        except psutil.NoSuchProcess:
+            # 外でプロセスファミリーを取ったときに存在したけどいまは死んでるなら発生
+            pass
         except Exception as e:
             print(location() + str(e), flush=True)
             pass
         else:
             if mem_used > limit:
-                try:
-                    ret.append({"p_name": p.name(), "mem_used": mem_used})
-                except psutil._exceptions.NoSuchProcess: # type: ignore
-                    pass
-                except Exception as e:
-                    # print(location() + str(e), flush=True)
-                    pass
+                ret.append({"p_name": p_name, "mem_used": mem_used})
             ret2.append(mem_used)
     return ret, ret2
 
 
-def cpu_checker(family: list[Process], limit: float, cpu_num: float)->Tuple[list[Dict[str, Union[str, float]]], list[float]]:
+def cpu_checker(family: list[psutil.Process], limit: float, cpu_num: float)->Tuple[list[Dict[str, Union[str, float]]], list[float]]:
+    """
+    cpu使用率を調査する
+
+    return:
+        ret: 各プロセスについてLimitをこえた場合にプロセス名と使用率を返す
+        ret2: 各プロセスの使用率を返す
+    """
     ret: list[Dict[str, Union[str, float]]] = list()
     ret2: list[float] = list()
     for p in family:
         try:
-            cpu_per = p.cpu_percent(interval=0.9) / cpu_num
+            # TODO: interval(指定秒数遅延発生)してるから消していい？
+            # TODO: cpu_num で割るともともと全体のコア数で割ってるものを更に割ってない？
+            # cpu_per = p.cpu_percent(interval=0.9) / cpu_num
+            cpu_per = p.cpu_percent() / cpu_num
+            p_name = p.name()
+        except psutil.NoSuchProcess:
+            # 外でプロセスファミリーを取ったときに存在したけどいまは死んでるなら発生
+            pass
         except Exception as e:
             print(location() + str(e), flush=True)
             pass
         else:
             if cpu_per > limit:
-                try:
-                    ret.append({"p_name": p.name(), "cpu_per": cpu_per})
-                except psutil._exceptions.NoSuchProcess: # type: ignore
-                    pass
-                except Exception as e:
-                    # print(location() + str(e), flush=True)
-                    pass
+                ret.append({"p_name": p_name, "cpu_per": cpu_per})
             ret2.append(cpu_per)
     return ret, ret2
 
 
-def get_relate_browser_proc(proc_name: list[str])->list[Process]:
+def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
+    """
+    現在のpidリストを取得する
+    各pidのプロセス名を proc_list に格納
+    proc_name() に含まれるかつ現在のpidに存在するプロセスをリストで返す
+    """
     # proc_name = ["Web Content", "firefox", "geckodriver", "WebExtensions"]
-    res: list[Process] = list()
-    proc_list: list[Process] = list()
+    res: list[psutil.Process] = list()
+    proc_list: list[psutil.Process] = list()
     try:
         pid_list = psutil.pids()
-    except psutil._exceptions.NoSuchProcess: # type: ignore
+    except psutil.NoSuchProcess:
         return res
     except Exception as e:
+        # TODO エラーハンドリング
         print(location() + str(e), flush=True)
         return res
+
     for pid in pid_list:
         try:
             proc_list.append(psutil.Process(pid))
-        except psutil._exceptions.NoSuchProcess: # type: ignore
+        except psutil.NoSuchProcess:
             pass
         except Exception as e:
             print(location() + str(e), flush=True)
 
     for p in proc_list:
-        try:
-            if [p_name for p_name in proc_name if p_name in p.name()]:
-                res.append(p)
-        except Exception:
-            pass
+        # 与えられたproc_nameの中に上で取ったproc_listに含まれるnameがあった場合追加
+        if [p_name for p_name in proc_name if p_name in p.name()]:
+            res.append(p)
     return res
 
 
-def get_family(ppid: int):
-    family: list[Process] = list()
+def get_family(ppid: int) -> list[psutil.Process]:
+    family: list[psutil.Process] = list()
     try:
+        # >>> Process(ppid)
+        # sample: psutil.Process(pid=15511, name='python', status='running', started='17:14:47')
+        # >>> Process(ppid).children()
+        # [] (list)
         family.extend(psutil.Process(ppid).children())
     except Exception as e:
         # print(location() + str(e), flush=True)
@@ -142,6 +163,10 @@ def get_family(ppid: int):
 
 
 def main():
+    """
+    実行中クローラを /ROD/<>/running.tmp の存在で確認
+    現在のメモリ使用量(全体)を調べて50%超えているならなんとリブートするから注意
+    """
     import os
     from datetime import datetime
     now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(src)を絶対パスで取得
@@ -162,7 +187,7 @@ def main():
                 reboot_flag = False
 
     # メモリ使用量確認
-    mem_per: float = psutil.virtual_memory().percent # type: ignore
+    mem_per: float = psutil.virtual_memory().percent
     print("Used RAM percent is {}%.".format(mem_per))
 
     # クローラが実行されていないのに、メモリを50%使っているのはおかしいので再起動

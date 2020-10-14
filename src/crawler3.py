@@ -1,10 +1,11 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 import os
 from time import sleep, time
 from copy import deepcopy
 import pickle
 import json
 import threading
+import psutil
 from typing import Tuple, Any, Optional, Dict, Union, cast, List
 from bs4 import BeautifulSoup
 import urllib.error
@@ -710,7 +711,7 @@ def resource_observer_thread(args: Dict[str, Any]):
     pid: int = args["pid"]
     while True:
         kill_flag = False
-        family = get_family(pid)
+        family: List[psutil.Process] = get_family(pid)
         if "falsification" in url:
             print("\tResource check : {}".format(url), flush=True)
 
@@ -938,7 +939,6 @@ def crawler_main(args_dic: dict[str, Any]):
 
         driver_info = cast(Dict[str, Any], driver_info)
         driver: WebDriver = driver_info["driver"]
-        # TODO! Watcher_Windowの正体が不明！！マジ解明する必要ある
         watcher_window: Union[int, str] = driver_info["watcher_window"]
         wait: WebDriverWait = driver_info["wait"]
 
