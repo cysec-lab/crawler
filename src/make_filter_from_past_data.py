@@ -241,8 +241,14 @@ def make_request_url_iframeSrc_link_host_set(org_path: str):
             # TODO: 未完成のところ
             if file_name not in file_name_set:
                 with open(org_path + '/ROD/' + obj + '_url/' + file_name, 'r') as f:
-                    _ = json.load(f)
-                exec(obj + "_url.update(set(tmp))")
+                    tmp = json.load(f) # type: ignore
+                    try:
+                        exec(obj + "_url.update(set(tmp))")
+                    except Exception as e:
+                        print('make_filter_from_past_data 248: ' + str(e))
         # 全サーバの情報をまとめた集合を保存、クローリング時にはこれを使う
         with open(org_path + '/ROD/' + obj + '_url/matome.json', 'w') as f:
-            exec("json.dump(list(" + obj + "_url), f)")
+            try:
+                exec("json.dump(list(" + obj + "_url), f)")
+            except Exception as e:
+                print('make_filter_from_past_data 254: ' + str(e))

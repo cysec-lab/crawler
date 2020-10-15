@@ -1,4 +1,4 @@
-﻿from threading import Thread
+from threading import Thread
 from FirefoxProfile_new import FirefoxProfile
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions

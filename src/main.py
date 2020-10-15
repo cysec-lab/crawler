@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 from multiprocessing import Process, Queue, cpu_count
 from collections import deque
 from time import time, sleep
@@ -12,7 +12,6 @@ from crawler3 import crawler_main
 from typing import Any, Union, Dict, Deque, Tuple, cast, List
 from urllib.parse import urlparse
 import datetime
-import psutil
 
 from file_rw import w_file, r_file, w_json, r_json
 from resources_observer import MemoryObserverThread
@@ -49,7 +48,6 @@ all_achievement: int = 0
 def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     """
     設定ファイルの読み込み
-
     args:
         path: 設定ファイルまでのパス(.../crawler/organization/<hoge>/ROD/LIST)
     return:
@@ -178,7 +176,6 @@ def make_dir(screenshots: bool):
         - このデータは次回以降のクローリングで使用する. クローリング中に更新.
     - /result/
         - 今回のクローリング結果を保存するディレクトリ
-
     args:
         screenshot bool: スクリーンショットを撮る場合には保存用ディレクトリを作成
     """
@@ -320,7 +317,6 @@ def init(process_run_count: int, setting_dict: dict[str, Union[str, int, bool, N
 def get_alive_child_num() -> int:
     """
     クローリング子プロセスの中で生きている数を返す
-
     return:
         count: 子プロセスの数
     """
@@ -335,7 +331,6 @@ def get_achievement_amount()-> int:
     """
     各子プロセスから集約した達成数を返す
     達成数 = ページ数(リンク集が返ってきた数) + ファイル数(ファイルの達成通知の数)
-
     return:
         achievement int: 達成数
     """
@@ -350,7 +345,6 @@ def print_progress(run_time_pp: int, current_achievement: int):
     """
     10秒ごとにmainループから呼び出されて途中経過を表示する
     メインループが動いてることを確認するためにスレッド化していない
-
     args:
         run_time_pp: 現在時刻 - 開始時刻
         current_achievement: 現在の検査終了ページ数
@@ -443,7 +437,6 @@ def make_process(host_name: str, setting_dict: dict[str, Union[str, bool, int, N
     """
     クローリングプロセスの生成
     すでに一度作ったことがあるならばプロセスを生成するのみ
-
     args:
         host_name: 
         setting_dict: 
@@ -521,7 +514,6 @@ def make_process(host_name: str, setting_dict: dict[str, Union[str, bool, int, N
 def receive_and_send(not_send: bool=False):
     """
     子プロセスからの情報を受信する、plzを受け取るとURLを子プロセスに送信する
-
     受信したリスト:
         辞書、タプル、文字列の3種類
         - {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "url_src": URLが貼ってあったページURL, オプション}
@@ -535,9 +527,7 @@ def receive_and_send(not_send: bool=False):
           - 子プロセスがURLのタプルを受け取るたびに送信する
         - "plz"
           - 子プロセスがURLのタプルを要求
-
         クローリングするURLならばurl_listに追加
-
     args:
         not_send: Trueならば子プロセスにURLを送信しない
                   子プロセスからのデータを受け取りたいだけの時に利用
@@ -669,7 +659,6 @@ def allocate_to_host_remaining(url_tuple: Tuple[str, ...]):
     """
     url_tupleの中にあるリンクURLをクローリングするための辞書(hostName_remaining)に登録
     hostName_remaining[host] = {URL_list: [(deque)], update_time: int(time.time())}
-
     args:
         url_tuple: 追加したいURL(Todo: タプルの中身)
     """
@@ -690,7 +679,6 @@ def del_child(now: int):
     - 死んでいるプロセスの情報を辞書から削除、queueの削除
     - 子プロセスが終了しない、子のメインループも回ってなく、どこかで止まっている場合、親から強制終了
     - 基準は、待機キューの更新が300秒以上なかったら
-
     args:
         now: ToDo
     """
@@ -891,16 +879,16 @@ def crawler_host(org_arg: Dict[str, Union[str, int]] = {}):
                 # url_dbから過去発見したURLを取ってきて、クローリングしていないのがあればurl_listに追加する
                 # TODO: うまく動いていない可能性あり
                 try:
-                    k: str = url_db.firstkey()
+                    k = url_db.firstkey()
                     url_db_set = set()
                     while k is not None:
                         # url_dbにデータがある間ループする
-                        content = url_db[k].decode("utf-8")
+                        content: str = url_db[k].decode("utf-8")
                         if "True" in content:
                             # url_dbからクローリングすべきurlたちをurl_db_setに追加する
                             url: str = k.decode("utf-8")
                             url_db_set.add(url)
-                        k: str = url_db.nextkey(k)
+                        k = url_db.nextkey(k)
                     # すでに探索したurlとurl_dbから取った探索すべきurlの差集合をとる
                     not_achieved = url_db_set.difference(assignment_url_set)
                     if not_achieved:
@@ -989,7 +977,7 @@ def crawler_host(org_arg: Dict[str, Union[str, int]] = {}):
                'number of child-process = ' + str(len(hostName_achievement)) + '\n' +
                'run time = ' + str(run_time) + '\n' +
                'remaining = ' + str(remaining) + '\n' +
-               'date = ' + str(datetime.now().strftime('%Y/%m/%d, %H:%M:%S')) + '\n', mode="a")
+               'date = ' + datetime.datetime.now().strftime('%Y/%m/%d, %H:%M:%S') + '\n', mode="a")
 
         print('main : save...')   # 途中結果を保存する
         copytree(org_path + '/RAD', 'TEMP')

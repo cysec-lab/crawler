@@ -1,4 +1,4 @@
-﻿import os
+import os
 import shutil
 from file_rw import r_file, w_file
 

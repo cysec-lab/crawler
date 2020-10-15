@@ -1,4 +1,4 @@
-﻿from threading import Thread
+from threading import Thread
 from typing import Any, Dict, Union
 
 from selenium.webdriver.firefox.webdriver import WebDriver

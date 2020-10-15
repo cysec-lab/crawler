@@ -1,4 +1,4 @@
-﻿from threading import Thread, Lock
+from threading import Thread, Lock
 import socket
 from urllib.parse import urlparse
 from time import sleep
