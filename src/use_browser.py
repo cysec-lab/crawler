@@ -17,12 +17,16 @@ from html_read_thread import WebDriverGetThread
 from location import location
 from typing import Union, Dict, Any, cast, List
 from webpage import Page
+from logging import getLogger
+
+logger = getLogger(__name__)
 
 def stop_watcher_and_get_data(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int], page: Page) -> bool:
     """
     Watcher.htmlのStop Watchingボタンをクリック。
     拡張機能が監視を終え、収集したデータを記録。
     """
+    logger.debug("Watcher: stop")
     try:
         # watcher.htmlに移動してstopをクリック
         # クリックすると、Watcher.htmlのdivタグ(id="contents")の中に、収集したデータを記録する
@@ -42,10 +46,11 @@ def stop_watcher_and_get_data(driver: WebDriver, wait: WebDriverWait, watcher_wi
         elm.click()
         # 最後の要素が消えるまで待つ
         wait.until(expected_conditions.invisibility_of_element_located((By.ID, "EndOfData")))
-    except Exception as e:
-        print(location() + str(e), flush=True)
+    except Exception as err:
+        logger.exception(f'{err}')
         return False
     else:
+        logger.debug("Watcher: Get data from Watcher")
         return True
 
 
@@ -53,6 +58,7 @@ def start_watcher_and_move_blank(driver: WebDriver, wait: WebDriverWait, watcher
     """
     watcher.htmlのStart Watchingボタンをクリック。拡張機能が監視を始める
     """
+    logger.debug("Watcher: starting...")
     try:
         driver.switch_to.window(watcher_window)
         wait.until(expected_conditions.visibility_of_element_located((By.ID, "start")))
@@ -60,10 +66,11 @@ def start_watcher_and_move_blank(driver: WebDriver, wait: WebDriverWait, watcher
         elm.click()
         driver.switch_to.window(blank_window)
         wait.until(lambda d: "Watcher" != driver.title) # type: ignore
-    except Exception as e:
-        print(location() + str(e), flush=True)
+    except Exception as err:
+        logger.exception(f'{err}')
         return False
     else:
+        logger.debug("Watcher: started!")
         return True
 
 
@@ -94,8 +101,8 @@ def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: 
                 if blank_window:
                     break
             sleep(0.1)
-    except Exception as e:
-        print(location() + str(e), flush=True)
+    except Exception as err:
+        logger.exception(f'{err}')
         return False
     else:
         return blank_window
@@ -106,32 +113,34 @@ def get_watcher_window(driver: WebDriver, wait: WebDriverWait) -> Union[bool, in
     driverを取得した直後に呼ぶ
     """
     watcher_window = False
+    logger.debug("Try to access extension page")
     try:
         wait.until(expected_conditions.visibility_of_all_elements_located((By.ID, "button")))
         wait.until(expected_conditions.presence_of_element_located((By.ID, "DoneAttachJS")))
-    except TimeoutException as e:
-        print(location() + str(e), flush=True)
+    except TimeoutException as err:
+        logger.exception(f"fail to access extension page by timeout: {err}")
         return False
-    except Exception as e:
-        print(location() + str(e), flush=True)
+    except Exception as err:
+        logger.exception(f'fail to access extension page: {err}')
         return False
     try:
         windows: list[Union[int, str]] = driver.window_handles # type: ignore
         for window in windows:
             driver.switch_to.window(window)
             title = driver.title # type: ignore
-            # print("windowId : {}, title : {}".format(window, title), flush=True)
             if title == "Watcher":
                 watcher_window = window
             else:
-                # print("close : {}".format(window), flush=True)
+                logger.debug("Fail to access Watcher extension, closing...")
                 driver.close()
-    except Exception as e:
-        print(location() + str(e), flush=True)   # 最悪、エラーが起きてもwatcher_windowがわかればよい
+    except Exception as err:
+        # 最悪、エラーが起きてもwatcher_windowがわかればよい
+        logger.exception(f'Fail to open extension: {err}')
+
     try:
         driver.switch_to.window(watcher_window)
-    except Exception as e:
-        print(location() + str(e), flush=True)
+    except Exception as err:
+        logger.exception(f"Faild to switch to extension page: {err}")
         return False
     else:
         return watcher_window
@@ -143,6 +152,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     RequestURLの取得可能(アドオンを用いて)
     ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
     """
+    logger.debug("Setting FireFox driver...")
     # headless FireFoxの設定
     options: FirefoxOptions = FirefoxOptions()
     fpro: FirefoxProfile = FirefoxProfile()
@@ -155,9 +165,12 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
         fpro.set_preference('general.useragent.override', user_agent)
 
     # アドオン使えるように
-    src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
-    extension_dir = src_dir + '/extensions'
-    fpro.add_extension(extension=extension_dir + '/CrawlerExtension.xpi')
+    try:
+        src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
+        extension_dir = src_dir + '/extensions'
+        fpro.add_extension(extension=extension_dir + '/CrawlerExtension.xpi')
+    except Exception as err:
+        logger.exception(f'Failed to add_extension: {err}')
 
     # ファイルダウンロードできるように
     if org_path:
@@ -186,8 +199,8 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
                 for row in csv_reader:
                     if row["Template"]:
                         mime_list.append(row["Template"])
-        except csv.Error as e:
-            print(location() + str(e), flush=True)
+        except csv.Error as err:
+            logger.exception(f'{err}')
     fpro.set_preference('browser.helperApps.neverAsk.saveToDisk', ','.join(mime_list))
 
     # コンソールログを取得するために必要(ffではすべてのログが見れない)
@@ -201,8 +214,9 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
         t.daemon = True
         t.start()
         t.join(10)
-    except Exception as e:     # runtime error とか
-        print(location() + str(e), flush=True)
+    except Exception as err:
+        # runtime error とか
+        logger.exception(f'Faild to get Firefox Driver Thread, retrying: {err}')
         sleep(10)
         try:
             t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
@@ -210,15 +224,19 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
             t.start()
             t.join(10)
         except Exception:
+            logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')
             return False
-    if t.re is False:   # ドライバ取得でフリーズしている場合
+
+    if t.re is False:
+        # ドライバ取得でフリーズしている場合
         if type(t.driver) == WebDriver:
             driver = cast(WebDriver, t.driver)
             quit_driver(driver) # 一応終了させて
-        print("Freeze while getting driver.")
+        logger.info("Fail to getting driver: Freeze, return fail")
         return False
-    if t.driver is False:  # 単にエラーで取得できなかった場合
-        print("Error while getting driver.")
+    if t.driver is False:
+        # 単にエラーで取得できなかった場合
+        logger.info("Fail to getting driver: Error, return fail")
         return False
     if type(t.driver) == WebDriver:
         driver = cast(WebDriver, t.driver)
@@ -232,10 +250,11 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     wait = WebDriverWait(driver, 5)
     watcher_window = get_watcher_window(driver, wait)
     if watcher_window is False:
-        print("Couldn't get Watcher Window.")
+        logger.warning("Fail to get watcher window, return fail")
         return False
     watcher_window = cast(Union[str, int], watcher_window)
 
+    logger.debug("Setting FireFox driver... FIN!")
     return {"driver": driver, "wait": wait, "watcher_window": watcher_window}
 
 
@@ -255,8 +274,9 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             t = WebDriverGetThread(driver, page.url)
             t.start()
             t.join(timeout=60)  # 60秒のロード待機時間
-        except Exception as e:
-            return ['makingWebDriverGetThreadError', page.url + '\n' + str(e)]
+        except Exception as err:
+            logger.exception(f"Failed to get WebDriver thread error: {err}")
+            return ['makingWebDriverGetThreadError', page.url + '\n' + str(err)]
     re = True
     if t.re is False:
         # Getスレッドがどこかでフリーズしている場合、t.reがFalseのまま
@@ -279,21 +299,26 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             sleep(0.5)
         except NoAlertPresentException:
             break
-        except Exception as e:
-            return ["getAlertError_browser", page.url + "\n" + str(e)]
+        except Exception as err:
+            logger.exception(f"get Alert from browser: {err}")
+            return ["getAlertError_browser", page.url + "\n" + str(err)]
 
     # ブラウザから、現在開いているURLとそのHTMLを取得
     try:
         page.url = cast(str, driver.current_url)    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = cast(str, driver.page_source)   # htmlソースを更新
-    except Exception as e:
-        return ['infoGetError_browser', page.url + '\n' + str(e)] # type: ignore
+    except Exception as err:
+        logger.exception("Failed to get info from Browser: {err}")
+        return ['infoGetError_browser', page.url + '\n' + str(err)] # type: ignore
     else:
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
         if page.html:
-            return re   # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
+            logger.debug("Correct to get html from page(%s)", page.url)
+            # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
+            return re
         else:
+            logger.warning("Info get Error from browser: %s", page.url)
             return ['infoGetError_browser', page.url + '\n'] # type: ignore
 
 
@@ -311,9 +336,10 @@ def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str)
             driver.switch_to.window(window)
             url_list.append(cast(str, driver.current_url))
             driver.close()
+        logger.debug("get other url, switch to watcher page... %s", str(watcher_id))
         driver.switch_to.window(watcher_id)
-    except Exception as e:
-        print(location() + str(e))
+    except Exception as err:
+        logger.exception(f'{err}')
         raise
     return url_list
 
@@ -326,8 +352,8 @@ def take_screenshots(path: str, driver: WebDriver) -> bool:
     try:
         img_name = str(len(os.listdir(path)))
         driver.save_screenshot(path + '/' + img_name + '.png')
-    except Exception as e:
-        print(location() + str(e))
+    except Exception as err:
+        logger.exception(f'Failed to take screenshot: {err}')
     else:
         return True
 
@@ -340,9 +366,11 @@ def quit_driver(driver: WebDriver) -> bool:
     """
     try:
         driver.quit()
-    except Exception:
+    except Exception as err:
+        logger.exception(f'Failed to quit driver: {err}')
         return False
     else:
+        logger.debug("Quit WebDriver")
         return True
 
 

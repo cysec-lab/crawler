@@ -1,6 +1,10 @@
+import logging
+from logging import getLogger
 import os
 import shutil
 from file_rw import r_file, w_file
+
+logger = getLogger(__name__)
 
 # クローリング完了後、複数のresult_*に分かれて保存されているデータをまとめる
 

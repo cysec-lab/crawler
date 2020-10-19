@@ -1,7 +1,12 @@
+from __future__ import annotations
+from logging import getLogger
 import os
 import subprocess
 from typing import Iterable, Any, List
+from multiprocessing import Queue
+from logger import worker_configurer
 
+logger = getLogger(__name__)
 
 def return_children(my_pid: str) -> List[str]:
     """
@@ -34,14 +39,14 @@ def kill_family(me: str):
         family.extend(return_children(pid_))
         i += 1
     family.reverse()
-    print("kill {}'s {}".format(me, family))
+    logger.info("kill %s's %s", me, family)
     for kill_pid in family:
         try:
             os.system("kill -9 " + str(kill_pid))
-        except Exception as e:
-            print("kill error : {}".format(e))
+        except Exception as err:
+            logger.exception(f'Process kill error: {err}')
         else:
-            print('kill {}'.format(kill_pid))
+            logger.debug('Process kill: %s', kill_pid)
 
 
 def check_upstart(proc_ppid: str):
@@ -66,7 +71,8 @@ def check_upstart(proc_ppid: str):
                 return False
 
 
-def kill_chrome(process: str):
+def kill_chrome(queue_log: Queue[Any], process: str):
+    worker_configurer(queue_log, logger)
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
@@ -74,12 +80,12 @@ def kill_chrome(process: str):
         awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE)
         proc_list: Iterable[Any] = awk.stdout # type: ignore
     except subprocess.CalledProcessError:
-        print('No chrome')
+        logger.warning('No Chrome process')
         return 0
     else:
         for driver in proc_list:
             pid_ppid = driver.decode().rstrip().split(' ')
-            print('{} : {}'.format(process, pid_ppid))
+            logger.info('Process: %s -> %s', process, str(pid_ppid))
             if check_upstart(pid_ppid[1]):
                 kill_family(pid_ppid[0])
 

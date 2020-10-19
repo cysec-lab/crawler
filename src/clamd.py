@@ -1,4 +1,6 @@
-from queue import Queue
+from __future__ import annotations
+from logging import getLogger
+from multiprocessing import Queue
 import pyclamd
 import os
 from time import sleep
@@ -6,12 +8,14 @@ from os import listdir
 from threading import Thread
 from collections import deque
 from file_rw import w_file
-from typing import Union, List
+from typing import Any, Union, List
+from logger import worker_configurer
 
 end = False          # メインプロセスから'end'が送られてくると終了
 data_list = deque()   # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
 clamd_error: List[str] = list()      # clamdでエラーが出たURLのリスト。100ごとにファイル書き込み。
 
+logger = getLogger(__name__)
 
 def receive(recvq: Queue[str]):
     """
@@ -24,6 +28,8 @@ def receive(recvq: Queue[str]):
     while True:
         recv = recvq.get(block=True)
         if recv == 'end':
+            # TODO: rm
+            logger.info('Clamd Process received end')
             print('clamd process : receive end')
             end = True
             break
@@ -31,22 +37,23 @@ def receive(recvq: Queue[str]):
             data_list.append(recv)
 
 
-def clamd_main(recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str):
+def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str):
+    worker_configurer(queue_log, logger)
     # clamAVのデーモンが動いているか確認
     while True:
         try:
-            print("clamd proc : connect to clamd, ", end="")
-            # type: ignore
+            # TODO: rm
+            logger.info('Clamd Process connect...')
             cd = pyclamd.ClamdAgnostic()
             pin = cd.ping()
-            print("connected")
+            logger.info('Clamd Process connected!!!')
             break
         except ValueError:
-            print('wait for clamd starting ...')
+            logger.info('Clamd Process waiting for clamd start....')
             sleep(3)
-        except Exception as e:
+        except Exception as err:
             pin = False
-            print(e)
+            logger.exception(f'Exception has occur: {err}')
             break
     sendq.put(pin)   # 親プロセスにclamdに接続できたかどうかの結果を送る
     if pin is False:
@@ -72,9 +79,9 @@ def clamd_main(recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str)
         # clamdでスキャン
         try:
             result = cd.scan_stream(byte) # type: ignore
-        except Exception as e:
-            print('clamd : ERROR, URL = ' + url)
-            clamd_error.append(url + '\n' + str(e))
+        except Exception as err:
+            logger.exception('Exception has occur, URL={url}, {err}')
+            clamd_error.append(url + '\n' + str(err))
         else:
             # 検知されると結果を記録
             if result is not None:
@@ -83,6 +90,8 @@ def clamd_main(recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str)
                     os.mkdir(org_path + '/clamd_files')
                 w_file(org_path + '/clamd_files/b_' + str(len(listdir(org_path + '/clamd_files'))+1) + '.clam',
                        url + '\n' + str(byte), mode="a")
+            # TODO: rm
+            logger.info('clamd have scanned: %s', url)
             print('clamd : ' + url + ' have scanned.')
 
         # エラーログが一定数を超えると外部ファイルに書き出す

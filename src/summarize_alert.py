@@ -1,12 +1,17 @@
+from __future__ import annotations
 from collections import deque
-from queue import Queue
+from logging import getLogger
+from multiprocessing import Queue
 from threading import Thread, Event
 from file_rw import w_file
 from os import path, mkdir
+from typing import Any
+from logger import worker_configurer
 
 data_list = deque()
 event = Event()
 
+logger = getLogger(__name__)
 
 def receive_alert(recv_q: Queue[str]):
     while True:
@@ -14,12 +19,12 @@ def receive_alert(recv_q: Queue[str]):
         data_list.append(recv_data)
         event.set()
         if recv_data == 'end':
-            print('summarize_alert process : receive end')
+            logger.info("Summarize alert: Receive end")
             break
 
 
-def summarize_alert_main(recv_q: Queue[str], send_q: Queue[str], nth: int, org_path: str):
-
+def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queue[str], nth: int, org_path: str):
+    worker_configurer(queue_log, logger)
     alert_dir_path = org_path + '/alert'
     # alertディレクトリを作成
     if not path.exists(alert_dir_path):
@@ -59,6 +64,6 @@ def summarize_alert_main(recv_q: Queue[str], send_q: Queue[str], nth: int, org_p
         else:
             w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
 
-    print('summarize_alert : ended')
+    logger.info("Summarize_alert: end")
 
     send_q.put('end')   # 親にendを知らせる
