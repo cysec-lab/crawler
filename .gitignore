@@ -1,4 +1,4 @@
-src/__pycache__
+**/__pycache__
 src/.idea
 src/test
 src/check_result
@@ -7,3 +7,4 @@ crawler
 .vscode
 .env
 .gitignore
+log/**

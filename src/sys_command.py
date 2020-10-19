@@ -1,7 +1,9 @@
+from logging import getLogger
 import os
 import subprocess
 from typing import Iterable, Any, List
 
+logger = getLogger()
 
 def return_children(my_pid: str) -> List[str]:
     """
@@ -34,13 +36,19 @@ def kill_family(me: str):
         family.extend(return_children(pid_))
         i += 1
     family.reverse()
+    # TODO: rm
+    logger.info("kill %s's %s", me, family)
     print("kill {}'s {}".format(me, family))
     for kill_pid in family:
         try:
             os.system("kill -9 " + str(kill_pid))
-        except Exception as e:
-            print("kill error : {}".format(e))
+        except Exception as err:
+            # TODO: rm
+            logger.exception(f'Process kill error: {err}')
+            print("kill error : {}".format(err))
         else:
+            # TODO: rm
+            logger.debug('Process kill: %s', kill_pid)
             print('kill {}'.format(kill_pid))
 
 
@@ -74,7 +82,7 @@ def kill_chrome(process: str):
         awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE)
         proc_list: Iterable[Any] = awk.stdout # type: ignore
     except subprocess.CalledProcessError:
-        print('No chrome')
+        logger.warning('No Chrome process')
         return 0
     else:
         for driver in proc_list:

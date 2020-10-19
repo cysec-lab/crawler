@@ -1,3 +1,5 @@
+from __future__ import annotations
+from logging import getLogger
 import os
 import json
 from math import log
@@ -7,15 +9,19 @@ from urllib.parse import urlparse
 
 from file_rw import r_file
 from typing import Dict, Any
+from multiprocessing import Queue
 
+from logger import worker_configurer
 
 request_url = set()  # matome.jsonに保存する内容
 iframe_url = set()   # グローバル変数にしておかないと、exec()関数内で更新できない
 link_url = set()
 script_url = set()
 
+logger = getLogger(__name__)
 
-def make_idf_dict_frequent_word_dict(org_path: str):
+
+def make_idf_dict_frequent_word_dict(queue_log: Queue[Any],org_path: str):
     """
     クローリング後にサーバごとの
     tf-idf値
@@ -24,6 +30,7 @@ def make_idf_dict_frequent_word_dict(org_path: str):
     をまとめて保存する
     また、リンク、リクエストURLの既知サーバを示すホワイトリストのフィルタを作成する
     """
+    worker_configurer(queue_log, logger)
     df_dict: Dict[str, Dict[str, Any]] = dict()   # {file名(server.json) : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
     if not os.path.exists(org_path + '/ROD/idf_dict'):
         os.mkdir(org_path + '/ROD/idf_dict')
@@ -180,7 +187,7 @@ def merge_filter(org_path: str):
             json.dump(temp_dict["old_{}_filter".format(obj)], f)
 
 
-def make_request_url_iframeSrc_link_host_set(org_path: str):
+def make_request_url_iframeSrc_link_host_set(queue_log: Queue[Any], org_path: str):
     """
     1. lis = RAD/tempの中のpickleファイルを順番に開いていく(ファイルの中身は辞書)
     2. url_set = 過去のデータ(ROD/[object]_url/ホスト名.json)のファイルを開く
@@ -188,6 +195,7 @@ def make_request_url_iframeSrc_link_host_set(org_path: str):
     4. それぞれのデータ(pick[obj])を過去(ROD)のデータ(url_set)とマージする
     5. マージしたデータ(url_set)を ROD/[object]_url/ホスト名.json に保存
     """
+    worker_configurer(queue_log, logger)
     object_list = ['request', 'iframe', 'link', 'script']
 
     # RODに保存dirがなければ作る
@@ -244,11 +252,11 @@ def make_request_url_iframeSrc_link_host_set(org_path: str):
                     tmp = json.load(f) # type: ignore
                     try:
                         exec(obj + "_url.update(set(tmp))")
-                    except Exception as e:
-                        print('make_filter_from_past_data 248: ' + str(e))
+                    except Exception as err:
+                        logger.exception(f'{err}')
         # 全サーバの情報をまとめた集合を保存、クローリング時にはこれを使う
         with open(org_path + '/ROD/' + obj + '_url/matome.json', 'w') as f:
             try:
                 exec("json.dump(list(" + obj + "_url), f)")
-            except Exception as e:
-                print('make_filter_from_past_data 254: ' + str(e))
+            except Exception as err:
+                logger.exception(f'{err}')
