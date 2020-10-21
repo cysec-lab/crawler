@@ -274,7 +274,7 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
         sendq: Queue[str] = Queue()
         clamd_q['recv'] = recvq   # clamdプロセスが受け取る用のキュー
         clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
-        p = Process(target=clamd_main, args=(recvq, sendq, org_path))
+        p = Process(target=clamd_main, args=(queue_log, recvq, sendq, org_path))
         p.daemon = True
         p.start()
         clamd_q['process'] = p

@@ -125,11 +125,15 @@ def main(organization: str):
     organization_path = now_dir[0:now_dir.rfind('/')] + '/organization/' + organization
     if not os.path.exists(organization_path):
         logger.warning('You should check existing %s directory in ../organization/', organization)
+        queue_log.put_nowait(None)
+        log_listener.join()
         return 0
 
     # 既に実行中ではないか
     if os.path.exists(organization_path + '/running.tmp'):
         logger.warning("%s's site is crawled now.", organization)
+        queue_log.put_nowait(None)
+        log_listener.join()
         return 0
     else:
         # 実行途中ではない場合、ファイルを作って実行中であることを示す

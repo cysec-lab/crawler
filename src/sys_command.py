@@ -3,7 +3,7 @@ import os
 import subprocess
 from typing import Iterable, Any, List
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 def return_children(my_pid: str) -> List[str]:
     """

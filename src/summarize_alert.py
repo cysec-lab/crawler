@@ -11,7 +11,7 @@ from logger import worker_configurer
 data_list = deque()
 event = Event()
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 def receive_alert(recv_q: Queue[str]):
     while True:
@@ -20,7 +20,6 @@ def receive_alert(recv_q: Queue[str]):
         event.set()
         if recv_data == 'end':
             logger.info("Summarize alert: Receive end")
-            print('summarize_alert process : receive end')
             break
 
 
@@ -65,7 +64,6 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queu
         else:
             w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
 
-    print('summarize_alert : ended')
     logger.info("Summarize_alert: end")
 
     send_q.put('end')   # 親にendを知らせる

@@ -1,5 +1,6 @@
+from __future__ import annotations
 from logging import getLogger
-from queue import Queue
+from multiprocessing import Queue
 import pyclamd
 import os
 from time import sleep
@@ -7,7 +8,8 @@ from os import listdir
 from threading import Thread
 from collections import deque
 from file_rw import w_file
-from typing import Union, List
+from typing import Any, Union, List
+from logger import worker_configurer
 
 end = False          # メインプロセスから'end'が送られてくると終了
 data_list = deque()   # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
@@ -35,21 +37,19 @@ def receive(recvq: Queue[str]):
             data_list.append(recv)
 
 
-def clamd_main(recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str):
+def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str):
+    worker_configurer(queue_log, logger)
     # clamAVのデーモンが動いているか確認
     while True:
         try:
             # TODO: rm
             logger.info('Clamd Process connect...')
-            print("clamd proc : connect to clamd, ", end="")
             cd = pyclamd.ClamdAgnostic()
             pin = cd.ping()
             logger.info('Clamd Process connected!!!')
-            print("connected")
             break
         except ValueError:
             logger.info('Clamd Process waiting for clamd start....')
-            print('wait for clamd starting ...')
             sleep(3)
         except Exception as err:
             pin = False

@@ -27,6 +27,7 @@ class CheckSearchedIPAddressThread(Thread):
         self.lock = Lock()
 
     def run(self):
+        logger.info("Checking searched ip address...")
         self.lock.acquire()   # 最後にacquireするときに自身でデッドロックをかけるため
         crawling_flag = False
 
@@ -35,9 +36,7 @@ class CheckSearchedIPAddressThread(Thread):
             try:
                 o = socket.getaddrinfo(self.url_host, 80, 0, 0, proto=socket.IPPROTO_TCP)
             except Exception as err:
-                # TODO: rm
                 logger.exception(f'{self.url_host} is Unkown url? Exception occur: {err}')
-                print('check_allow_url.py 36: ' + str(self.url_host) + 'is Unkown url? error-> ' + str(err))
                 # wa_file('get_addinfo_e.csv', check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n')
                 # crawling_flag = check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n'
                 crawling_flag = "Unknown"
@@ -102,7 +101,6 @@ def check_searched_url(url_tuple: Tuple[str, str], run_time: int, filtering_dict
         # TODO: rm いま設定的に使っていないから割と雑ここ呼び出されてたの？型違うけど
         # t = CheckSearchedIPAddressThread(url_host, run_time, filtering_dict["IPAddress"], )
         logger.info('Todo ここの処理呼び出されないんじゃない？？')
-        print('check_allow_url.py 100: Todo ここの処理呼び出されないんじゃない？？')
         t = CheckSearchedIPAddressThread(url_tuple, run_time, filtering_dict["IPAddress"], )
         t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
         try:
