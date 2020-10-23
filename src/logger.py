@@ -9,8 +9,8 @@ from collections.abc import Callable
 from multiprocessing import Queue
 from typing import Any
 
-console_format = '%(levelname)-8s %(process)5d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
-file_format    = '%(asctime)s %(levelname)-8s %(process)5d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
+console_format = '%(levelname)-8s %(process)6d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
+file_format    = '%(asctime)s %(levelname)-8s %(process)6d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
 
 def log_listener_configure(path: str):
     """

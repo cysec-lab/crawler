@@ -122,7 +122,6 @@ def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
     except psutil.NoSuchProcess:
         return res
     except Exception as err:
-        # TODO エラーハンドリング
         logger.exception(f'{err}')
         return res
 
@@ -134,10 +133,13 @@ def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
         except Exception as err:
             logger.exception(f'{err}')
 
-    for p in proc_list:
-        # 与えられたproc_nameの中に上で取ったproc_listに含まれるnameがあった場合追加
-        if [p_name for p_name in proc_name if p_name in p.name()]:
-            res.append(p)
+    try:
+        for p in proc_list:
+            # 与えられたproc_nameの中に上で取ったproc_listに含まれるnameがあった場合追加
+            if [p_name for p_name in proc_name if p_name in p.name()]:
+                res.append(p)
+    except Exception as err:
+        logger.exception(f"{err}")
     return res
 
 

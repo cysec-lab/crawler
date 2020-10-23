@@ -336,7 +336,7 @@ def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str)
             driver.switch_to.window(window)
             url_list.append(cast(str, driver.current_url))
             driver.close()
-        logger.warning("get other url, switch to watcher page...")
+        logger.debug("get other url, switch to watcher page... %s", str(watcher_id))
         driver.switch_to.window(watcher_id)
     except Exception as err:
         logger.exception(f'{err}')
