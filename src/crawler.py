@@ -813,27 +813,29 @@ def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
     return temp_r
 
 
-def page_or_file(page: Page):
+def page_or_file(page: Page) -> Union[str, bool]:
     """
     ページの content_type を調査
-    ウェブページなら文字列、そうでないならFalseを返す
 
     args:
-        page: 
+        page: 調査中のPage情報
     return:
         文字列 or False
     """
-    if page.content_type == '':
+    xml_types = ['plain/xml', 'text/xml', 'application/xml']
+    html_types = ['html']
+
+    if page.content_type:
+        for xml in xml_types:
+            if xml in page.content_type:
+                return 'xml'
+        for html_type in html_types:
+            if html_type in page.content_type:
+                return 'html'
+        # 空白のままを含む不明な content_type ならば False
         return False
-    elif 'plain/xml' in page.content_type:
-        return 'xml'
-    elif 'text/xml' in page.content_type:
-        return 'xml'
-    elif 'application/xml' in page.content_type:
-        return 'xml'
-    elif 'html' in page.content_type:
-        return 'html'
     else:
+        # Content_type が None ならば
         return False
 
 
