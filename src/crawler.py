@@ -227,7 +227,7 @@ def init(host: str, screenshots: bool):
         if os.path.getsize(path) > 0:
             with open(path, 'rb') as f:
                 word_df_dict = pickle.load(f)
-        logger.debug("                       FIN!")
+        logger.debug("Loading past 'df_dict'... FIN!")
 
     urlDict = UrlDict(f_name, org_path)
     copy_flag = urlDict.load_url_dict()
@@ -346,8 +346,6 @@ def update_write_file_dict(dic_type: str, key: str, content: Any):
         # elif dic_type == 'result':
         dic = write_file_to_resultdir
         lock = wftr_lock
-    # else:
-    #     print('unreachable')
     # 各辞書は、ファイル名：[内容, 内容, ...]になるように
     # alertDirだけ、ファイル名：[辞書, 辞書, ...]  (summarize_alertプロセスに渡すため)
     with lock:
@@ -833,6 +831,7 @@ def page_or_file(page: Page) -> Union[str, bool]:
             if html_type in page.content_type:
                 return 'html'
         # 空白のままを含む不明な content_type ならば False
+        logger.warning("Unkown content type: '%s'", page.content_type)
         return False
     else:
         # Content_type が None ならば
@@ -899,7 +898,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
             data_temp['src'] = page.src
             data_temp['file_name'] = 'download_url.csv'
             data_temp['content'] = page.url_initial + "," + file_id + "," + info["StartTime"] + "," + info["FileName"]\
-                                   + "," + info["FileSize"] + "," + info["TotalBytes"] + "," + info["Mime"]\
+                                   + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"]) + "," + info["Mime"]\
                                    + "," + info["URL"] + "," + info["Referrer"] + "," + page.url
             data_temp['label'] = 'InitialURL,id,StartTime,FileName,FileSize,TotalBytes,Mime,URL,Referrer,FinalURL'
             with wfta_lock:
@@ -957,12 +956,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     if use_browser:
         driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
         if driver_info is False:
-            # TODO: rm
             logger.warning("%s : cannnot make browser process", host)
-            print(host + ' : cannot make browser process', flush=True)
             sleep(1)
-            kill_chrome("geckodriver")
-            kill_chrome("firefox")
+            kill_chrome(queue_log, "geckodriver")
+            kill_chrome(queue_log, "firefox")
             os._exit(0) # type: ignore
 
         driver_info = cast(Dict[str, Any], driver_info)
@@ -985,13 +982,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if "falsification" in host:
             pid = os.getpid()
             if page is None:
-                # TODO: rm
                 logger.info('%s (%d): main loop is running', host, pid)
-                print(host + '(' + str(pid) + ') : main loop is running...', flush=True)
             else:
-                # TODO: rm
                 logger.info('%s (%d): %s : DONE', host, pid, page.url_initial)
-                print(host + '(' + str(pid) + ') : ' + str(page.url_initial) + '  :  DONE', flush=True)
 
         # 前回(一個前のループ)にクローリングしたURLを保存し、driverのクッキー消去
         if page is not None:
@@ -1021,7 +1014,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
             if "falsification" in host:
                 logger.warning("%s: nothing!!!!!!!!!!!!!!!!!!!!!!", host)
-                print('nothing!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
             while parser_threadId_set:
                 # 実行中のパーススレッドが処理を終えるまで待つ
                 logger.debug('%s : wait 3sec for finishing parse thread', host)
@@ -1037,7 +1029,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 break
         else:    # それ以外(URLのタプル)
             if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
-                print(host + ' : ' + search_tuple[0] + ' : RECEIVE', flush=True)
+                logger.debug("%s : receive '%s'", str(search_tuple[0]))
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
@@ -1053,9 +1045,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
-            # TODO: rm
             logger.debug("get by urlopen: %s", page.url)
-            print("\t" + "get by urlopen : {}".format(page.url), flush=True)
 
         logger.debug("Try to Check %s", page.url)
 
@@ -1275,9 +1265,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     if error_break:
         #  resource_ter_flag=Trueは資源監視スレッドによるブラウザ強制終了
         if resource_terminate_flag:
-            # TODO: rm
             logger.info("%s: Browser is killed", host)
-            print("{} : Browser is killed.".format(host), flush=True)
             if page is not None:
                 url_cache.add(page.url_initial)  # 親から送られてきたURL
                 url_cache.add(page.url_urlopen)  # urlopenで得たURL

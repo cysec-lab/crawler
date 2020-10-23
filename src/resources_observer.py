@@ -1,9 +1,11 @@
+from logging import getLogger
 from threading import Thread
 import psutil
 from time import sleep
 from location import location
 from typing import Tuple, Dict, Union
 
+logger = getLogger(__name__)
 
 # だったが、60秒感覚でppidが1のブラウザをkillするスレッドに
 class MemoryObserverThread(Thread):
@@ -24,15 +26,19 @@ class MemoryObserverThread(Thread):
             for proc in kill_process_cand:
                 try:
                     if proc.ppid() == 1:
-                        print("kill {}".format(proc))
+                        # TODO: rm
+                        logger.debug("kill {}".format(proc))
+                        print("TODO: kill {}".format(proc))
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
                             try:
                                 killed_proc.kill()
-                                print("\t{}".format(killed_proc))
-                            except Exception as e:
-                                print(location() + str(e), flush=True)
+                                # TODO: rm
+                                logger.debug("kill: {}".format(killed_proc))
+                                print("TODO: \t{}".format(killed_proc))
+                            except Exception as err:
+                                logger.exception(f'{err}')
                     # else:
                     #     print("else {}".format(proc))
                     #     print("\tppid ={}, parent name ={}".format(proc.ppid(), psutil.Process(proc.ppid()).name()))
@@ -60,8 +66,10 @@ def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[st
         except psutil.NoSuchProcess:
             # 外でプロセスファミリーを取ったときに存在したけどいまは死んでるなら発生
             pass
-        except Exception as e:
-            print(location() + str(e), flush=True)
+        except Exception as err:
+            # TODO: rm
+            logger.exception(f'Memory Check: {err}')
+            print(location() + str(err), flush=True)
             pass
         else:
             if mem_used > limit:
@@ -90,8 +98,8 @@ def cpu_checker(family: list[psutil.Process], limit: float, cpu_num: float)->Tup
         except psutil.NoSuchProcess:
             # 外でプロセスファミリーを取ったときに存在したけどいまは死んでるなら発生
             pass
-        except Exception as e:
-            print(location() + str(e), flush=True)
+        except Exception as err:
+            logger.exception(f'{err}')
             pass
         else:
             if cpu_per > limit:
@@ -113,9 +121,9 @@ def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
         pid_list = psutil.pids()
     except psutil.NoSuchProcess:
         return res
-    except Exception as e:
+    except Exception as err:
         # TODO エラーハンドリング
-        print(location() + str(e), flush=True)
+        logger.exception(f'{err}')
         return res
 
     for pid in pid_list:
@@ -123,8 +131,8 @@ def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
             proc_list.append(psutil.Process(pid))
         except psutil.NoSuchProcess:
             pass
-        except Exception as e:
-            print(location() + str(e), flush=True)
+        except Exception as err:
+            logger.exception(f'{err}')
 
     for p in proc_list:
         # 与えられたproc_nameの中に上で取ったproc_listに含まれるnameがあった場合追加
@@ -136,13 +144,9 @@ def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
 def get_family(ppid: int) -> list[psutil.Process]:
     family: list[psutil.Process] = list()
     try:
-        # >>> Process(ppid)
-        # sample: psutil.Process(pid=15511, name='python', status='running', started='17:14:47')
-        # >>> Process(ppid).children()
-        # [] (list)
         family.extend(psutil.Process(ppid).children())
-    except Exception as e:
-        # print(location() + str(e), flush=True)
+    except Exception as err:
+        logger.exception(f'Failed to extend get_family...: {err}')
         pass
     else:
         i = 0
@@ -152,8 +156,8 @@ def get_family(ppid: int) -> list[psutil.Process]:
             proc = family[i]
             try:
                 family.extend(proc.children())
-            except Exception as e:
-                print('resources_observer.py: ' + location() + str(e), flush=True)
+            except Exception as err:
+                logger.exception(f'Failed to extend get_family...: {err}')
                 pass
                 del family[i]
             else:
@@ -171,11 +175,13 @@ def main():
     from datetime import datetime
     now_dir = os.path.dirname(os.path.abspath(__file__))  # ファイル位置(src)を絶対パスで取得
     os.chdir(now_dir)
-    
+
     reboot_flag = True
 
     start_time = datetime.now().strftime('%Y/%m/%d, %H:%M:%S')
-    print("Check RAM percent at {}".format(start_time))
+    # TODO: rm
+    logger.info("Check RAM percent at %s", start_time)
+    print("TODO: Check RAM percent at {}".format(start_time))
 
     # 実行中のクローラがあるか
     organization_path = now_dir + "/../organization/"  # 絶対パス
@@ -183,20 +189,24 @@ def main():
     for org_dir in org_dirs:
         if os.path.isdir(organization_path + "/" + org_dir):
             if os.path.exists(organization_path + "/" + org_dir + "/running.tmp"):
-                print("{} is running.".format(org_dir))
+                # TODO: rm
+                logger.info("%s is running...")
+                print("TODO: {} is running.".format(org_dir))
                 reboot_flag = False
 
     # メモリ使用量確認
     mem_per: float = psutil.virtual_memory().percent
-    print("Used RAM percent is {}%.".format(mem_per))
+    logger.info("Used RAM percent is %d%", mem_per)
+    print("TODO: Used RAM percent is {}%.".format(mem_per))
 
     # クローラが実行されていないのに、メモリを50%使っているのはおかしいので再起動
     # compizなどのGUI関連のプロセスがずっと起動しているとメモリを食っていく。原因は不明。
     if reboot_flag and (mem_per > 50):
-        print("reboot\n")
+        # TODO: rm
+        logger.warning("Reboot")
+        print("TODO: reboot\n")
         from sys_command import reboot
         reboot()
-    print("\n")
 
 
 if __name__ == '__main__':

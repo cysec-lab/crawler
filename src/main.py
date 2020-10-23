@@ -151,7 +151,8 @@ def main(organization: str):
 
     while True:
         # クローラを実行
-        logger.info('--- %s : %s th crawling---', organization, org_arg['result_no'])
+        logger.info("""
+    --- %s : %s th crawling---""", organization, org_arg['result_no'])
         p = Process(target=crawler_host, args=(queue_log, org_arg))
         p.start()
         p.join()
@@ -163,8 +164,8 @@ def main(organization: str):
         logger.info('crawling has finished.')
 
         # 孤児のchrome じゃなくてfirefoxをkill
-        kill_chrome(process='geckodriver')
-        kill_chrome(process='firefox')
+        kill_chrome(queue_log, process='geckodriver')
+        kill_chrome(queue_log, process='firefox')
 
         logger.info('save used ROD before overwriting the ROD directory : START')
         save_rod(org_arg)

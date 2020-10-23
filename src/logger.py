@@ -9,6 +9,9 @@ from collections.abc import Callable
 from multiprocessing import Queue
 from typing import Any
 
+console_format = '%(levelname)-8s %(process)5d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
+file_format    = '%(asctime)s %(levelname)-8s %(process)5d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
+
 def log_listener_configure(path: str):
     """
     Log受信機の作成
@@ -20,7 +23,7 @@ def log_listener_configure(path: str):
     root = logging.getLogger()
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-    format_console = logging.Formatter('%(processName)-12s: %(levelname)-8s <%(name)s, %(lineno)d> %(message)s')
+    format_console = logging.Formatter(console_format)
     ch.setFormatter(format_console)
     root.addHandler(ch)
 
@@ -34,7 +37,7 @@ def log_listener_configure(path: str):
     # Logファイルを作成
     fh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10000)
     fh.setLevel(logging.DEBUG)
-    format_file = logging.Formatter('%(asctime)s %(processName)-12s: %(levelname)-8s <%(name)s, %(lineno)d> %(message)s')
+    format_file = logging.Formatter(file_format)
     fh.setFormatter(format_file)
     root.addHandler(fh)
 

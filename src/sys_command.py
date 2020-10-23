@@ -1,7 +1,10 @@
+from __future__ import annotations
 from logging import getLogger
 import os
 import subprocess
 from typing import Iterable, Any, List
+from multiprocessing import Queue
+from logger import worker_configurer
 
 logger = getLogger(__name__)
 
@@ -38,18 +41,18 @@ def kill_family(me: str):
     family.reverse()
     # TODO: rm
     logger.info("kill %s's %s", me, family)
-    print("kill {}'s {}".format(me, family))
+    print("TODO: kill {}'s {}".format(me, family))
     for kill_pid in family:
         try:
             os.system("kill -9 " + str(kill_pid))
         except Exception as err:
             # TODO: rm
             logger.exception(f'Process kill error: {err}')
-            print("kill error : {}".format(err))
+            print("TODO: kill error : {}".format(err))
         else:
             # TODO: rm
             logger.debug('Process kill: %s', kill_pid)
-            print('kill {}'.format(kill_pid))
+            print('TODO: kill {}'.format(kill_pid))
 
 
 def check_upstart(proc_ppid: str):
@@ -74,7 +77,8 @@ def check_upstart(proc_ppid: str):
                 return False
 
 
-def kill_chrome(process: str):
+def kill_chrome(queue_log: Queue[Any], process: str):
+    worker_configurer(queue_log, logger)
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
@@ -87,7 +91,9 @@ def kill_chrome(process: str):
     else:
         for driver in proc_list:
             pid_ppid = driver.decode().rstrip().split(' ')
-            print('{} : {}'.format(process, pid_ppid))
+            # TODO: rm
+            logger.info('Process: %s -> %s', process, str(pid_ppid))
+            print('TODO: syscommand.py {} : {}'.format(process, pid_ppid))
             if check_upstart(pid_ppid[1]):
                 kill_family(pid_ppid[0])
 
