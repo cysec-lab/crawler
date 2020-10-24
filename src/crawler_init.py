@@ -813,7 +813,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         logger.error('You should check the run_count in setting file.')
 
     # メモリ使用量監視スレッドの立ち上げ
-    t: MemoryObserverThread = MemoryObserverThread()
+    t: MemoryObserverThread = MemoryObserverThread(queue_log)
     t.setDaemon(True) # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
     t.start()
     if not t:

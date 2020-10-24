@@ -1,15 +1,20 @@
+from __future__ import annotations
 from logging import getLogger
 from threading import Thread
 import psutil
 from time import sleep
 from location import location
-from typing import Tuple, Dict, Union
+from typing import Any, Tuple, Dict, Union, List
+from multiprocessing import Queue
+from logger import worker_configurer
 
 logger = getLogger(__name__)
 
 # だったが、60秒感覚でppidが1のブラウザをkillするスレッドに
 class MemoryObserverThread(Thread):
-    def __init__(self, limit: int=0):
+    def __init__(self, queue_log: Queue[Any], limit: int=0):
+        # TODO: Thread だから作る必要なさそうだがなんかログが取れないため作った
+        worker_configurer(queue_log, logger)
         super(MemoryObserverThread, self).__init__()
         self.limit = limit
 
@@ -17,7 +22,7 @@ class MemoryObserverThread(Thread):
         """
         TODO オーバライドしていいのここ？？
         """
-        proc_name: list[str] = ["geckodriver", "firefox"]
+        proc_name: List[str] = ["geckodriver", "firefox"]
         while True:
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")
@@ -26,17 +31,13 @@ class MemoryObserverThread(Thread):
             for proc in kill_process_cand:
                 try:
                     if proc.ppid() == 1:
-                        # TODO: rm
                         logger.debug("kill {}".format(proc))
-                        print("TODO: kill {}".format(proc))
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
                             try:
                                 killed_proc.kill()
-                                # TODO: rm
                                 logger.debug("kill: {}".format(killed_proc))
-                                print("TODO: \t{}".format(killed_proc))
                             except Exception as err:
                                 logger.exception(f'{err}')
                     # else:
@@ -57,6 +58,8 @@ def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[st
     """
     ret: list[Dict[str, Union[str, int]]] = list()
     ret2: list[int] = list()
+
+    logger.debug("Memory checker called.")
 
     for p in family:
         try:
@@ -108,7 +111,7 @@ def cpu_checker(family: list[psutil.Process], limit: float, cpu_num: float)->Tup
     return ret, ret2
 
 
-def get_relate_browser_proc(proc_name: list[str])->list[psutil.Process]:
+def get_relate_browser_proc(proc_name: List[str])->list[psutil.Process]:
     """
     現在のpidリストを取得する
     各pidのプロセス名を proc_list に格納

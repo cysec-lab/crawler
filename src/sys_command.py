@@ -39,20 +39,14 @@ def kill_family(me: str):
         family.extend(return_children(pid_))
         i += 1
     family.reverse()
-    # TODO: rm
     logger.info("kill %s's %s", me, family)
-    print("TODO: kill {}'s {}".format(me, family))
     for kill_pid in family:
         try:
             os.system("kill -9 " + str(kill_pid))
         except Exception as err:
-            # TODO: rm
             logger.exception(f'Process kill error: {err}')
-            print("TODO: kill error : {}".format(err))
         else:
-            # TODO: rm
             logger.debug('Process kill: %s', kill_pid)
-            print('TODO: kill {}'.format(kill_pid))
 
 
 def check_upstart(proc_ppid: str):
@@ -91,9 +85,7 @@ def kill_chrome(queue_log: Queue[Any], process: str):
     else:
         for driver in proc_list:
             pid_ppid = driver.decode().rstrip().split(' ')
-            # TODO: rm
             logger.info('Process: %s -> %s', process, str(pid_ppid))
-            print('TODO: syscommand.py {} : {}'.format(process, pid_ppid))
             if check_upstart(pid_ppid[1]):
                 kill_family(pid_ppid[0])
 

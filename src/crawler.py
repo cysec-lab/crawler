@@ -831,7 +831,7 @@ def page_or_file(page: Page) -> Union[str, bool]:
             if html_type in page.content_type:
                 return 'html'
         # 空白のままを含む不明な content_type ならば False
-        logger.warning("Unkown content type: '%s'", page.content_type)
+        logger.debug("Unkown content type: '%s'", page.content_type)
         return False
     else:
         # Content_type が None ならば
