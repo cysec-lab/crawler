@@ -1,8 +1,10 @@
-import MeCab
-from bs4 import BeautifulSoup, NavigableString, Comment, Declaration, Doctype
-import unicodedata
 import time
-from typing import Any, Dict, Tuple, Union, List
+import unicodedata
+from typing import Any, Dict, List, Tuple, Union
+
+import MeCab
+from bs4 import BeautifulSoup, Comment, Declaration, Doctype, NavigableString
+
 
 def nonEmptyLines(text_target: str):
     """

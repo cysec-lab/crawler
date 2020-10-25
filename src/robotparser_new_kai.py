@@ -10,15 +10,19 @@
     http://www.robotstxt.org/norobots-rfc.txt
 """
 
-import collections
 import urllib.parse
 import urllib.request
 import re
 
+from typing import Any, List, NamedTuple, Optional
+
+
 __all__ = ["RobotFileParser"]
 
-RequestRate = collections.namedtuple("RequestRate", "requests seconds")
-
+# RequestRate = collections.namedtuple("RequestRate", "requests seconds")
+class RequestRate(NamedTuple):
+    requests: int
+    seconds: int
 
 class RobotFileParser:
     """ This class provides a set of methods to read, parse and answer
@@ -26,7 +30,7 @@ class RobotFileParser:
 
     """
 
-    def __init__(self, url=''):
+    def __init__(self, url: str=''):
         self.entries = []
         self.default_entry = None
         self.disallow_all = False
@@ -51,7 +55,7 @@ class RobotFileParser:
         import time
         self.last_checked = time.time()
 
-    def set_url(self, url):
+    def set_url(self, url: str):
         """Sets the URL referring to a robots.txt file."""
         self.url = url
         self.host, self.path = urllib.parse.urlparse(url)[1:3]
@@ -69,7 +73,7 @@ class RobotFileParser:
             raw = f.read()
             self.parse(raw.decode("utf-8").splitlines())
 
-    def _add_entry(self, entry):
+    def _add_entry(self, entry: Any):
         if "*" in entry.useragents:
             # the default entry is considered last
             if self.default_entry is None:
@@ -78,7 +82,7 @@ class RobotFileParser:
         else:
             self.entries.append(entry)
 
-    def parse(self, lines):
+    def parse(self, lines: List[str]):
         """Parse the input lines from a robots.txt file.
 
         We allow that a user-agent: line is not preceded by
@@ -145,7 +149,7 @@ class RobotFileParser:
         if state == 2:
             self._add_entry(entry)
 
-    def can_fetch(self, useragent, url):
+    def can_fetch(self, useragent: Any, url: str):
         """using the parsed robots.txt decide if useragent can fetch url"""
         if self.disallow_all:
             return False
@@ -174,7 +178,7 @@ class RobotFileParser:
         # agent not found ==> access granted
         return True
 
-    def crawl_delay(self, useragent):
+    def crawl_delay(self, useragent: Any):
         if not self.mtime():
             return None
         for entry in self.entries:
@@ -182,7 +186,7 @@ class RobotFileParser:
                 return entry.delay
         return self.default_entry.delay
 
-    def request_rate(self, useragent):
+    def request_rate(self, useragent: Any):
         if not self.mtime():
             return None
         for entry in self.entries:
@@ -200,7 +204,7 @@ class RobotFileParser:
 class RuleLine:
     """A rule line is a single "Allow:" (allowance==True) or "Disallow:"
        (allowance==False) followed by a path."""
-    def __init__(self, path, allowance):
+    def __init__(self, path: str, allowance: bool):
         if path == '' and not allowance:
             # an empty value means allow all
             allowance = True
@@ -211,7 +215,7 @@ class RuleLine:
 
         self.allowance = allowance
 
-    def applies_to(self, filename):
+    def applies_to(self, filename: str):
         # 以下の一文を変更
         # return self.path == "*" or filename.startswith(self.path)
         if self.path == '*':
@@ -229,25 +233,25 @@ class RuleLine:
 class Entry:
     """An entry has one or more user-agents and zero or more rulelines"""
     def __init__(self):
-        self.useragents = []
+        self.useragents: List[str] = []
         self.rulelines = []
-        self.delay = None
-        self.req_rate = None
+        self.delay: Optional[str] = None
+        self.req_rate: Optional[RequestRate] = None
 
     def __str__(self):
-        ret = []
+        ret: List[str] = []
         for agent in self.useragents:
             ret.append("User-agent: " + agent)
         if self.delay is not None:
             ret.append("Crawl-delay: " + self.delay)
         if self.req_rate is not None:
             rate = self.req_rate
-            ret.append("Request-rate: " + rate.requests + '/' + rate.seconds)
+            ret.append("Request-rate: " + str(rate.requests) + '/' + str(rate.seconds))
         ret.extend(map(str, self.rulelines))
         ret.append('')  # for compatibility
         return '\n'.join(ret)
 
-    def applies_to(self, useragent):
+    def applies_to(self, useragent: str):
         """check if this entry applies to the specified agent"""
         # split the name token and make it lower case
         useragent = useragent.split("/")[0].lower()
@@ -266,7 +270,7 @@ class Entry:
             #########################
         return False
 
-    def allowance(self, filename):
+    def allowance(self, filename: str):
         """Preconditions:
         - our agent applies to this entry
         - filename is URL decoded"""

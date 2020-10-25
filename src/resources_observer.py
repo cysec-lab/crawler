@@ -1,11 +1,14 @@
 from __future__ import annotations
+
 from logging import getLogger
-from threading import Thread
-import psutil
-from time import sleep
-from location import location
-from typing import Any, Tuple, Dict, Union, List
 from multiprocessing import Queue
+from threading import Thread
+from time import sleep
+from typing import Any, Dict, List, Tuple, Union
+
+import psutil
+
+from location import location
 from logger import worker_configurer
 
 logger = getLogger(__name__)

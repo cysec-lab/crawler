@@ -1,6 +1,6 @@
-import shutil
-import os
 import json
+import os
+import shutil
 from typing import Any, Dict
 
 # サイバーセキュリティ研究室のサイトのクローリング結果(RODデータ)から、自作改ざんサイトの検出に使うデータ(RODデータ)を作成する

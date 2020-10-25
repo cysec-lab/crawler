@@ -1,10 +1,11 @@
-from hashlib import sha256
 import json
 import os
-from datetime import date
 from copy import deepcopy
+from datetime import date
+from hashlib import sha256
 from shutil import copyfile
-from typing import Optional, Any, Tuple, Union, Dict
+from typing import Any, Dict, Optional, Tuple, Union
+
 from webpage import Page
 
 

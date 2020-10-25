@@ -1,19 +1,22 @@
 from __future__ import annotations
+
+import os
+from collections import deque
 from logging import getLogger
 from multiprocessing import Queue
-import pyclamd
-import os
-from time import sleep
 from os import listdir
 from threading import Thread
-from collections import deque
+from time import sleep
+from typing import Any, List, Union
+
+import pyclamd
+
 from file_rw import w_file
-from typing import Any, Union, List
 from logger import worker_configurer
 
-end = False          # メインプロセスから'end'が送られてくると終了
-data_list = deque()   # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
-clamd_error: List[str] = list()      # clamdでエラーが出たURLのリスト。100ごとにファイル書き込み。
+end = False                     # メインプロセスから'end'が送られてくると終了
+data_list = deque()             # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
+clamd_error: List[str] = list() # clamdでエラーが出たURLのリスト。100ごとにファイル書き込み。
 
 logger = getLogger(__name__)
 

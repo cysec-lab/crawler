@@ -1,9 +1,11 @@
 from __future__ import annotations
-from logging import getLogger
+
 import os
 import subprocess
-from typing import Iterable, Any, List
+from logging import getLogger
 from multiprocessing import Queue
+from typing import Any, Iterable, List
+
 from logger import worker_configurer
 
 logger = getLogger(__name__)

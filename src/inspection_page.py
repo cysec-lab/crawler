@@ -1,8 +1,9 @@
+from typing import Any, Dict, Iterable, Tuple, Union, cast
 from urllib.parse import urlparse
-from typing import Dict, Tuple, Union, Iterable, Any, cast
 
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
+
 from webpage import Page
 
 

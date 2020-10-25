@@ -1,6 +1,7 @@
 import json
 from typing import Any
 
+
 def w_file(file_name: str, data: str, mode: str="w"):
     """
     エンコード方式を指定してデータを書き込む

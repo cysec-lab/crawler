@@ -1,36 +1,40 @@
 from __future__ import annotations
-from logging import getLogger
-from crawler_deinit import cal_num_of_achievement
-from logger import worker_configurer
-import os
-from time import sleep, time
-from copy import deepcopy
-import pickle
-import json
-import threading
-import psutil
-from typing import Tuple, Any, Optional, Dict, Union, cast, List
-from bs4 import BeautifulSoup
-import urllib.error
-from datetime import datetime
-from multiprocessing import cpu_count, Queue
-from bs4.element import ResultSet
 
-from mecab import get_tf_dict_by_mecab, add_word_dic, make_tfidf_dict, get_top10_tfidf
-from robotparser_new_kai import RobotFileParser
-from file_rw import w_file, r_file
+import json
+import os
+import pickle
+import threading
+import urllib.error
+from copy import deepcopy
+from datetime import datetime
+from logging import getLogger
+from multiprocessing import Queue, cpu_count
+from time import sleep, time
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
+
+import psutil
+from bs4 import BeautifulSoup
+from bs4.element import ResultSet
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
-from webpage import Page
-from urldict import UrlDict
-from inspection_page import iframe_inspection, meta_refresh_inspection, get_meta_refresh_url, script_inspection
-from inspection_page import form_inspection
-from use_browser import get_fox_driver, set_html, get_window_url, take_screenshots, quit_driver, create_blank_window
-from use_browser import start_watcher_and_move_blank, stop_watcher_and_get_data
-from location import location
+
 from check_allow_url import inspection_url_by_filter
+from file_rw import r_file, w_file
+from inspection_page import (form_inspection, get_meta_refresh_url,
+                             iframe_inspection, meta_refresh_inspection,
+                             script_inspection)
+from location import location
+from logger import worker_configurer
+from mecab import (add_word_dic, get_tf_dict_by_mecab, get_top10_tfidf,
+                   make_tfidf_dict)
+from resources_observer import cpu_checker, get_family, memory_checker
+from robotparser_new_kai import RobotFileParser
 from sys_command import kill_chrome
-from resources_observer import cpu_checker, memory_checker, get_family
+from urldict import UrlDict
+from use_browser import (create_blank_window, get_fox_driver, get_window_url,
+                         quit_driver, set_html, start_watcher_and_move_blank,
+                         stop_watcher_and_get_data, take_screenshots)
+from webpage import Page
 
 html_special_char: List[Tuple[str, ...]] = list()  # URLの特殊文字を置換するためのリスト
 
@@ -43,7 +47,7 @@ parser_threadId_time: dict[int, int] = dict()   # スレッドid : 実行時間
 num_of_pages: int = 0                           # 取得してパースした重複なしページ数. リダイレクト後が外部URL, エラーだったURLを含まない
 num_of_files: int = 0                           # 取得してパースした重複なしファイル数. リダイレクト後に外部になるURL, エラーだったURLは含まない
 url_cache = set()                               # 接続を試したURL集合. 他サーバへのリダイレクトURL含む. プロセスが終わっても消さずに保存
-urlDict: Optional[UrlDict] = None               # サーバ毎のurl_dictの辞書を扱うクラス
+url_dict: Optional[UrlDict] = None               # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None                                   # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
@@ -108,7 +112,7 @@ def init(host: str, screenshots: bool):
         screenshots: スクリーンショットを撮る
     """
     global html_special_char, script_src_set, script_src_set_pre, robots, frequent_word_list
-    global dir_name, f_name, word_idf_dict, word_df_dict, url_cache, urlDict, num_of_files, num_of_pages
+    global dir_name, f_name, word_idf_dict, word_df_dict, url_cache, url_dict, num_of_files, num_of_pages
     global request_url_set, request_url_filter, iframe_src_set, iframe_src_set_pre, link_set, link_url_filter
 
     # このファイル位置の絶対パスで取得 「*/src」
@@ -229,8 +233,8 @@ def init(host: str, screenshots: bool):
                 word_df_dict = pickle.load(f)
         logger.debug("Loading past 'df_dict'... FIN!")
 
-    urlDict = UrlDict(f_name, org_path)
-    copy_flag = urlDict.load_url_dict()
+    url_dict = UrlDict(f_name, org_path)
+    copy_flag = url_dict.load_url_dict()
     if copy_flag:
         logger.debug("create 'notice.txt'")
         w_file('../../notice.txt', host + ' : ' + copy_flag + '\n', mode="a")
@@ -255,7 +259,9 @@ def save_result(alert_process_q: Queue[Dict[str, str]]):
     args:
         alert_process_q: 
     """
-    urlDict.save_url_dict()
+    url_dict = cast(UrlDict, url_dict)
+
+    url_dict.save_url_dict()
     if word_df_dict:
         logger.debug('%s: word_df_dict exist', f_name)
         path = org_path + '/RAD/df_dict/' + f_name + '.pickle'
@@ -405,7 +411,7 @@ def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], da
 #         if 'iframe' in tag_list:   # iframeがあれは
 #             tag_list = special_course(tags)   # ちょっといじる
 
-#         urlDict.add_tag_data(page, tag_list)   # 外部ファイルへ保存するためのクラスへ格納
+#         url_dict.add_tag_data(page, tag_list)   # 外部ファイルへ保存するためのクラスへ格納
 #         if machine_learning_q is not False:
 #             # 機械学習プロセスへ送信
 #             dic = {'url': page.url, 'src': page.src, 'tags': tag_list, 'host': f_name}
@@ -426,6 +432,8 @@ def parser(parse_args_dic: Dict[str, Any]):
     filtering_dict = parse_args_dic["filtering_dict"]
     if "falsification.cysec" in host:
         logger.info("start parse : URL=%s", page.url)
+
+    url_dict = cast(UrlDict, url_dict)
 
     # スクレイピングするためのsoup
     try:
@@ -473,7 +481,7 @@ def parser(parse_args_dic: Dict[str, Any]):
 
     # 検査
     # 前回とのハッシュ値を比較
-    num_of_days, _ = urlDict.compere_hash(page)
+    num_of_days, _ = url_dict.compere_hash(page)
     # int型: ハッシュ値が違う。
     # True : 変化なし
     # False: 新規ページ
@@ -515,7 +523,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                 # ハッシュ値が異なるため、重要単語を比較
                 # if num_of_days is not True:
                 if True:  # 実験のため毎回比較
-                    pre_top10 = urlDict.get_top10_from_url_dict(url=page.url)    # 前回のtop10を取得
+                    pre_top10 = url_dict.get_top10_from_url_dict(url=page.url)    # 前回のtop10を取得
                     if pre_top10 is not None:
                         symmetric_difference = set(top10) ^ set(pre_top10)         # 排他的論理和
                         if len(symmetric_difference) > ((len(top10) + len(pre_top10)) * 0.8):
@@ -536,7 +544,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                                                content=['URL,length,top10,pre top10', page.url + ',' +
                                                         str(len(symmetric_difference)) + ',' + str(top10)[1:-1] + ', ,'
                                                         + str(pre_top10)[1:-1] + ',' + str(num_of_days)])
-                urlDict.add_top10_to_url_dict(url=page.url, top10=top10)   # top10を更新
+                url_dict.add_top10_to_url_dict(url=page.url, top10=top10)   # top10を更新
 
             # ページにあった単語が今までの頻出単語にどれだけ含まれているか調査-------------------------------
             if frequent_word_list:
@@ -671,10 +679,10 @@ def parser(parse_args_dic: Dict[str, Any]):
 
     # requestURL を url_dictに追加(ページをレンダリングする際のリクエストURLを、各ページごとに保存。しかし、何かに使っているわけではない。)
     if page.request_url:
-        if urlDict:
-            _ = urlDict.update_request_url_in_url_dict(page)
+        if url_dict:
+            _ = url_dict.update_request_url_in_url_dict(page)
         else:
-            logger.error("There are no urlDict")
+            logger.error("There are no url_dict")
 
     # スレッド集合から削除して、検査終了
     try:
@@ -1224,8 +1232,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         else:    # ウェブページではないファイルだった場合(PDF,excel,word...
             send_to_parent(q_send, {'type': 'file_done'})   # mainプロセスにこのURLのクローリング完了を知らせる
             # ハッシュ値の比較
-            if urlDict:
-                num_of_days, file_len = urlDict.compere_hash(page)
+            if url_dict:
+                num_of_days, file_len = url_dict.compere_hash(page)
                 if type(num_of_days) == int:
                     update_write_file_dict('result', 'change_hash_file.csv',
                                            content=['URL,content-type,no-change days', page.url + ',' + page.content_type +
@@ -1245,7 +1253,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                                            content=['URL,content-type,src',
                                                     page.url + ',' + page.content_type + ',' + page.src])
             else:
-                logger.error("there are no urlDict, unrechable Bug")
+                logger.error("there are no url_dict, unrechable Bug")
             # clamdによる検査
             if clamd_q is not False:  # Falseの場合はclamdを使わない
                 clamd_q.put([page.url, page.src, page.html])

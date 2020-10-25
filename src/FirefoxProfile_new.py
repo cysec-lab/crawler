@@ -1,9 +1,9 @@
 import json
 import os
 import sys
+from typing import Any, Dict
 
 from selenium import webdriver
-from typing import Dict, Any
 
 # 以下のページから取ってきた。たしかそのままのはず。。。
 # https://a-zumi.net/python-selenium-addon-install/

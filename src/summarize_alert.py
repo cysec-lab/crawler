@@ -1,11 +1,13 @@
 from __future__ import annotations
+
 from collections import deque
 from logging import getLogger
 from multiprocessing import Queue
-from threading import Thread, Event
-from file_rw import w_file
-from os import path, mkdir
+from os import mkdir, path
+from threading import Event, Thread
 from typing import Any
+
+from file_rw import w_file
 from logger import worker_configurer
 
 data_list = deque()

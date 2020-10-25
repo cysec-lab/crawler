@@ -1,16 +1,16 @@
 from __future__ import annotations
-from logging import getLogger
-import os
+
 import json
-from math import log
+import os
 import pickle
 from collections import Counter
+from logging import getLogger
+from math import log
+from multiprocessing import Queue
+from typing import Any, Dict
 from urllib.parse import urlparse
 
 from file_rw import r_file
-from typing import Dict, Any
-from multiprocessing import Queue
-
 from logger import worker_configurer
 
 request_url = set()  # matome.jsonに保存する内容
