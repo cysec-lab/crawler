@@ -3,6 +3,7 @@ from typing import Any, Dict, Union
 
 from selenium.webdriver.firefox.webdriver import WebDriver
 
+
 class UrlOpenReadThread(Thread):
     """
     urllibでURLを読み込む

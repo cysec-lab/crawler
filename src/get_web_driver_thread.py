@@ -1,9 +1,11 @@
+from os import path
 from threading import Thread
-from FirefoxProfile_new import FirefoxProfile
+
+import selenium.common
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-import selenium.common
-from os import path
+
+from FirefoxProfile_new import FirefoxProfile
 from location import location
 
 

@@ -4,7 +4,6 @@ import datetime
 import logging
 import logging.handlers
 import os
-
 from collections.abc import Callable
 from multiprocessing import Queue
 from typing import Any
@@ -60,7 +59,8 @@ def log_listener_process(path: str, queue: Queue[Any], configurer: Callable[[str
             logger = logging.getLogger(record.name)
             logger.handle(record)  # No level or filter logic applied - just do it!
         except Exception:
-            import sys, traceback
+            import sys
+            import traceback
             print('logger.py: Exception occured!', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 

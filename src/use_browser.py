@@ -1,23 +1,23 @@
-from time import sleep
 import csv
 import os
+from logging import getLogger
+from time import sleep
+from typing import Any, Dict, List, Union, cast
+from urllib.parse import urlparse
 
+from selenium.common.exceptions import (NoAlertPresentException,
+                                        TimeoutException)
+from selenium.webdriver.common.alert import Alert
+from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.webdriver import WebDriver
-from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import TimeoutException, NoAlertPresentException
-from selenium.webdriver.common.alert import Alert
-from urllib.parse import urlparse
+from selenium.webdriver.support.ui import WebDriverWait
 
 from FirefoxProfile_new import FirefoxProfile
 from get_web_driver_thread import GetFirefoxDriverThread
 from html_read_thread import WebDriverGetThread
-from location import location
-from typing import Union, Dict, Any, cast, List
 from webpage import Page
-from logging import getLogger
 
 logger = getLogger(__name__)
 
@@ -165,6 +165,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
         fpro.set_preference('general.useragent.override', user_agent)
 
     # アドオン使えるように
+    src_dir = ""
     try:
         src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
         extension_dir = src_dir + '/extensions'

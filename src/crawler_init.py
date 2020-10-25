@@ -1,30 +1,31 @@
 from __future__ import annotations
-from multiprocessing import Process, Queue, cpu_count
-from collections import deque
-from time import time, sleep
-import os
-from clamd import clamd_main
-import dbm
-import pickle
-import json
-from shutil import copytree, copyfile
-from crawler import crawler_main
-from typing import Any, Union, Dict, Deque, Tuple, cast, List
-from urllib.parse import urlparse
-import datetime
 
-from file_rw import w_file, r_file, w_json, r_json
+import datetime
+import dbm
+import json
+import os
+import pickle
+from collections import deque
+from logging import getLogger
+from multiprocessing import Process, Queue, cpu_count
+from shutil import copyfile, copytree
+from time import sleep, time
+from typing import Any, Deque, Dict, List, Tuple, Union, cast
+from urllib.parse import urlparse
+
+from clamd import clamd_main
+from crawler import crawler_main
+from file_rw import r_file, r_json, w_file, w_json
+from logger import worker_configurer
 from resources_observer import MemoryObserverThread
 from summarize_alert import summarize_alert_main
 
-from logging import getLogger
-from logger import worker_configurer
 logger = getLogger(__name__)
 
 # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
 filtering_dict: Dict[str, Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]]] = dict()
 clamd_q: Dict[str, Union[Queue[str], Process]] = dict()
-summarize_alert_q: Dict[str, Union[Queue[Dict[str, str]], Queue[str], Process, Dict[str, str]]] = dict()
+summarize_alert_q: Dict[str, Any] = dict()
 
 # これらホスト名辞書はまとめてもいいが、まとめるとどこで何を使ってるか分かりにくくなる
 # ホスト名 : {"URL_list": 待機URLのリスト[(deque)], "update_time": リストからURLをpopした時の時間int}

@@ -1,14 +1,16 @@
-from urllib.parse import urlparse, quote
-from urllib.request import urlopen
-from time import sleep
 from copy import deepcopy
+from json import loads
+from time import sleep
+from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from urllib.parse import quote, urlparse
+from urllib.request import urlopen
+
+import bs4
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
+
 from html_read_thread import UrlOpenReadThread
-from json import loads
 from location import location
-import bs4
-from typing import Tuple, Iterable, Union, Optional, Any, Dict
 
 
 # 一つのURLが持つ情報をまとめたもの

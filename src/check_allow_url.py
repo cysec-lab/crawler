@@ -1,9 +1,9 @@
-from logging import getLogger
-from threading import Thread, Lock
 import socket
-from urllib.parse import urlparse
+from logging import getLogger
+from threading import Lock, Thread
 from time import sleep
-from typing import Union, Any, Tuple, cast, Dict, Optional, List
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from urllib.parse import urlparse
 
 logger = getLogger(__name__)
 
