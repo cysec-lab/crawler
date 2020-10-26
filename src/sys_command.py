@@ -43,8 +43,10 @@ def kill_family(me: str):
     family.reverse()
     logger.info("kill %s's %s", me, family)
     for kill_pid in family:
+        # TODO: Kill したときに対象がなかったら文字列だされるの嫌すぎ
+        # `rm stderr 2> /dev/null` とかにして出力させない？
         try:
-            os.system("kill -9 " + str(kill_pid))
+            subprocess.check_call("kill -9 " + str(kill_pid))
         except Exception as err:
             logger.exception(f'Process kill error: {err}')
         else:
@@ -78,12 +80,14 @@ def kill_chrome(queue_log: Queue[Any], process: str):
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
-        ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE)
-        awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE)
+        ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         proc_list: Iterable[Any] = awk.stdout # type: ignore
     except subprocess.CalledProcessError:
         logger.warning('No Chrome process')
         return 0
+    except Exception as err:
+        logger.exception(f'{err}')
     else:
         for driver in proc_list:
             pid_ppid = driver.decode().rstrip().split(' ')

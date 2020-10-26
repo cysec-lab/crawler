@@ -490,9 +490,12 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         hostName_args[host_name] = args_dic
 
         # プロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
-        p.daemon = True # 親が死ぬと子も死ぬ
-        p.start()       # スタート
+        try:
+            p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
+            p.daemon = True # 親が死ぬと子も死ぬ
+            p.start()       # スタート
+        except Exception as err:
+            logger.exception(f'{err}')
 
         # クローリングプロセスのpidを保存
         hostName_process[host_name] = p
