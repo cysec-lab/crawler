@@ -1,3 +1,4 @@
+from logging import getLogger
 from os import path
 from threading import Thread
 
@@ -8,6 +9,7 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from FirefoxProfile_new import FirefoxProfile
 from location import location
 
+logger = getLogger()
 
 class GetFirefoxDriverThread(Thread):
     def __init__(self, options: FirefoxOptions, ffprofile: FirefoxProfile):
@@ -22,13 +24,17 @@ class GetFirefoxDriverThread(Thread):
             self.driver = webdriver.Firefox(executable_path='/usr/local/bin/geckodriver', firefox_profile=self.fpro,
                                             options=self.options, log_path=path.devnull)
         except selenium.common.exceptions.WebDriverException as e:
-            print(location() + str(e), flush=True)
+            logger.error(f'Web Driver exception: {e}')
+            print('TODO: get_web_driver 27: ' + location() + str(e), flush=True)
             self.driver = False
         except LookupError as e:
-            print(location() + str(e), flush=True)
+            logger.error(f'Look up error: {e}')
+            print('TODO: get_web_driver 31: ' + location() + str(e), flush=True)
             self.driver = False
-        except Exception as e:
-            print(location() + str(e), flush=True)
+        except Exception as err:
+            # TODO: rm
+            logger.exception(f'{err}')
+            print('TODO: get_web_driver 37: ' + location() + str(err), flush=True)
             self.driver = False
         finally:
             self.re = True

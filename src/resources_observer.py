@@ -46,7 +46,8 @@ class MemoryObserverThread(Thread):
                     # else:
                     #     print("else {}".format(proc))
                     #     print("\tppid ={}, parent name ={}".format(proc.ppid(), psutil.Process(proc.ppid()).name()))
-                except Exception:
+                except Exception as err:
+                    logger.exception(f'{err}', err)
                     pass
             sleep(60)
 

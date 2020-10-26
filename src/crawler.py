@@ -433,8 +433,6 @@ def parser(parse_args_dic: Dict[str, Any]):
     if "falsification.cysec" in host:
         logger.info("start parse : URL=%s", page.url)
 
-    url_dict = cast(UrlDict, url_dict)
-
     # スクレイピングするためのsoup
     try:
         # ここで以下のエラーが出るが、soup自体は取得できていて、soup.prettify()もできたので無視する
@@ -1037,7 +1035,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 break
         else:    # それ以外(URLのタプル)
             if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
-                logger.debug("%s : receive '%s'", str(search_tuple[0]))
+                logger.debug("%s : receive '%s'", host, str(search_tuple[0]))
             send_to_parent(q_send, 'receive')
 
         # 検索するURLを取得
@@ -1090,8 +1088,12 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
         # content-typeからウェブページ(str)かその他ファイル(False)かを判断
         file_type = page_or_file(page)
-        update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', page.content_type.replace(',', ':')
+        if page.content_type:
+            update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', page.content_type.replace(',', ':')
                                                             + ',' + page.url + ',' + page.src])  # 記録
+        else:
+            update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', 'NoneType,' + page.url + ',' + page.src]) # 記録
+            logger.warning("Content-type is None: %s", page.url)
 
         if type(file_type) is str:   # ウェブページの場合
             # img_name = False
