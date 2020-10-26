@@ -433,8 +433,6 @@ def parser(parse_args_dic: Dict[str, Any]):
     if "falsification.cysec" in host:
         logger.info("start parse : URL=%s", page.url)
 
-    url_dict = cast(UrlDict, url_dict)
-
     # スクレイピングするためのsoup
     try:
         # ここで以下のエラーが出るが、soup自体は取得できていて、soup.prettify()もできたので無視する
