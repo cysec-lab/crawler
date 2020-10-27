@@ -21,6 +21,8 @@ class GetFirefoxDriverThread(Thread):
 
     def run(self):
         try:
+            logger.debug("get webdriver")
+            print("TODO: get_web_Driver 25: get web driver.")
             self.driver = webdriver.Firefox(executable_path='/usr/local/bin/geckodriver', firefox_profile=self.fpro,
                                             options=self.options, log_path=path.devnull)
         except selenium.common.exceptions.WebDriverException as e:

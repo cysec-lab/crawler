@@ -60,7 +60,6 @@ def make_idf_dict_frequent_word_dict(queue_log: Queue[Any],org_path: str):
     for file_name, dic in df_dict.items():
         frequent_words: list[str] = list()
         for word, _ in sorted(dic.items(), key=lambda x: x[1], reverse=True):
-            # TODO: _ is df, save it
             if word != 'NumOfPages':
                 frequent_words.append(word)
             if len(frequent_words) == n:

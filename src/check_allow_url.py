@@ -113,7 +113,7 @@ def check_searched_url(url_tuple: Tuple[str, str], run_time: int, filtering_dict
     return False
 
 
-def inspection_url_by_filter(url_list: list[str], filtering_dict: Any, special_filter: Optional[Dict[str, List[str]]]=None) -> set[Tuple[str, Union[str,bool]]]:
+def inspection_url_by_filter(url_list: set[str], filtering_dict: Any, special_filter: Optional[Dict[str, List[str]]]=None) -> set[Tuple[str, Union[str,bool]]]:
     """
     url_listのURLが安全かどうかをフィルタを使って確かめる
     診断が終わったURLの集合。 要素はタプル(url, "診断結果")

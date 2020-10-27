@@ -323,19 +323,19 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             return ['infoGetError_browser', page.url + '\n'] # type: ignore
 
 
-def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str) -> List[str]:
+def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str) -> set[str]:
     """
     watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、
     そのURLをリストで返す
     """
-    url_list: list[str] = list()
+    url_list: set[str] = set()
     try:
-        windows: list[str] = driver.window_handles # type: ignore
+        windows: set[str] = driver.window_handles # type: ignore
         for window in windows:
             if (window == watcher_id) or (window == base_id):
                 continue
             driver.switch_to.window(window)
-            url_list.append(cast(str, driver.current_url))
+            url_list.add(cast(str, driver.current_url))
             driver.close()
         logger.debug("get other url, switch to watcher page... %s", str(watcher_id))
         driver.switch_to.window(watcher_id)

@@ -154,13 +154,13 @@ def meta_refresh_inspection(soup: BeautifulSoup) -> Union[list[ResultSet], bool]
         return False
 
 
-def get_meta_refresh_url(meta_refresh_list: list[ResultSet], page: Page) -> list[str]:
+def get_meta_refresh_url(meta_refresh_list: list[ResultSet], page: Page) -> set[str]:
     """
     meta-refresh の src を 正規化して返す
     """
     # 'URL'の文字の大文字小文字混ぜ合わせた全てのリストを得る
     url_str_list = str_mix_upper_lower('url')
-    meta_refresh_url_list: list[str] = list()
+    meta_refresh_url_list: set[str] = set()
     for meta_refresh in meta_refresh_list:
         meta_refresh_content: Any = meta_refresh.get('content')
         if not (meta_refresh_content is None):
@@ -171,7 +171,7 @@ def get_meta_refresh_url(meta_refresh_list: list[ResultSet], page: Page) -> list
                     meta_refresh_url = meta_refresh_content[url_start + 3:]
                     if not(meta_refresh_url.startswith('http')):
                         meta_refresh_url: str = page.comp_http(page.url, meta_refresh_url)
-                    meta_refresh_url_list.append(meta_refresh_url)
+                    meta_refresh_url_list.add(meta_refresh_url)
     return meta_refresh_url_list
 
 
