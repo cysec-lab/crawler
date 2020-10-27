@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import csv
 import os
 from logging import getLogger
+from multiprocessing.queues import Queue
 from time import sleep
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, Union, cast
 from urllib.parse import urlparse
 
 from selenium.common.exceptions import (NoAlertPresentException,
@@ -145,7 +148,7 @@ def get_watcher_window(driver: WebDriver, wait: WebDriverWait) -> Union[bool, in
     else:
         return watcher_window
 
-def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
+def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
     """
     Firefoxを使うためのdriverをヘッドレスモードで起動
     ファイルダウンロード可能
@@ -211,7 +214,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     # Todo: メモリが足りなかったらドライバーの取得でフリーズする
     try:
-        t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
+        t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=fpro)
         t.daemon = True
         t.start()
         t.join(10)
@@ -220,7 +223,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
         logger.exception(f'Faild to get Firefox Driver Thread, retrying: {err}')
         sleep(10)
         try:
-            t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
+            t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=fpro)
             t.daemon = True
             t.start()
             t.join(10)
@@ -323,19 +326,19 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             return ['infoGetError_browser', page.url + '\n'] # type: ignore
 
 
-def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str) -> List[str]:
+def get_window_url(driver: WebDriver, watcher_id: Union[int, str], base_id: str) -> set[str]:
     """
     watcher と ベースのタブ以外のタブまたはウィンドウが開いていると、
     そのURLをリストで返す
     """
-    url_list: list[str] = list()
+    url_list: set[str] = set()
     try:
-        windows: list[str] = driver.window_handles # type: ignore
+        windows: set[str] = driver.window_handles # type: ignore
         for window in windows:
             if (window == watcher_id) or (window == base_id):
                 continue
             driver.switch_to.window(window)
-            url_list.append(cast(str, driver.current_url))
+            url_list.add(cast(str, driver.current_url))
             driver.close()
         logger.debug("get other url, switch to watcher page... %s", str(watcher_id))
         driver.switch_to.window(watcher_id)

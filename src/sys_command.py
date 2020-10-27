@@ -42,8 +42,6 @@ def kill_family(me: str):
     family.reverse()
     logger.info("kill %s's %s", me, family)
     for kill_pid in family:
-        # TODO: Kill したときに対象がなかったら文字列だされるの嫌すぎ
-        # `rm stderr 2> /dev/null` とかにして出力させない？
         try:
             subprocess.check_call(['kill', '-9', str(kill_pid)], stderr=subprocess.DEVNULL)
         except Exception as err:

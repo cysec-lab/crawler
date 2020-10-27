@@ -259,8 +259,6 @@ def save_result(alert_process_q: Queue[Dict[str, str]]):
     args:
         alert_process_q: 
     """
-    url_dict = cast(UrlDict, url_dict)
-
     url_dict.save_url_dict()
     if word_df_dict:
         logger.debug('%s: word_df_dict exist', f_name)
@@ -457,7 +455,7 @@ def parser(parse_args_dic: Dict[str, Any]):
         with link_set_lock:  # リンク集合の更新
             link_set.update(page.normalized_links)
         # フィルタを通してURLを判定
-        normalize_links = list(page.normalized_links)
+        normalize_links = page.normalized_links
         result_set = inspection_url_by_filter(url_list=normalize_links, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
         # 検査結果がFalse(組織外)、もしくは"Unknown"(不明)だったURLを外部ファイルに出力
@@ -645,19 +643,19 @@ def parser(parse_args_dic: Dict[str, Any]):
         # formのaction先が未知のサーバかどうか
         url_list = form_result["form_action"]
         # URLを正規化
-        url_list_temp: List[str] = list()
+        url_list_temp: set[str] = set()
         for url in url_list:
             if not (url.startswith('http')):
                 url = page.comp_http(page.url, url)
                 if url == '#':  # 'javascript:'から始まるものや'#'から始まるもの
                     continue
-            url_list_temp.append(url)
+            url_list_temp.add(url)
         # リンクURLのフィルタに通す(本当はformURL専用のホワイトリストを作成するべきだが、時間がなかった)
         result_set = inspection_url_by_filter(url_list=url_list_temp, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
         # リンクURLのフィルタを通した結果、False(組織外)もしくは"Unknown"(不明)だったものを
         # TODO: set だったものを勝手にlistにしたけど大丈夫だよね...
-        strange_set = list([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
+        strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
             # 次はリクエストURLのフィルタに通す
             result_set = inspection_url_by_filter(url_list=strange_set, filtering_dict=filtering_dict,
@@ -880,7 +878,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
     # if check_redirect(page, host) is not True:
     # requestURLが取れていたら、フィルタを通して疑わしいリクエストがあればアラート
     if page.request_url:
-        page_request_url = cast(List[str], page.request_url)
+        page_request_url = page.request_url
         request_url_set = request_url_set.union(page.request_url)
         result_set = inspection_url_by_filter(url_list=page_request_url, filtering_dict=filtering_dict,
                                               special_filter=request_url_filter)
@@ -912,7 +910,8 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
 
     # URL遷移の記録があれば、リンクのフィルタを通し、疑わしいURLを含んでいればアラート
     if page.among_url:
-        result_set = inspection_url_by_filter(url_list=page.among_url, filtering_dict=filtering_dict,
+        among_url_set = set(page.among_url)
+        result_set = inspection_url_by_filter(url_list=among_url_set, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
@@ -934,6 +933,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     """
     global org_path, num_of_pages, num_of_files
     worker_configurer(queue_log, logger)
+
+    logger.info("crawler_main start")
 
     page = None
     error_break = False
@@ -959,8 +960,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         sys.stdout = f
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
+    # TODO: ここが失敗している？Driverのエラーの原因はここらっぽい
     if use_browser:
-        driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+        driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
@@ -1075,7 +1077,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         # リダイレクトのチェック
         redirect = check_redirect(page, host)
         if redirect is True:   # 別サーバへリダイレクトしていればTrue、親プロセス(main.py)にそのURLを送信して、次のURLへ
-            result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
+            page_url_set = set(page.url)
+            result_set = inspection_url_by_filter(url_list=page_url_set, filtering_dict=filtering_dict)
             send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                     "url_src": page.src})
             continue
@@ -1136,7 +1139,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
-                    driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+                    driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
                         break
@@ -1184,7 +1187,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 # リダイレクトのチェック
                 redirect = check_redirect(page, host)
                 if redirect is True:    # リダイレクトでサーバが変わっていれば
-                    result_set = inspection_url_by_filter(url_list=[page.url], filtering_dict=filtering_dict)
+                    page_url_set = set(page.url)
+                    result_set = inspection_url_by_filter(url_list=page_url_set, filtering_dict=filtering_dict)
                     send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                             "url_src": page.src})
                     continue

@@ -1,5 +1,6 @@
 from copy import deepcopy
 from json import loads
+from logging import getLogger
 from time import sleep
 from typing import Any, Dict, Iterable, Optional, Tuple, Union
 from urllib.parse import quote, urlparse
@@ -12,6 +13,7 @@ from bs4.element import ResultSet
 from html_read_thread import UrlOpenReadThread
 from location import location
 
+logger = getLogger()
 
 # 一つのURLが持つ情報をまとめたもの
 # メソッドは自分のプロパティを設定するもの(PhantomJSを使わずに)
@@ -132,8 +134,10 @@ class Page:
                 self.url = self.url_urlopen
             else:
                 self.url = ''
-            # if self.content_type is None:
-            #     self.content_type = ''
+            if self.content_type is None:
+                # TODO: rm
+                logger.warning('Content-type is None: %s', self.url)
+                print('TODO: webpage 139: Content-type is None: ', self.url)
             self.hostName = urlparse(self.url).netloc # type: ignore
             self.scheme = urlparse(self.url).scheme # type: ignore
         return True
