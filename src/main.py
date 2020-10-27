@@ -198,7 +198,7 @@ def main(organization: str):
 
 if __name__ == '__main__':
     # spawnで子プロセス生成
-    # set_start_method('spawn')
+    set_start_method('spawn')
 
     args = sys.argv
     if len(args) != 2:
