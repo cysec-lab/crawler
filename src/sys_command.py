@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import subprocess
 from logging import getLogger
 from multiprocessing import Queue
@@ -46,7 +45,7 @@ def kill_family(me: str):
         # TODO: Kill したときに対象がなかったら文字列だされるの嫌すぎ
         # `rm stderr 2> /dev/null` とかにして出力させない？
         try:
-            subprocess.check_call("kill -9 " + str(kill_pid))
+            subprocess.check_call(['kill', '-9', str(kill_pid)], stderr=subprocess.DEVNULL)
         except Exception as err:
             logger.exception(f'Process kill error: {err}')
         else:
@@ -80,8 +79,10 @@ def kill_chrome(queue_log: Queue[Any], process: str):
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
-        ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # TODO: 一応追加したけど大丈夫かな
+        ps.stdout.close()
         proc_list: Iterable[Any] = awk.stdout # type: ignore
     except subprocess.CalledProcessError:
         logger.warning('No Chrome process')
