@@ -31,9 +31,7 @@ def receive(recvq: Queue[str]):
     while True:
         recv = recvq.get(block=True)
         if recv == 'end':
-            # TODO: rm
             logger.info('Clamd Process received end')
-            print('clamd process : receive end')
             end = True
             break
         else:
@@ -45,7 +43,6 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
     # clamAVのデーモンが動いているか確認
     while True:
         try:
-            # TODO: rm
             logger.info('Clamd Process connect...')
             cd = pyclamd.ClamdAgnostic()
             pin = cd.ping()
@@ -93,9 +90,7 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
                     os.mkdir(org_path + '/clamd_files')
                 w_file(org_path + '/clamd_files/b_' + str(len(listdir(org_path + '/clamd_files'))+1) + '.clam',
                        url + '\n' + str(byte), mode="a")
-            # TODO: rm
             logger.info('clamd have scanned: %s', url)
-            print('clamd : ' + url + ' have scanned.')
 
         # エラーログが一定数を超えると外部ファイルに書き出す
         if len(clamd_error) > 100:
@@ -110,6 +105,6 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
         text += i + '\n'
     w_file('clamd_error.txt', text, mode="a")
     clamd_error.clear()
-    print('clamd : ended')
 
+    logger.debug("Clamd end")
     sendq.put('end')   # 親にendを知らせる

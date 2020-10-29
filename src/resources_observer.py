@@ -205,7 +205,7 @@ def main():
 
     # メモリ使用量確認
     mem_per: float = psutil.virtual_memory().percent
-    logger.info("Used RAM percent is %d%", mem_per)
+    logger.info("Used RAM percent is %f%", mem_per)
     print("TODO: Used RAM percent is {}%.".format(mem_per))
 
     # クローラが実行されていないのに、メモリを50%使っているのはおかしいので再起動

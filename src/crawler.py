@@ -934,6 +934,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     global org_path, num_of_pages, num_of_files
     worker_configurer(queue_log, logger)
 
+    logger.info("crawler_main start")
+
     page = None
     error_break = False
 
@@ -958,8 +960,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         sys.stdout = f
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
+    # TODO: ここが失敗している？Driverのエラーの原因はここらっぽい
     if use_browser:
-        driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+        driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
@@ -1136,7 +1139,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
-                    driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+                    driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
                         break

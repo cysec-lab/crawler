@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import csv
 import os
 from logging import getLogger
+from multiprocessing.queues import Queue
 from time import sleep
-from typing import Any, Dict, List, Union, cast
+from typing import Any, Dict, Union, cast
 from urllib.parse import urlparse
 
 from selenium.common.exceptions import (NoAlertPresentException,
@@ -145,7 +148,7 @@ def get_watcher_window(driver: WebDriver, wait: WebDriverWait) -> Union[bool, in
     else:
         return watcher_window
 
-def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
+def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
     """
     Firefoxを使うためのdriverをヘッドレスモードで起動
     ファイルダウンロード可能
@@ -211,7 +214,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     # Todo: メモリが足りなかったらドライバーの取得でフリーズする
     try:
-        t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
+        t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=fpro)
         t.daemon = True
         t.start()
         t.join(10)
@@ -220,7 +223,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
         logger.exception(f'Faild to get Firefox Driver Thread, retrying: {err}')
         sleep(10)
         try:
-            t = GetFirefoxDriverThread(options=options, ffprofile=fpro)
+            t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=fpro)
             t.daemon = True
             t.start()
             t.join(10)
