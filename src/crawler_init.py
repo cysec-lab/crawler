@@ -508,7 +508,10 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             hostName_achievement[host_name] = 0
 
         # プロセス開始通知
-        logger.info("%s's process start(pid=%d)", host_name, p.pid)
+        if p.pid:
+            logger.info("%s's process start(pid=%d)", host_name, p.pid)
+        else:
+            logger.warning("Try to start %s's process, but pid is None", host_name)
 
     else:
         # 一度プロセスを作ったことのあるホストに対して

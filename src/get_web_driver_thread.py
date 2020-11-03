@@ -11,7 +11,6 @@ from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
 from FirefoxProfile_new import FirefoxProfile
-from location import location
 from logger import worker_configurer
 
 logger = getLogger()
