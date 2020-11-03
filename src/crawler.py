@@ -19,21 +19,24 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
 from check_allow_url import inspection_url_by_filter
-from file_rw import r_file, w_file
 from inspection_page import (form_inspection, get_meta_refresh_url,
                              iframe_inspection, meta_refresh_inspection,
                              script_inspection)
-from location import location
-from logger import worker_configurer
 from mecab import (add_word_dic, get_tf_dict_by_mecab, get_top10_tfidf,
                    make_tfidf_dict)
-from resources_observer import cpu_checker, get_family, memory_checker
 from robotparser_new_kai import RobotFileParser
 from sys_command import kill_chrome
 from urldict import UrlDict
-from use_browser import (create_blank_window, get_fox_driver, get_window_url,
-                         quit_driver, set_html, start_watcher_and_move_blank,
-                         stop_watcher_and_get_data, take_screenshots)
+from utils.file_rw import r_file, w_file
+from utils.location import location
+from utils.logger import worker_configurer
+from webdrivers.resources_observer import (cpu_checker, get_family,
+                                           memory_checker)
+from webdrivers.use_browser import (create_blank_window, get_fox_driver,
+                                    get_window_url, quit_driver, set_html,
+                                    start_watcher_and_move_blank,
+                                    stop_watcher_and_get_data,
+                                    take_screenshots)
 from webpage import Page
 
 html_special_char: List[Tuple[str, ...]] = list()  # URLの特殊文字を置換するためのリスト

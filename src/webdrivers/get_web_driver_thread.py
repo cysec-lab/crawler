@@ -9,9 +9,9 @@ from typing import Any
 import selenium.common
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
+from utils.logger import worker_configurer
 
-from FirefoxProfile_new import FirefoxProfile
-from logger import worker_configurer
+from .firefox_custom_profile import FirefoxProfile
 
 logger = getLogger()
 

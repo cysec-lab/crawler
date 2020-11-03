@@ -7,9 +7,8 @@ from time import sleep
 from typing import Any, Dict, List, Tuple, Union
 
 import psutil
-
-from location import location
-from logger import worker_configurer
+from utils.location import location
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 

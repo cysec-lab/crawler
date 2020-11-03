@@ -11,8 +11,8 @@ from typing import Any, List, Union
 
 import pyclamd
 
-from file_rw import w_file
-from logger import worker_configurer
+from utils.file_rw import w_file
+from utils.logger import worker_configurer
 
 end = False                     # メインプロセスから'end'が送られてくると終了
 data_list = deque()             # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]

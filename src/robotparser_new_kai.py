@@ -10,12 +10,10 @@
     http://www.robotstxt.org/norobots-rfc.txt
 """
 
+import re
 import urllib.parse
 import urllib.request
-import re
-
 from typing import Any, List, NamedTuple, Optional
-
 
 __all__ = ["RobotFileParser"]
 

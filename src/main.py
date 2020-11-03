@@ -5,18 +5,18 @@ import shutil
 import sys
 from datetime import datetime
 from logging import getLogger
-from multiprocessing import Process, Queue, set_start_method
+from multiprocessing import Process, Queue
 from typing import Any, Dict, Optional
 
 from crawler_deinit import del_and_make_achievement
 from crawler_init import crawler_host
 from falcification_dealing import copy_ROD_from_cysec, del_falsification_RAD
-from logger import (log_listener_configure, log_listener_process,
-                    worker_configurer)
 from make_filter_from_past_data import (
     make_filter, make_idf_dict_frequent_word_dict,
     make_request_url_iframeSrc_link_host_set, merge_filter)
 from sys_command import kill_chrome
+from utils.logger import (log_listener_configure, log_listener_process,
+                          worker_configurer)
 
 queue_log: Queue[Any] = Queue(-1)
 logger = getLogger(__name__)

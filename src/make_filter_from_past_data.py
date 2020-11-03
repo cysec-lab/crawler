@@ -10,8 +10,8 @@ from multiprocessing import Queue
 from typing import Any, Dict
 from urllib.parse import urlparse
 
-from file_rw import r_file
-from logger import worker_configurer
+from utils.file_rw import r_file
+from utils.logger import worker_configurer
 
 request_url = set()  # matome.jsonに保存する内容
 iframe_url = set()   # グローバル変数にしておかないと、exec()関数内で更新できない

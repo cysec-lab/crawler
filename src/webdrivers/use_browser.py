@@ -8,6 +8,7 @@ from time import sleep
 from typing import Any, Dict, Union, cast
 from urllib.parse import urlparse
 
+from html_read_thread import WebDriverGetThread
 from selenium.common.exceptions import (NoAlertPresentException,
                                         TimeoutException)
 from selenium.webdriver.common.alert import Alert
@@ -16,11 +17,10 @@ from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-
-from FirefoxProfile_new import FirefoxProfile
-from get_web_driver_thread import GetFirefoxDriverThread
-from html_read_thread import WebDriverGetThread
 from webpage import Page
+
+from .firefox_custom_profile import FirefoxProfile
+from .get_web_driver_thread import GetFirefoxDriverThread
 
 logger = getLogger(__name__)
 
@@ -170,7 +170,7 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
     # アドオン使えるように
     src_dir = ""
     try:
-        src_dir = os.path.dirname(os.path.abspath(__file__))  # このファイル位置の絶対パスで取得 「*/src」
+        src_dir = os.path.dirname(os.path.abspath(__file__)) + '/..'  # このファイル位置の絶対パスで取得 「*/src」
         extension_dir = src_dir + '/extensions'
         fpro.add_extension(extension=extension_dir + '/CrawlerExtension.xpi')
     except Exception as err:

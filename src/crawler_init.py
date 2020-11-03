@@ -15,10 +15,10 @@ from urllib.parse import urlparse
 
 from clamd import clamd_main
 from crawler import crawler_main
-from file_rw import r_file, r_json, w_file, w_json
-from logger import worker_configurer
-from resources_observer import MemoryObserverThread
 from summarize_alert import summarize_alert_main
+from utils.file_rw import r_file, r_json, w_file, w_json
+from utils.logger import worker_configurer
+from webdrivers.resources_observer import MemoryObserverThread
 
 logger = getLogger(__name__)
 

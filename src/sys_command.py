@@ -5,7 +5,7 @@ from logging import getLogger
 from multiprocessing import Queue
 from typing import Any, Iterable, List
 
-from logger import worker_configurer
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 

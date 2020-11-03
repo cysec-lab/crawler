@@ -7,8 +7,8 @@ from os import mkdir, path
 from threading import Event, Thread
 from typing import Any
 
-from file_rw import w_file
-from logger import worker_configurer
+from utils.file_rw import w_file
+from utils.logger import worker_configurer
 
 data_list = deque()
 event = Event()
