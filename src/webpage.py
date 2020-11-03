@@ -13,7 +13,7 @@ from bs4.element import ResultSet
 from html_read_thread import UrlOpenReadThread
 from utils.location import location
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 # 一つのURLが持つ情報をまとめたもの
 # メソッドは自分のプロパティを設定するもの(PhantomJSを使わずに)

@@ -1,81 +1,21 @@
 from __future__ import annotations
 
-import csv
 import os
 from logging import getLogger
-from multiprocessing.queues import Queue
 from time import sleep
-from typing import Any, Dict, Union, cast
+from typing import Any, Union, cast
 from urllib.parse import urlparse
 
 from html_read_thread import WebDriverGetThread
-from selenium.common.exceptions import (NoAlertPresentException,
-                                        TimeoutException)
+from selenium.common.exceptions import NoAlertPresentException
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
-from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 from webpage import Page
 
-from .firefox_custom_profile import FirefoxProfile
-from .get_web_driver_thread import GetFirefoxDriverThread
-
 logger = getLogger(__name__)
-
-def stop_watcher_and_get_data(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int], page: Page) -> bool:
-    """
-    Watcher.htmlのStop Watchingボタンをクリック。
-    拡張機能が監視を終え、収集したデータを記録。
-    """
-    logger.debug("Watcher: stop")
-    try:
-        # watcher.htmlに移動してstopをクリック
-        # クリックすると、Watcher.htmlのdivタグ(id="contents")の中に、収集したデータを記録する
-        driver.switch_to.window(watcher_window)
-        wait.until(expected_conditions.visibility_of_element_located((By.ID, "stop")))
-        elm = driver.find_element_by_id("stop")
-        elm.click()
-
-        # contentsの最後の要素がDOMに現れるまで待つ
-        wait.until(expected_conditions.presence_of_element_located((By.ID, "EndOfData")))
-
-        # watcher.htmlのHTMLをpageインスタンスのプロパティに保存
-        page.watcher_html = driver.page_source # type: ignore
-
-        # clearContentsをクリック
-        elm: Any = driver.find_element_by_id("clearContents")
-        elm.click()
-        # 最後の要素が消えるまで待つ
-        wait.until(expected_conditions.invisibility_of_element_located((By.ID, "EndOfData")))
-    except Exception as err:
-        logger.exception(f'{err}')
-        return False
-    else:
-        logger.debug("Watcher: Get data from Watcher")
-        return True
-
-
-def start_watcher_and_move_blank(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[int, str], blank_window: str) -> bool:
-    """
-    watcher.htmlのStart Watchingボタンをクリック。拡張機能が監視を始める
-    """
-    logger.debug("Watcher: starting...")
-    try:
-        driver.switch_to.window(watcher_window)
-        wait.until(expected_conditions.visibility_of_element_located((By.ID, "start")))
-        elm: Any = driver.find_element_by_id("start")
-        elm.click()
-        driver.switch_to.window(blank_window)
-        wait.until(lambda d: "Watcher" != driver.title) # type: ignore
-    except Exception as err:
-        logger.exception(f'{err}')
-        return False
-    else:
-        logger.debug("Watcher: started!")
-        return True
-
 
 def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int]) -> Union[bool, str]:
     """
@@ -111,157 +51,6 @@ def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: 
         return blank_window
 
 
-def get_watcher_window(driver: WebDriver, wait: WebDriverWait) -> Union[bool, int, str]:
-    """
-    driverを取得した直後に呼ぶ
-    """
-    watcher_window = False
-    logger.debug("Try to access extension page")
-    try:
-        wait.until(expected_conditions.visibility_of_all_elements_located((By.ID, "button")))
-        wait.until(expected_conditions.presence_of_element_located((By.ID, "DoneAttachJS")))
-    except TimeoutException as err:
-        logger.exception(f"fail to access extension page by timeout: {err}")
-        return False
-    except Exception as err:
-        logger.exception(f'fail to access extension page: {err}')
-        return False
-    try:
-        windows: list[Union[int, str]] = driver.window_handles # type: ignore
-        for window in windows:
-            driver.switch_to.window(window)
-            title = driver.title # type: ignore
-            if title == "Watcher":
-                watcher_window = window
-            else:
-                logger.debug("Fail to access Watcher extension, closing...")
-                driver.close()
-    except Exception as err:
-        # 最悪、エラーが起きてもwatcher_windowがわかればよい
-        logger.exception(f'Fail to open extension: {err}')
-
-    try:
-        driver.switch_to.window(watcher_window)
-    except Exception as err:
-        logger.exception(f"Faild to switch to extension page: {err}")
-        return False
-    else:
-        return watcher_window
-
-def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
-    """
-    Firefoxを使うためのdriverをヘッドレスモードで起動
-    ファイルダウンロード可能
-    RequestURLの取得可能(アドオンを用いて)
-    ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
-    """
-    logger.debug("Setting FireFox driver...")
-    # headless FireFoxの設定
-    options: FirefoxOptions = FirefoxOptions()
-    fpro: FirefoxProfile = FirefoxProfile()
-
-    # ヘッドレスモードに
-    options.add_argument('-headless')
-
-    # user agent
-    if user_agent:
-        fpro.set_preference('general.useragent.override', user_agent)
-
-    # アドオン使えるように
-    src_dir = ""
-    try:
-        src_dir = os.path.dirname(os.path.abspath(__file__)) + '/..'  # このファイル位置の絶対パスで取得 「*/src」
-        extension_dir = src_dir + '/extensions'
-        fpro.add_extension(extension=extension_dir + '/CrawlerExtension.xpi')
-    except Exception as err:
-        logger.exception(f'Failed to add_extension: {err}')
-
-    # ファイルダウンロードできるように
-    if org_path:
-        fpro.set_preference('browser.download.folderList', 2)
-        # 0:デスクトップ
-        # 1:Downloadフォルダ
-        # 2:ユーザ定義フォルダ
-        fpro.set_preference('browser.download.dir', org_path + '/result/Download')
-        # なければ作られる
-    else:
-        fpro.set_preference('browser.download.folderList', 0)
-    # ダウンロードマネージャ起動しないように
-    fpro.set_preference('browser.download.manager.showWhenStarting', False)
-    fpro.set_preference('browser.helpApps.alwaysAsk.force', False)
-    fpro.set_preference('browser.download.manager.alertOnEXEOpen', False)
-    fpro.set_preference('browser.download.manager.closeWhenDone', True)
-    # ダウンロード可能なMimeタイプの設定
-    mime_list: list[str] = list()
-    mime_file_dir = src_dir + '/files/mime'
-    for csv_file in os.listdir(mime_file_dir):
-        if not csv_file.endswith(".csv"):
-            continue
-        try:
-            with open(mime_file_dir + "/" + csv_file) as f:
-                csv_reader = csv.DictReader(f)
-                for row in csv_reader:
-                    if row["Template"]:
-                        mime_list.append(row["Template"])
-        except csv.Error as err:
-            logger.exception(f'{err}')
-    fpro.set_preference('browser.helperApps.neverAsk.saveToDisk', ','.join(mime_list))
-
-    # コンソールログを取得するために必要(ffではすべてのログが見れない)
-    # d = DesiredCapabilities.FIREFOX
-    # d['loggingPrefs'] = {'browser': 'ALL', 'driver': 'ALL', 'client': 'ALL', 'performance': 'ALL', 'server': 'ALL'}
-
-    # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
-    # Todo: メモリが足りなかったらドライバーの取得でフリーズする
-    try:
-        t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=fpro)
-        t.daemon = True
-        t.start()
-        t.join(10)
-    except Exception as err:
-        # runtime error とか
-        logger.exception(f'Faild to get Firefox Driver Thread, retrying: {err}')
-        sleep(10)
-        try:
-            t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=fpro)
-            t.daemon = True
-            t.start()
-            t.join(10)
-        except Exception:
-            logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')
-            return False
-
-    if t.re is False:
-        # ドライバ取得でフリーズしている場合
-        if type(t.driver) == WebDriver:
-            driver = cast(WebDriver, t.driver)
-            quit_driver(driver) # 一応終了させて
-        logger.info("Fail to getting driver: Freeze, return fail")
-        return False
-    if t.driver is False:
-        # 単にエラーで取得できなかった場合
-        logger.info("Fail to getting driver: Error, return fail")
-        return False
-    if type(t.driver) == WebDriver:
-        driver = cast(WebDriver, t.driver)
-        driver.set_window_size(1280, 1024)
-    else:
-        return False
-
-    # 拡張機能のwindowIDを取得し、それ以外のwindowを閉じる
-    # geckodriver 0.21.0 から HTTP/1.1 になった？ Keep-Aliveの設定が5秒のせいで、5秒間driverにコマンドがいかなかったらPipeが壊れる.
-    # 0.20.1 にダウングレードするか、seleniumを最新にアップグレードすると、 Broken Pipe エラーは出なくなる。
-    wait = WebDriverWait(driver, 5)
-    watcher_window = get_watcher_window(driver, wait)
-    if watcher_window is False:
-        logger.warning("Fail to get watcher window, return fail")
-        return False
-    watcher_window = cast(Union[str, int], watcher_window)
-
-    logger.debug("Setting FireFox driver... FIN!")
-    return {"driver": driver, "wait": wait, "watcher_window": watcher_window}
-
-
 def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
     """
     ブラウザでURLにアクセス、HTMLを取得する
@@ -271,6 +60,8 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         t = WebDriverGetThread(driver, page.url)
         t.start()
         t.join(timeout=60)   # 60秒のロード待機時間
+        if t.is_alive():
+            raise TimeoutError
     except Exception:
         # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
         sleep(10)
@@ -278,6 +69,8 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             t = WebDriverGetThread(driver, page.url)
             t.start()
             t.join(timeout=60)  # 60秒のロード待機時間
+            if t.is_alive():
+                raise TimeoutError
         except Exception as err:
             logger.exception(f"Failed to get WebDriver thread error: {err}")
             return ['makingWebDriverGetThreadError', page.url + '\n' + str(err)]
@@ -304,7 +97,7 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         except NoAlertPresentException:
             break
         except Exception as err:
-            logger.exception(f"get Alert from browser: {err}")
+            logger.warning(f"get Alert from browser: {err}")
             return ["getAlertError_browser", page.url + "\n" + str(err)]
 
     # ブラウザから、現在開いているURLとそのHTMLを取得

@@ -32,11 +32,11 @@ from utils.location import location
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import (cpu_checker, get_family,
                                            memory_checker)
-from webdrivers.use_browser import (create_blank_window, get_fox_driver,
-                                    get_window_url, quit_driver, set_html,
-                                    start_watcher_and_move_blank,
-                                    stop_watcher_and_get_data,
-                                    take_screenshots)
+from webdrivers.use_browser import (create_blank_window, get_window_url,
+                                    quit_driver, set_html, take_screenshots)
+from webdrivers.use_extentions import (start_watcher_and_move_blank,
+                                       stop_watcher_and_get_data)
+from webdrivers.webdriver_init import get_fox_driver
 from webpage import Page
 
 html_special_char: List[Tuple[str, ...]] = list()  # URLの特殊文字を置換するためのリスト
