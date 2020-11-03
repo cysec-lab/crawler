@@ -21,10 +21,7 @@ class MemoryObserverThread(Thread):
         self.limit = limit
 
     def run(self): # type: ignore
-        """
-        TODO オーバライドしていいのここ？？
-        """
-        proc_name: List[str] = ["geckodriver", "firefox"]
+        proc_name: List[str] = ["geckodriver", "firefox-bin"]
         while True:
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")

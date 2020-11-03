@@ -167,7 +167,7 @@ def main(organization: str):
 
         # 孤児のchrome じゃなくてfirefoxをkill
         kill_chrome(queue_log, process='geckodriver')
-        kill_chrome(queue_log, process='firefox')
+        kill_chrome(queue_log, process='firefox-bin')
 
         logger.info('save used ROD before overwriting the ROD directory : START')
         save_rod(org_arg)

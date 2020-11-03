@@ -970,7 +970,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
             kill_chrome(queue_log, "geckodriver")
-            kill_chrome(queue_log, "firefox")
+            kill_chrome(queue_log, "firefox-bin")
             os._exit(0) # type: ignore
 
         driver_info = cast(Dict[str, Any], driver_info)
