@@ -7,7 +7,7 @@ from typing import Any, Union, cast
 from urllib.parse import urlparse
 
 from html_read_thread import WebDriverGetThread
-from selenium.common.exceptions import NoAlertPresentException
+from selenium.common.exceptions import NoAlertPresentException, TimeoutException
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
@@ -61,8 +61,9 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         t.start()
         t.join(timeout=60)   # 60秒のロード待機時間
         if t.is_alive():
-            raise TimeoutError
-    except Exception:
+            raise Exception(TimeoutException)
+    except Exception as err:
+        logger.info(f"Failed to access {page.url}: {err}")
         # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
         sleep(10)
         try:
@@ -70,7 +71,7 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             t.start()
             t.join(timeout=60)  # 60秒のロード待機時間
             if t.is_alive():
-                raise TimeoutError
+                raise Exception(TimeoutException)
         except Exception as err:
             logger.exception(f"Failed to get WebDriver thread error: {err}")
             return ['makingWebDriverGetThreadError', page.url + '\n' + str(err)]

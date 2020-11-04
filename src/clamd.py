@@ -80,7 +80,7 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
         try:
             result = cd.scan_stream(byte) # type: ignore
         except Exception as err:
-            logger.exception('Exception has occur, URL={url}, {err}')
+            logger.exception(f'Exception has occur, URL={url}, {err}')
             clamd_error.append(url + '\n' + str(err))
         else:
             # 検知されると結果を記録

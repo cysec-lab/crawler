@@ -43,10 +43,10 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
         t.start()
         t.join(10.0)
         if t.is_alive():
-            raise TimeoutException
+            raise Exception(TimeoutException)
     except Exception as err:
         # runtime error とか
-        logger.exception(f'Faild to get Firefox Driver Thread, retrying: {err}')
+        logger.info(f'Faild to get Firefox Driver Thread, retrying: {err}')
         sleep(10.0)
         try:
             t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
@@ -54,7 +54,7 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
             t.start()
             t.join(10.0)
             if t.is_alive():
-                raise TimeoutException
+                raise Exception(TimeoutException)
         except Exception as err:
             # runtime error とか
             logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')

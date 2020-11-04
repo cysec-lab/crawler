@@ -687,8 +687,10 @@ def parser(parse_args_dic: Dict[str, Any]):
     try:
         parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
         del parser_threadId_time[threading.get_ident()]
-    except KeyError as err:
-        logger.exception(f"{host} thread was deleted\n Exception occur: {err}")
+    except KeyError:
+        logger.info(f"{host} thread was deleted by del_thread")
+    except Exception as err:
+        logger.exception(f"Failed to del thread: {err}")
         pass
 
 

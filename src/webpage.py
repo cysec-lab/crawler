@@ -135,9 +135,7 @@ class Page:
             else:
                 self.url = ''
             if self.content_type is None:
-                # TODO: rm
                 logger.warning('Content-type is None: %s', self.url)
-                print('TODO: webpage 139: Content-type is None: ', self.url)
             self.hostName = urlparse(self.url).netloc # type: ignore
             self.scheme = urlparse(self.url).scheme # type: ignore
         return True
