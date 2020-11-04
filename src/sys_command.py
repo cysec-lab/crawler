@@ -79,7 +79,6 @@ def kill_chrome(queue_log: Queue[Any], process: str):
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
         ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        # TODO: 一応追加したけど大丈夫かな
         ps.stdout.close()
         proc_list: Iterable[Any] = awk.stdout # type: ignore
     except subprocess.CalledProcessError:

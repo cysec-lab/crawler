@@ -70,9 +70,7 @@ def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[st
             # 外でプロセスファミリーを取ったときに存在したけどいまは死んでるなら発生
             pass
         except Exception as err:
-            # TODO: rm
             logger.exception(f'Memory Check: {err}')
-            print(location() + str(err), flush=True)
             pass
         else:
             if mem_used > limit:
