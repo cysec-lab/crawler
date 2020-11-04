@@ -7,7 +7,8 @@ from typing import Any, Union, cast
 from urllib.parse import urlparse
 
 from html_read_thread import WebDriverGetThread
-from selenium.common.exceptions import NoAlertPresentException, TimeoutException
+from selenium.common.exceptions import (NoAlertPresentException,
+                                        TimeoutException)
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
@@ -161,6 +162,7 @@ def take_screenshots(path: str, driver: WebDriver) -> bool:
 def quit_driver(driver: WebDriver) -> bool:
     """
     WebDriverを終了させる
+    TODO: これうまく動いている？？？
     """
     try:
         driver.quit()

@@ -11,11 +11,11 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 from utils.logger import worker_configurer
 
-from .firefox_custom_profile import FirefoxProfile
-from .get_web_driver_thread import GetFirefoxDriverThread
-from .use_browser import quit_driver
-from .use_extentions import get_watcher_window
-from .webdriver_settings import *
+from webdrivers.firefox_custom_profile import FirefoxProfile
+from webdrivers.get_web_driver_thread import GetFirefoxDriverThread
+from webdrivers.use_browser import quit_driver
+from webdrivers.use_extentions import get_watcher_window
+from webdrivers.webdriver_settings import *
 
 logger = getLogger(__name__)
 

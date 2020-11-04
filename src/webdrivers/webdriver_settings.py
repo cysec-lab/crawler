@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from selenium.webdriver.common.desired_capabilities import DesiredCapabilities
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 
-from .firefox_custom_profile import FirefoxProfile
+from webdrivers.firefox_custom_profile import FirefoxProfile
 
 logger = getLogger(__name__)
 this_dir = os.path.dirname(os.path.abspath(__file__))

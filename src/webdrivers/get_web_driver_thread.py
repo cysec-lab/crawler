@@ -10,9 +10,9 @@ import selenium.common
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from utils.logger import worker_configurer
 
-from .firefox_custom_profile import FirefoxProfile
+from webdrivers.firefox_custom_profile import FirefoxProfile
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 geck_path = '/usr/local/bin/geckodriver'

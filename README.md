@@ -72,9 +72,9 @@ organization/ritsumeikan/の中にクローリング結果が保存されてい�
 
 ### 実行方法  
 実行ファイル名 ： operate_main.py  
-引数 ： 組織名(crawler/organization/以下にあるディレクトリ名)  
+引数 ： 組織名(crawler/organization/以下にあるディレクトリ名)
 ### 例  
-python3 crawler/src/operate_main.py  ritsumeikan  
+python3 crawler/src/operate_main.py  ritsumeikan
 
 ### 注意
 anacondaなどの仮想環境を使うと面倒くさくなる。  
@@ -105,4 +105,9 @@ anacondaなどの仮想環境を使うと面倒くさくなる。
   怪しいと判断されたページの情報を各ファイルに保存する
 * result_history  
   過去のクローリング結果の履歴(resultのディレクトリ名を数字(通し番号)に変更したもの)
- 
+
+### テストケース実行
+
+tests ディレクトリに移動して実行する必要あり...なんでだろう
+
+`python -m unittest discover tests -v`
