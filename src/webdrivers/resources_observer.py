@@ -4,10 +4,9 @@ from logging import getLogger
 from multiprocessing import Queue
 from threading import Thread
 from time import sleep
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 
 import psutil
-from utils.location import location
 from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
@@ -21,7 +20,7 @@ class MemoryObserverThread(Thread):
         self.limit = limit
 
     def run(self): # type: ignore
-        proc_name: List[str] = ["geckodriver", "firefox-bin"]
+        proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
         while True:
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")
@@ -109,38 +108,23 @@ def cpu_checker(family: list[psutil.Process], limit: float, cpu_num: float)->Tup
     return ret, ret2
 
 
-def get_relate_browser_proc(proc_name: List[str])->list[psutil.Process]:
+def get_relate_browser_proc(proc_name: Set[str])->list[psutil.Process]:
     """
     現在のpidリストを取得する
     各pidのプロセス名を proc_list に格納
     proc_name() に含まれるかつ現在のpidに存在するプロセスをリストで返す
     """
-    # proc_name = ["Web Content", "firefox", "geckodriver", "WebExtensions"]
-    res: list[psutil.Process] = list()
-    proc_list: list[psutil.Process] = list()
+    res: List[psutil.Process] = list()
+
     try:
-        pid_list = psutil.pids()
+        for proc in psutil.process_iter():
+            if proc.name() in proc_name:
+                res.append(proc)
     except psutil.NoSuchProcess:
-        return res
+        print('No process alive')
     except Exception as err:
-        logger.exception(f'{err}')
-        return res
+        print(f'{err}')
 
-    for pid in pid_list:
-        try:
-            proc_list.append(psutil.Process(pid))
-        except psutil.NoSuchProcess:
-            pass
-        except Exception as err:
-            logger.exception(f'{err}')
-
-    try:
-        for p in proc_list:
-            # 与えられたproc_nameの中に上で取ったproc_listに含まれるnameがあった場合追加
-            if [p_name for p_name in proc_name if p_name in p.name()]:
-                res.append(p)
-    except Exception as err:
-        logger.exception(f"{err}")
     return res
 
 

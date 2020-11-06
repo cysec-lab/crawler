@@ -74,8 +74,8 @@ def check_upstart(proc_ppid: str):
 
 def kill_chrome(queue_log: Queue[Any], process: str):
     worker_configurer(queue_log, logger)
-    logger.info("TODO: Called kill_chrome process")
-    print("TODO: <sys_Command.py, 78> Called kill_chrome process")
+    logger.debug("kill_chrome process called")
+    print('TODO: <sys_command 78>: kill_chrome process called')
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
@@ -89,9 +89,10 @@ def kill_chrome(queue_log: Queue[Any], process: str):
     except Exception as err:
         logger.exception(f'{err}')
     else:
+        logger.debug(f"kill proc list {proc_list}")
         for driver in proc_list:
             pid_ppid = driver.decode().rstrip().split(' ')
-            logger.info('Process: %s -> %s', process, str(pid_ppid))
+            logger.debug('Process: %s -> %s', process, str(pid_ppid))
             if check_upstart(pid_ppid[1]):
                 kill_family(pid_ppid[0])
 

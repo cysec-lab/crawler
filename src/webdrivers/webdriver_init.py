@@ -39,7 +39,6 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
     # Todo: メモリが足りなかったらドライバーの取得でフリーズする
     try:
         t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
-        t.daemon = True
         t.start()
         t.join(10.0)
         if t.is_alive():
@@ -50,7 +49,6 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
         sleep(10.0)
         try:
             t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
-            t.daemon = True
             t.start()
             t.join(10.0)
             if t.is_alive():
@@ -58,7 +56,7 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
         except Exception as err:
             # runtime error とか
             logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')
-            return False
+            t.re = False
 
     if t.re is False:
         # ドライバ取得でフリーズしている場合
