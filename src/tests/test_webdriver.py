@@ -47,6 +47,22 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(page.html, expect)
         driver.quit()
 
+    def test_get_malformed_html(self):
+        """
+        存在しないURLで失敗することの確認
+        """
+        page: Page = Page("hogehoge", "")
+        queue_log: Queue[Any] = Queue()
+        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(queue_log, org_path='/dev/null')
+        self.assertIsNot(driver_info, False)
+        driver_info = cast(Dict[str, str], driver_info)
+        driver = driver_info["driver"]
+        i =set_html(page, driver)
+        print(i)
+        print(page.html)
+        self.assertEqual(i[0], "Error_WebDriver")
+        driver.quit()
+
 
 if __name__ == '__main__':
     unittest.main()

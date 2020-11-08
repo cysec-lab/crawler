@@ -51,31 +51,31 @@ def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: 
     else:
         return blank_window
 
+GET_WEBDRIVER_RETRY = 2
 
 def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
     """
     ブラウザでURLにアクセス、HTMLを取得する
     """
-    try:
-        # URLに接続する(フリーズすることがあるので、スレッドで行う)
-        t = WebDriverGetThread(driver, page.url)
-        t.start()
-        t.join(timeout=60)   # 60秒のロード待機時間
-        if t.is_alive():
-            raise Exception(TimeoutException)
-    except Exception as err:
-        logger.info(f"Failed to access {page.url}: {err}")
-        # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
-        sleep(10)
+    for i in range(0, GET_WEBDRIVER_RETRY):
         try:
+            # URLに接続する(フリーズすることがあるので、スレッドで行う)
             t = WebDriverGetThread(driver, page.url)
             t.start()
-            t.join(timeout=60)  # 60秒のロード待機時間
+            t.join(timeout=60)   # 60秒のロード待機時間
             if t.is_alive():
                 raise Exception(TimeoutException)
         except Exception as err:
-            logger.exception(f"Failed to get WebDriver thread error: {err}")
-            return ['makingWebDriverGetThreadError', page.url + '\n' + str(err)]
+            # TODO: うまくリトライできてる？
+            logger.info(f"TODO: making retry, i = {i}, retrycount = {GET_WEBDRIVER_RETRY}")
+            if i < GET_WEBDRIVER_RETRY - 1:
+                logger.info(f"Failed to access {page.url}: {err}")
+                # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
+                sleep(10)
+            else:
+                logger.exception(f"Failed to get WebDriver thread error: {err}")
+                return ['makingWebDriverGetThreadError', page.url + '\n' + str(err)]
+
     re = True
     if t.re is False:
         # Getスレッドがどこかでフリーズしている場合、t.reがFalseのまま
