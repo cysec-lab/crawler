@@ -10,7 +10,7 @@ import bs4
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
 
-from html_read_thread import UrlOpenReadThread
+from dealwebpage.html_read_thread import UrlOpenReadThread
 from utils.location import location
 
 logger = getLogger(__name__)

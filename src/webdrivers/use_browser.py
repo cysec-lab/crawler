@@ -6,7 +6,8 @@ from time import sleep
 from typing import Any, Union, cast
 from urllib.parse import urlparse
 
-from html_read_thread import WebDriverGetThread
+from dealwebpage.html_read_thread import WebDriverGetThread
+from dealwebpage.webpage import Page
 from selenium.common.exceptions import (NoAlertPresentException,
                                         TimeoutException)
 from selenium.webdriver.common.alert import Alert
@@ -14,7 +15,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-from webpage import Page
 
 logger = getLogger(__name__)
 

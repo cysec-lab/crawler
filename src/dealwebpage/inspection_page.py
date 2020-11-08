@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
 
-from webpage import Page
+from dealwebpage.webpage import Page
 
 
 def ston(string: str):

@@ -19,17 +19,18 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
 from check_allow_url import inspection_url_by_filter
-from inspection_page import (form_inspection, get_meta_refresh_url,
-                             iframe_inspection, meta_refresh_inspection,
-                             script_inspection)
-from mecab import (add_word_dic, get_tf_dict_by_mecab, get_top10_tfidf,
-                   make_tfidf_dict)
-from robotparser_new_kai import RobotFileParser
-from sys_command import kill_chrome
-from urldict import UrlDict
+from checkers.mecab import (add_word_dic, get_tf_dict_by_mecab,
+                            get_top10_tfidf, make_tfidf_dict)
+from dealwebpage.inspection_page import (
+    form_inspection, get_meta_refresh_url, iframe_inspection,
+    meta_refresh_inspection, script_inspection)
+from dealwebpage.robotparser import RobotFileParser
+from dealwebpage.urldict import UrlDict
+from dealwebpage.webpage import Page
 from utils.file_rw import r_file, w_file
 from utils.location import location
 from utils.logger import worker_configurer
+from utils.sys_command import kill_chrome
 from webdrivers.resources_observer import (cpu_checker, get_family,
                                            memory_checker)
 from webdrivers.use_browser import (create_blank_window, get_window_url,
@@ -37,7 +38,6 @@ from webdrivers.use_browser import (create_blank_window, get_window_url,
 from webdrivers.use_extentions import (start_watcher_and_move_blank,
                                        stop_watcher_and_get_data)
 from webdrivers.webdriver_init import get_fox_driver
-from webpage import Page
 
 html_special_char: List[Tuple[str, ...]] = list()  # URLの特殊文字を置換するためのリスト
 

@@ -1,6 +1,7 @@
 import unittest
 
-from inspection_page import str_mix_upper_lower
+from dealwebpage.inspection_page import str_mix_upper_lower
+
 
 class TestStringMethods(unittest.TestCase):
     def test_str_mix_upper_lower(self):

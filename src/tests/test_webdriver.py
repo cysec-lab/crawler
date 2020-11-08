@@ -6,7 +6,7 @@ from typing import Any, Dict, Union, cast
 
 from webdrivers.use_browser import set_html
 from webdrivers.webdriver_init import get_fox_driver
-from webpage import Page
+from dealwebpage.webpage import Page
 
 
 class TestStringMethods(unittest.TestCase):

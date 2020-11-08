@@ -8,7 +8,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-from webpage import Page
+from dealwebpage.webpage import Page
 
 logger = getLogger(__name__)
 

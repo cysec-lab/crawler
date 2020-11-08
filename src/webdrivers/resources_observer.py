@@ -28,7 +28,7 @@ class MemoryObserverThread(Thread):
             kill_process_cand = get_relate_browser_proc(proc_name)
             for proc in kill_process_cand:
                 try:
-                    if proc.ppid() == 1:
+                    if proc.ppid() != 1:
                         logger.debug("kill {}".format(proc))
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
@@ -192,7 +192,7 @@ def main():
         # TODO: rm
         logger.warning("Reboot")
         print("TODO: reboot\n")
-        from sys_command import reboot
+        from utils.sys_command import reboot
         reboot()
 
 

@@ -13,9 +13,9 @@ from time import sleep, time
 from typing import Any, Deque, Dict, List, Tuple, Union, cast
 from urllib.parse import urlparse
 
-from clamd import clamd_main
+from checkers.clamd import clamd_main
 from crawler import crawler_main
-from summarize_alert import summarize_alert_main
+from dealwebpage.summarize_alert import summarize_alert_main
 from utils.file_rw import r_file, r_json, w_file, w_json
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
