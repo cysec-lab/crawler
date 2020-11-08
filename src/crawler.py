@@ -1242,6 +1242,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             num_of_pages += 1
         else:    # ウェブページではないファイルだった場合(PDF,excel,word...
             send_to_parent(q_send, {'type': 'file_done'})   # mainプロセスにこのURLのクローリング完了を知らせる
+            if page.content_type == None:
+                page.content_type = "None"
             # ハッシュ値の比較
             if url_dict:
                 num_of_days, file_len = url_dict.compere_hash(page)
