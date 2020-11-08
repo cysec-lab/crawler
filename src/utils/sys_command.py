@@ -75,7 +75,6 @@ def check_upstart(proc_ppid: str):
 def kill_chrome(queue_log: Queue[Any], process: str):
     worker_configurer(queue_log, logger)
     logger.debug("kill_chrome process called")
-    print('TODO: <sys_command 78>: kill_chrome process called')
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
