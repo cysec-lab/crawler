@@ -633,13 +633,14 @@ def receive_and_send(not_send: bool=False):
                     w_alert_flag = True
 
                     # ホスト名+パスの途中までを見てホワイトリストに引っかかるか
-                    filering_dictionaly= cast(Dict[str, Dict[str, List[str]]], filtering_dict["REDIRECT"]["allow"])
-                    for white_host, white_path_list in filering_dictionaly.items():
-                        if redirect_host.endswith(white_host) and \
-                                [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
-                            # ホワイトリスト内にリダイレクト先が存在するならアラート撤回
-                            w_alert_flag = False
-                            break
+                    if "allow" in filtering_dict["REDIRECT"]:
+                        allow_list = cast(Dict[str, str], filtering_dict["REDIRECT"]["allow"])
+                        for white_host, white_path_list in allow_list.items():
+                            if redirect_host.endswith(white_host) and \
+                                    [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
+                                # ホワイトリスト内にリダイレクト先が存在するならアラート撤回
+                                w_alert_flag = False
+                                break
 
                     #######################################
                     # ToDo: Ifいらないと思う
@@ -819,12 +820,12 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     except FileNotFoundError:
         logger.error('You should check the run_count in setting file.')
 
-    # メモリ使用量監視スレッドの立ち上げ
-    t: MemoryObserverThread = MemoryObserverThread(queue_log)
-    t.setDaemon(True) # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
-    t.start()
-    if not t:
-        logger.error("Fail to open memory observer thread")
+    # # メモリ使用量監視スレッドの立ち上げ
+    # t: MemoryObserverThread = MemoryObserverThread(queue_log)
+    # t.setDaemon(True) # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
+    # t.start()
+    # if not t:
+    #     logger.error("Fail to open memory observer thread")
 
     # メインループを回すループ(save_timeが設定されていなければ、途中保存しないため一周しかしない。一周で全て周り切る)
     while True:

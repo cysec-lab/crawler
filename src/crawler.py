@@ -1005,14 +1005,17 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             url_cache.add(page.url_urlopen)   # urlopenで得たURL
             url_cache.add(page.url)           # 最終的にパースしたURL(urlopenで得たURLとブラウザで得たURLは異なる可能性がある)
             page = None
-        try:
-            driver.delete_all_cookies()   # クッキー削除
-        except Exception as err:
-            logger.exception(f'Faile to del cookies: {err}')
-            pass
-        # 前回のウェブページの資源監視スレッドを終わらす
-        # 資源監視スレッドは、この集合(check_resource_threadId_set)に自身のスレッドIDがある場合は無限に資源監視を行うため、この集合をクリアする
-        check_resource_threadId_set.clear()
+            try:
+                cookies: Any = driver.get_cookies()
+                if len(cookies) > 0:
+                    logger.debug(f"delete cookies: {cookies}")
+                    driver.delete_all_cookies()   # クッキー削除
+            except Exception as err:
+                logger.exception(f'Fail to del cookies: {err}')
+                pass
+            # 前回のウェブページの資源監視スレッドを終わらす
+            # 資源監視スレッドは、この集合(check_resource_threadId_set)に自身のスレッドIDがある場合は無限に資源監視を行うため、この集合をクリアする
+            check_resource_threadId_set.clear()
 
         # クローリングするURLを取得
         send_to_parent(sendq=q_send, data='plz')   # 親プロセス(main.py)に自身が担当しているサイトのURLを要求
@@ -1143,7 +1146,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     browser_result = cast(List[str], browser_result)
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
-                    quit_driver(driver)
+                    quit_driver(queue_log, driver)
                     driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
@@ -1159,6 +1162,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
                 re = stop_watcher_and_get_data(driver=driver, wait=wait, watcher_window=watcher_window, page=page)
                 if re is False:
+                    logger.info("stop_watcher_and_get_data, break")
                     error_break = True
                     break
 
@@ -1301,5 +1305,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
     save_result(alert_process_q)
     logger.info("%s %s: saved", datetime.now().strftime('%Y/%m/%d, %H:%M:%S'), host)
-    quit_driver(driver)  # headless browser終了して
+    if driver:
+        quit_driver(queue_log, driver) # headless browser終了して
     os._exit(0) # type: ignore

@@ -148,7 +148,10 @@ def make_achievement(dire: str):
 
     # result_history/*/achevemnt/result.txt に書き込む辞書に合計探索数と時間を追記
     data = '\n----------------------------------------------\nall achievement = ' + str(all_achievement) + '\nrun time = ' + str(run_time)
-    file_dic['result.txt'] += data
+    if 'result.txt' in file_dic:
+        file_dic['result.txt'] += data
+    else:
+        file_dic['result.txt'] = data
 
     # if 'num_of_checked_url_ByMachineLearning.txt' in file_dic:
     #     file_dic['num_of_checked_url_ByMachineLearning.txt'] += '\n' + str(iframe_count) + ' pages including iframe.'

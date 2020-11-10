@@ -81,7 +81,7 @@ def main(organization: str):
         logger.info('save used ROD before overwriting the ROD directory : DONE')
 
         logger.info('---dealing after fact---')
-        dealing_after_fact(org_arg)
+        dealing_after_fact(queue_log, org_arg)
 
         now = datetime.now()
         logger.info(f"""

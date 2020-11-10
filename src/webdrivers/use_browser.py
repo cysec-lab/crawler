@@ -5,7 +5,7 @@ from logging import getLogger
 from time import sleep
 from typing import Any, Union, cast
 from urllib.parse import urlparse
-
+from multiprocessing import Queue
 from dealwebpage.html_read_thread import WebDriverGetThread
 from dealwebpage.webpage import Page
 from selenium.common.exceptions import (NoAlertPresentException,
@@ -16,6 +16,8 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
+from utils.logger import worker_configurer
+
 logger = getLogger(__name__)
 
 def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int]) -> Union[bool, str]:
@@ -25,6 +27,7 @@ def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: 
     blankページが作れなければFalse
     """
     blank_window = False
+    logger.debug("create blank window")
     try:
         driver.switch_to.window(watcher_window)
         wait.until(expected_conditions.visibility_of_element_located((By.ID, "createBlankTab")))
@@ -67,7 +70,7 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
                 raise Exception(TimeoutException)
         except Exception as err:
             # TODO: うまくリトライできてる？
-            logger.info(f"TODO: making retry, i = {i}, retrycount = {GET_WEBDRIVER_RETRY}")
+            logger.info(f"TODO: making retry, i =t {i}, retrycount = {GET_WEBDRIVER_RETRY}")
             if i < GET_WEBDRIVER_RETRY - 1:
                 logger.info(f"Failed to access {page.url}: {err}")
                 # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
@@ -159,12 +162,15 @@ def take_screenshots(path: str, driver: WebDriver) -> bool:
     return False
 
 
-def quit_driver(driver: WebDriver) -> bool:
+def quit_driver(queue_log: Queue[Any], driver: WebDriver) -> bool:
     """
     WebDriverを終了させる
     TODO: これうまく動いている？？？
     """
+    worker_configurer(queue_log, logger)
     try:
+        logger.debug("Call quit_driver func")
+        driver.close()
         driver.quit()
     except Exception as err:
         logger.exception(f'Failed to quit driver: {err}')

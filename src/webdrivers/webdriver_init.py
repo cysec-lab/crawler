@@ -13,6 +13,7 @@ from utils.logger import worker_configurer
 
 from webdrivers.firefox_custom_profile import FirefoxProfile
 from webdrivers.get_web_driver_thread import GetFirefoxDriverThread
+from webdrivers.get_web_driver import GetFirefoxDriver
 from webdrivers.use_browser import quit_driver
 from webdrivers.use_extentions import get_watcher_window
 from webdrivers.webdriver_settings import *
@@ -37,26 +38,33 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
 
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     # Todo: メモリが足りなかったらドライバーの取得でフリーズする
-    try:
-        t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
-        t.start()
-        t.join(10.0)
-        if t.is_alive():
-            raise Exception(TimeoutException)
-    except Exception as err:
-        # runtime error とか
-        logger.info(f'Faild to get Firefox Driver Thread, retrying: {err}')
+    # try:
+    #     t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
+    #     t.start()
+    #     t.join(10.0)
+    #     if t.is_alive():
+    #         raise Exception(TimeoutException)
+    # except Exception as err:
+    #     # runtime error とか
+    #     logger.info(f'Faild to get Firefox Driver Thread, retrying: {err}')
+    #     sleep(10.0)
+    #     try:
+    #         t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
+    #         t.start()
+    #         t.join(10.0)
+    #         if t.is_alive():
+    #             raise Exception(TimeoutException)
+    #     except Exception as err:
+    #         # runtime error とか
+    #         logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')
+    #         t.re = False
+
+    t = GetFirefoxDriver(options=options, ffprofile=profile, capabilities=caps)
+    if t.re == False:
         sleep(10.0)
-        try:
-            t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
-            t.start()
-            t.join(10.0)
-            if t.is_alive():
-                raise Exception(TimeoutException)
-        except Exception as err:
-            # runtime error とか
-            logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')
-            t.re = False
+        t = GetFirefoxDriver(options=options, ffprofile=profile, capabilities=caps)
+        if t.re == False:
+            logger.info(f'Faild to get Firefox Driver Thread again, Failed')
 
     if t.re is False:
         # ドライバ取得でフリーズしている場合

@@ -29,10 +29,11 @@ class MemoryObserverThread(Thread):
             for proc in kill_process_cand:
                 try:
                     if proc.ppid() != 1:
-                        logger.debug("kill {}".format(proc))
+                        logger.debug("kill: {}".format(proc))
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
+                            # Zombieたちがここで取れてるんだけど
                             try:
                                 killed_proc.kill()
                                 logger.debug("kill: {}".format(killed_proc))
@@ -131,25 +132,12 @@ def get_relate_browser_proc(proc_name: Set[str])->list[psutil.Process]:
 def get_family(ppid: int) -> list[psutil.Process]:
     family: list[psutil.Process] = list()
     try:
-        family.extend(psutil.Process(ppid).children())
+        # Family に現在のPPIDの子プロセスを再帰的に探索して全部入れる
+        family.extend(psutil.Process(ppid).children(recursive=True))
+        # 子プロセスを先にする(Killするときに親から殺さないために)
+        family.reverse()
     except Exception as err:
-        logger.exception(f'Failed to extend get_family...: {err}')
-        pass
-    else:
-        i = 0
-        while True:
-            if len(family) <= i:
-                break
-            proc = family[i]
-            try:
-                family.extend(proc.children())
-            except Exception as err:
-                logger.exception(f'Failed to extend get_family...: {err}')
-                pass
-                del family[i]
-            else:
-                i += 1
-        family.reverse()  # 子プロセス順にする (killするときに親を最初にkillしたくないので)
+        print(f'Exception: {err}')
     return family
 
 
