@@ -85,6 +85,9 @@ resource_dict["MEM"] = list()  # Memory使用率調査用
 resource_terminate_flag = False
 check_resource_threadId_set = set()
 
+# ひとつのホストを回り続ける最大時間
+LIMIT_TIME = 60 * 5
+
 logger = getLogger(__name__)
 
 def init(host: str, screenshots: bool):
@@ -658,7 +661,6 @@ def parser(parse_args_dic: Dict[str, Any]):
         result_set = inspection_url_by_filter(url_list=url_list_temp, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
         # リンクURLのフィルタを通した結果、False(組織外)もしくは"Unknown"(不明)だったものを
-        # TODO: set だったものを勝手にlistにしたけど大丈夫だよね...
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
             # 次はリクエストURLのフィルタに通す
@@ -990,6 +992,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     t.daemon = True
     t.start()
 
+    # 長時間回り続けるのを防ぐために一旦切るための
+    start_time = time()
+
     # クローラプロセスメインループ
     while True:
 
@@ -1284,7 +1289,15 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if not (num_of_pages+num_of_files % 100):  # 100URLをクローリングごとに保存して終了
             logger.info('%s: achievement have reached %d', host, num_of_pages + num_of_files)
             while parser_threadId_set:
-                logger.debug('%s: wait 3s for thread end....')
+                logger.debug('wait 3s for thread end....')
+                sleep(3)
+            break
+
+        # 同じサーバばかり回り続けないように時間で切る
+        if time() - start_time > LIMIT_TIME:
+            logger.info('%s: spent over %d seconds, reached %d urls', host, LIMIT_TIME, num_of_pages + num_of_files)
+            while parser_threadId_set:
+                logger.debug('wait 3s for thread end....')
                 sleep(3)
             break
 

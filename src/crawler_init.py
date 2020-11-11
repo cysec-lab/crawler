@@ -965,14 +965,11 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                     fewest_host_now = tmp_list[-1][0]
                     make_fewest_host_proc_flag = True
                     if fewest_host is not None:
-                        # もしすでに最も待機の少ないホストのクローリングプロセスを作っていたなら
                         if fewest_host in hostName_process:
+                            # すでに最も待機の少ないホストのクローリングプロセスを作っていた
                             if hostName_process[fewest_host].is_alive():
-                                ##### Todo: first
-                                # ここ死んでるならばじゃね????
-                                # クローリングプロセスがまだ生きているならば
+                                # クローリングプロセスがまだ生きているならば新しく作り直さない
                                 make_fewest_host_proc_flag = False
-                                ########
                     if make_fewest_host_proc_flag:
                         # 現在もっとも待機数の少ないホストをクローリングしていないならプロセス作成
                         make_process(fewest_host_now, queue_log, setting_dict)
