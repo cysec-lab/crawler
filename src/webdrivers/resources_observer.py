@@ -20,16 +20,19 @@ class MemoryObserverThread(Thread):
         self.limit = limit
 
     def run(self): # type: ignore
+        logger.debug("Start memory observer thread")
         proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
         while True:
+            sleep(60)
+            logger.debug("memory observer thread wakeup to work")
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")
             # kill_chrome(process='firefox')
             kill_process_cand = get_relate_browser_proc(proc_name)
             for proc in kill_process_cand:
                 try:
-                    if proc.ppid() != 1:
-                        logger.debug("kill: {}".format(proc))
+                    if proc.ppid() == 1:
+                        logger.debug(f"kill: {proc}")
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
@@ -45,7 +48,6 @@ class MemoryObserverThread(Thread):
                 except Exception as err:
                     logger.exception(f'{err}', err)
                     pass
-            sleep(60)
 
 
 def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[str, Union[str, int]]], list[int]]:
