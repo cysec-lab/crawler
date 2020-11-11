@@ -5,14 +5,12 @@ from multiprocessing.queues import Queue
 from time import sleep
 from typing import Any, Dict, Union, cast
 
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
 from utils.logger import worker_configurer
 
 from webdrivers.firefox_custom_profile import FirefoxProfile
-from webdrivers.get_web_driver_thread import GetFirefoxDriverThread
 from webdrivers.get_web_driver import GetFirefoxDriver
 from webdrivers.use_browser import quit_driver
 from webdrivers.use_extentions import get_watcher_window
