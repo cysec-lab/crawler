@@ -33,8 +33,9 @@ from utils.logger import worker_configurer
 from utils.sys_command import kill_chrome
 from webdrivers.resources_observer import (cpu_checker, get_family,
                                            memory_checker)
-from webdrivers.use_browser import (create_blank_window, get_window_url,
-                                    quit_driver, set_html, take_screenshots)
+from webdrivers.use_browser import (configure_logger, create_blank_window,
+                                    get_window_url, quit_driver, set_html,
+                                    take_screenshots)
 from webdrivers.use_extentions import (start_watcher_and_move_blank,
                                        stop_watcher_and_get_data)
 from webdrivers.webdriver_init import get_fox_driver
@@ -979,6 +980,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         driver: WebDriver = driver_info["driver"]
         watcher_window: Union[int, str] = driver_info["watcher_window"]
         wait: WebDriverWait = driver_info["wait"]
+        configure_logger(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -1146,7 +1148,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     browser_result = cast(List[str], browser_result)
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
-                    quit_driver(queue_log, driver)
+                    quit_driver(driver)
                     driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
@@ -1306,5 +1308,5 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     save_result(alert_process_q)
     logger.info("%s %s: saved", datetime.now().strftime('%Y/%m/%d, %H:%M:%S'), host)
     if driver:
-        quit_driver(queue_log, driver) # headless browser終了して
+        quit_driver(driver) # headless browser終了して
     os._exit(0) # type: ignore

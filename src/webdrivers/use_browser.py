@@ -20,6 +20,12 @@ from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
+def configure_logger(queue_log: Queue[Any]):
+    """
+    Loggerをセット
+    """
+    worker_configurer(queue_log, logger)
+
 def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int]) -> Union[bool, str]:
     """
     ページを読み込むためのabout:blankのページを作る。
@@ -160,12 +166,10 @@ def take_screenshots(path: str, driver: WebDriver) -> bool:
     return False
 
 
-def quit_driver(queue_log: Queue[Any], driver: WebDriver) -> bool:
+def quit_driver(driver: WebDriver) -> bool:
     """
     WebDriverを終了させる
-    TODO: これうまく動いている？？？
     """
-    worker_configurer(queue_log, logger)
     try:
         logger.debug("Call quit_driver func")
         driver.close()
