@@ -968,7 +968,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         sys.stdout = f
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
-    # TODO: ここが失敗している？Driverのエラーの原因はここらっぽい
     if use_browser:
         driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
         if driver_info is False:
@@ -1236,10 +1235,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
                                       'use_mecab': use_mecab, 'nth': nth, "filtering_dict": filtering_dict}
-            # parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-            #                           'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab, 'nth': nth,
-            #                           'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name,
-            #                           "filtering_dict": filtering_dict}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             if type(t.ident) != None:
