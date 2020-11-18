@@ -4,12 +4,10 @@ from logging import getLogger
 from multiprocessing import Queue
 from threading import Thread
 from time import sleep
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Set, Tuple, Union
 
 import psutil
-
-from location import location
-from logger import worker_configurer
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
@@ -22,11 +20,11 @@ class MemoryObserverThread(Thread):
         self.limit = limit
 
     def run(self): # type: ignore
-        """
-        TODO オーバライドしていいのここ？？
-        """
-        proc_name: List[str] = ["geckodriver", "firefox"]
+        logger.debug("Start memory observer thread")
+        proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
         while True:
+            sleep(60)
+            logger.debug("memory observer thread wakeup to work")
             # if psutil.virtual_memory().percent > self.limit:
             # kill_chrome(process="geckodriver")
             # kill_chrome(process='firefox')
@@ -34,10 +32,11 @@ class MemoryObserverThread(Thread):
             for proc in kill_process_cand:
                 try:
                     if proc.ppid() == 1:
-                        logger.debug("kill {}".format(proc))
+                        logger.debug(f"kill: {proc}")
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
                         for killed_proc in kill_process_list:
+                            # Zombieたちがここで取れてるんだけど
                             try:
                                 killed_proc.kill()
                                 logger.debug("kill: {}".format(killed_proc))
@@ -49,7 +48,6 @@ class MemoryObserverThread(Thread):
                 except Exception as err:
                     logger.exception(f'{err}', err)
                     pass
-            sleep(60)
 
 
 def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[str, Union[str, int]]], list[int]]:
@@ -74,9 +72,7 @@ def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[st
             # 外でプロセスファミリーを取ったときに存在したけどいまは死んでるなら発生
             pass
         except Exception as err:
-            # TODO: rm
             logger.exception(f'Memory Check: {err}')
-            print(location() + str(err), flush=True)
             pass
         else:
             if mem_used > limit:
@@ -115,63 +111,35 @@ def cpu_checker(family: list[psutil.Process], limit: float, cpu_num: float)->Tup
     return ret, ret2
 
 
-def get_relate_browser_proc(proc_name: List[str])->list[psutil.Process]:
+def get_relate_browser_proc(proc_name: Set[str])->list[psutil.Process]:
     """
     現在のpidリストを取得する
     各pidのプロセス名を proc_list に格納
     proc_name() に含まれるかつ現在のpidに存在するプロセスをリストで返す
     """
-    # proc_name = ["Web Content", "firefox", "geckodriver", "WebExtensions"]
-    res: list[psutil.Process] = list()
-    proc_list: list[psutil.Process] = list()
+    res: List[psutil.Process] = list()
+
     try:
-        pid_list = psutil.pids()
+        for proc in psutil.process_iter():
+            if proc.name() in proc_name:
+                res.append(proc)
     except psutil.NoSuchProcess:
-        return res
+        print('No process alive')
     except Exception as err:
-        logger.exception(f'{err}')
-        return res
+        print(f'{err}')
 
-    for pid in pid_list:
-        try:
-            proc_list.append(psutil.Process(pid))
-        except psutil.NoSuchProcess:
-            pass
-        except Exception as err:
-            logger.exception(f'{err}')
-
-    try:
-        for p in proc_list:
-            # 与えられたproc_nameの中に上で取ったproc_listに含まれるnameがあった場合追加
-            if [p_name for p_name in proc_name if p_name in p.name()]:
-                res.append(p)
-    except Exception as err:
-        logger.exception(f"{err}")
     return res
 
 
 def get_family(ppid: int) -> list[psutil.Process]:
     family: list[psutil.Process] = list()
     try:
-        family.extend(psutil.Process(ppid).children())
+        # Family に現在のPPIDの子プロセスを再帰的に探索して全部入れる
+        family.extend(psutil.Process(ppid).children(recursive=True))
+        # 子プロセスを先にする(Killするときに親から殺さないために)
+        family.reverse()
     except Exception as err:
-        logger.exception(f'Failed to extend get_family...: {err}')
-        pass
-    else:
-        i = 0
-        while True:
-            if len(family) <= i:
-                break
-            proc = family[i]
-            try:
-                family.extend(proc.children())
-            except Exception as err:
-                logger.exception(f'Failed to extend get_family...: {err}')
-                pass
-                del family[i]
-            else:
-                i += 1
-        family.reverse()  # 子プロセス順にする (killするときに親を最初にkillしたくないので)
+        print(f'Exception: {err}')
     return family
 
 
@@ -214,7 +182,7 @@ def main():
         # TODO: rm
         logger.warning("Reboot")
         print("TODO: reboot\n")
-        from sys_command import reboot
+        from utils.sys_command import reboot
         reboot()
 
 

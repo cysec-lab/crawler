@@ -5,7 +5,7 @@ from logging import getLogger
 from multiprocessing import Queue
 from typing import Any, Iterable, List
 
-from logger import worker_configurer
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
@@ -74,12 +74,12 @@ def check_upstart(proc_ppid: str):
 
 def kill_chrome(queue_log: Queue[Any], process: str):
     worker_configurer(queue_log, logger)
+    logger.debug("kill_chrome process called")
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
         #                                               'grep', 'google-chrome-stable', '|', 'awk', "'{print $2}"])
         ps = subprocess.Popen(['ps', '-f', '-C', process, '--no-header'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         awk = subprocess.Popen(['awk', "{print $2, $3}"], stdin=ps.stdout, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        # TODO: 一応追加したけど大丈夫かな
         ps.stdout.close()
         proc_list: Iterable[Any] = awk.stdout # type: ignore
     except subprocess.CalledProcessError:
@@ -88,9 +88,10 @@ def kill_chrome(queue_log: Queue[Any], process: str):
     except Exception as err:
         logger.exception(f'{err}')
     else:
+        logger.debug(f"kill proc list {proc_list}")
         for driver in proc_list:
             pid_ppid = driver.decode().rstrip().split(' ')
-            logger.info('Process: %s -> %s', process, str(pid_ppid))
+            logger.debug('Process: %s -> %s', process, str(pid_ppid))
             if check_upstart(pid_ppid[1]):
                 kill_family(pid_ppid[0])
 

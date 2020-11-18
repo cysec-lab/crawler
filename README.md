@@ -8,30 +8,45 @@
 ファイルバージョンを現在戻してとりあえず動くものを作っている
 
 ### 初期構成
-crawler/  
-　┣ src/  
-　┃　┣ Pythonファイル  
-　┃　┣ files/  
-　┃　┃　┗ クローリングプロセスで使用するファイル  
-　┃　┗ extensions/  
-　┃　　　┣ CrawlerExtension.xpi  
-　┃　　　┗ CrowlerExtension/  
-　┃　　　　　┗ 拡張機能のソースファイル  
-　┣ organization/  
-　┃　┗ ritsumeikan/  
-　┃　　　┗ ROD/  
-　┃　　　　　┗ 各リスト  
-　┣ falsification/  
-　┃　┣ test_site/  
-　┃　┃　┗ 研究室内自作改ざんサイト(falsification.cysec.cs.ritsumei.ac.jp)のHTML  
-　┃　┗ mal_site/  
-　┃　　　┗ 研究室内自作悪性サーバ(192.168.0.233)のHTML  
-　┗ ex/  
-　　　┗今は使用していないファイル  
-    
+
+```
+crawler/
+  ├- src/
+  |  ├- Pythonファイル
+  |  ├- webdrivers/
+  |  |  └- ヘッドレスブラウザに関わるコードたち
+  |  ├- utils/
+  |  |  └- 雑多
+  |  ├- checkers/
+  |  |  └- ページの内容調査に関わるコードたち
+  |  ├- dealwebpage/
+  |  |  └- webpageの内容取得に関わるコードたち
+  |  |
+  |  ├- tests/
+  |  |  └- ユニットテストたち
+  |  ├- files/
+  |  |  └- クローリングプロセスで使用するファイル
+  |  └- extensions/
+  |      ├- CrawlerExtension.xpi
+  |      └- CrowlerExtension/
+  |          └- 拡張機能のソースファイル
+  ├- organization/
+  |  └- ritsumeikan/
+  |      └- ROD/
+  |          └- 各リスト
+  ├- falsification/
+  |  ├- test_site/
+  |  |  └- 研究室内自作改ざんサイト(falsification.cysec.cs.ritsumei.ac.jp)のHTML
+  |  └- mal_site/
+  |      └- 研究室内自作悪性サーバ(192.168.0.233)のHTML
+  └ ex/
+       └今は使用していないファイル
+```
+
 organization/ritsumeikan/の中にクローリング結果が保存されていく。  
 研究室内自作改ざんサイトや悪性サーバは、proxmox上に作っている。
-      
+
+
 ### 必須ライブラリ
 * BeautifulSoup4  
  スクレイピングに使う  
@@ -72,9 +87,9 @@ organization/ritsumeikan/の中にクローリング結果が保存されてい�
 
 ### 実行方法  
 実行ファイル名 ： operate_main.py  
-引数 ： 組織名(crawler/organization/以下にあるディレクトリ名)  
+引数 ： 組織名(crawler/organization/以下にあるディレクトリ名)
 ### 例  
-python3 crawler/src/operate_main.py  ritsumeikan  
+python3 crawler/src/operate_main.py  ritsumeikan
 
 ### 注意
 anacondaなどの仮想環境を使うと面倒くさくなる。  
@@ -105,4 +120,9 @@ anacondaなどの仮想環境を使うと面倒くさくなる。
   怪しいと判断されたページの情報を各ファイルに保存する
 * result_history  
   過去のクローリング結果の履歴(resultのディレクトリ名を数字(通し番号)に変更したもの)
- 
+
+### テストケース実行
+
+tests ディレクトリに移動して実行する必要あり...なんでだろう
+
+`python -m unittest discover tests -v`

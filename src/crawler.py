@@ -19,22 +19,26 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
 from check_allow_url import inspection_url_by_filter
-from file_rw import r_file, w_file
-from inspection_page import (form_inspection, get_meta_refresh_url,
-                             iframe_inspection, meta_refresh_inspection,
-                             script_inspection)
-from location import location
-from logger import worker_configurer
-from mecab import (add_word_dic, get_tf_dict_by_mecab, get_top10_tfidf,
-                   make_tfidf_dict)
-from resources_observer import cpu_checker, get_family, memory_checker
-from robotparser_new_kai import RobotFileParser
-from sys_command import kill_chrome
-from urldict import UrlDict
-from use_browser import (create_blank_window, get_fox_driver, get_window_url,
-                         quit_driver, set_html, start_watcher_and_move_blank,
-                         stop_watcher_and_get_data, take_screenshots)
-from webpage import Page
+from checkers.mecab import (add_word_dic, get_tf_dict_by_mecab,
+                            get_top10_tfidf, make_tfidf_dict)
+from dealwebpage.inspection_page import (
+    form_inspection, get_meta_refresh_url, iframe_inspection,
+    meta_refresh_inspection, script_inspection)
+from dealwebpage.robotparser import RobotFileParser
+from dealwebpage.urldict import UrlDict
+from dealwebpage.webpage import Page
+from utils.file_rw import r_file, w_file
+from utils.location import location
+from utils.logger import worker_configurer
+from utils.sys_command import kill_chrome
+from webdrivers.resources_observer import (cpu_checker, get_family,
+                                           memory_checker)
+from webdrivers.use_browser import (configure_logger, create_blank_window,
+                                    get_window_url, quit_driver, set_html,
+                                    take_screenshots)
+from webdrivers.use_extentions import (start_watcher_and_move_blank,
+                                       stop_watcher_and_get_data)
+from webdrivers.webdriver_init import get_fox_driver
 
 html_special_char: List[Tuple[str, ...]] = list()  # URLの特殊文字を置換するためのリスト
 
@@ -80,6 +84,9 @@ resource_dict["CPU"] = list()  # CPU使用率調査用
 resource_dict["MEM"] = list()  # Memory使用率調査用
 resource_terminate_flag = False
 check_resource_threadId_set = set()
+
+# ひとつのホストを回り続ける最大時間
+LIMIT_TIME = 60 * 5
 
 logger = getLogger(__name__)
 
@@ -654,7 +661,6 @@ def parser(parse_args_dic: Dict[str, Any]):
         result_set = inspection_url_by_filter(url_list=url_list_temp, filtering_dict=filtering_dict,
                                               special_filter=link_url_filter)
         # リンクURLのフィルタを通した結果、False(組織外)もしくは"Unknown"(不明)だったものを
-        # TODO: set だったものを勝手にlistにしたけど大丈夫だよね...
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
             # 次はリクエストURLのフィルタに通す
@@ -684,8 +690,10 @@ def parser(parse_args_dic: Dict[str, Any]):
     try:
         parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
         del parser_threadId_time[threading.get_ident()]
-    except KeyError as err:
-        logger.exception(f"{host} thread was deleted\n Exception occur: {err}")
+    except KeyError:
+        logger.info(f"{host} thread was deleted by del_thread")
+    except Exception as err:
+        logger.exception(f"Failed to del thread: {err}")
         pass
 
 
@@ -967,13 +975,14 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
             kill_chrome(queue_log, "geckodriver")
-            kill_chrome(queue_log, "firefox")
+            kill_chrome(queue_log, "firefox-bin")
             os._exit(0) # type: ignore
 
         driver_info = cast(Dict[str, Any], driver_info)
         driver: WebDriver = driver_info["driver"]
         watcher_window: Union[int, str] = driver_info["watcher_window"]
         wait: WebDriverWait = driver_info["wait"]
+        configure_logger(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -982,6 +991,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     t = threading.Thread(target=del_thread, args=(host,))
     t.daemon = True
     t.start()
+
+    # 長時間回り続けるのを防ぐために一旦切るための
+    start_time = time()
 
     # クローラプロセスメインループ
     while True:
@@ -1000,14 +1012,17 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             url_cache.add(page.url_urlopen)   # urlopenで得たURL
             url_cache.add(page.url)           # 最終的にパースしたURL(urlopenで得たURLとブラウザで得たURLは異なる可能性がある)
             page = None
-        try:
-            driver.delete_all_cookies()   # クッキー削除
-        except Exception as err:
-            logger.exception(f'Faile to del cookies: {err}')
-            pass
-        # 前回のウェブページの資源監視スレッドを終わらす
-        # 資源監視スレッドは、この集合(check_resource_threadId_set)に自身のスレッドIDがある場合は無限に資源監視を行うため、この集合をクリアする
-        check_resource_threadId_set.clear()
+            try:
+                cookies: Any = driver.get_cookies()
+                if len(cookies) > 0:
+                    logger.debug(f"delete cookies: {cookies}")
+                    driver.delete_all_cookies()   # クッキー削除
+            except Exception as err:
+                logger.exception(f'Fail to del cookies: {err}')
+                pass
+            # 前回のウェブページの資源監視スレッドを終わらす
+            # 資源監視スレッドは、この集合(check_resource_threadId_set)に自身のスレッドIDがある場合は無限に資源監視を行うため、この集合をクリアする
+            check_resource_threadId_set.clear()
 
         # クローリングするURLを取得
         send_to_parent(sendq=q_send, data='plz')   # 親プロセス(main.py)に自身が担当しているサイトのURLを要求
@@ -1154,6 +1169,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
                 re = stop_watcher_and_get_data(driver=driver, wait=wait, watcher_window=watcher_window, page=page)
                 if re is False:
+                    logger.info("stop_watcher_and_get_data, break")
                     error_break = True
                     break
 
@@ -1220,10 +1236,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
                                       'use_mecab': use_mecab, 'nth': nth, "filtering_dict": filtering_dict}
-            # parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-            #                           'machine_learning_q': machine_learning_q, 'use_mecab': use_mecab, 'nth': nth,
-            #                           'screenshots_svc_q': screenshots_svc_q, 'img_name': img_name,
-            #                           "filtering_dict": filtering_dict}
             t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
             t.start()
             if type(t.ident) != None:
@@ -1237,6 +1249,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             num_of_pages += 1
         else:    # ウェブページではないファイルだった場合(PDF,excel,word...
             send_to_parent(q_send, {'type': 'file_done'})   # mainプロセスにこのURLのクローリング完了を知らせる
+            if page.content_type == None:
+                page.content_type = "None"
             # ハッシュ値の比較
             if url_dict:
                 num_of_days, file_len = url_dict.compere_hash(page)
@@ -1271,7 +1285,15 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if not (num_of_pages+num_of_files % 100):  # 100URLをクローリングごとに保存して終了
             logger.info('%s: achievement have reached %d', host, num_of_pages + num_of_files)
             while parser_threadId_set:
-                logger.debug('%s: wait 3s for thread end....')
+                logger.debug('wait 3s for thread end....')
+                sleep(3)
+            break
+
+        # 同じサーバばかり回り続けないように時間で切る
+        if time() - start_time > LIMIT_TIME:
+            logger.info('%s: spent over %d seconds, reached %d urls', host, LIMIT_TIME, num_of_pages + num_of_files)
+            while parser_threadId_set:
+                logger.debug('wait 3s for thread end....')
                 sleep(3)
             break
 
@@ -1294,5 +1316,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
     save_result(alert_process_q)
     logger.info("%s %s: saved", datetime.now().strftime('%Y/%m/%d, %H:%M:%S'), host)
-    quit_driver(driver)  # headless browser終了して
+    if driver:
+        quit_driver(driver) # headless browser終了して
     os._exit(0) # type: ignore

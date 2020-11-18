@@ -10,14 +10,14 @@
     http://www.robotstxt.org/norobots-rfc.txt
 """
 
+import re
+import urllib.error
 import urllib.parse
 import urllib.request
-import re
+from typing import Any, List, NamedTuple, Optional
 
 from typing import Any, List, NamedTuple, Optional
 
-
-__all__ = ["RobotFileParser"]
 
 # RequestRate = collections.namedtuple("RequestRate", "requests seconds")
 class RequestRate(NamedTuple):

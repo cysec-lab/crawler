@@ -10,10 +10,10 @@ import bs4
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
 
-from html_read_thread import UrlOpenReadThread
-from location import location
+from dealwebpage.html_read_thread import UrlOpenReadThread
+from utils.location import location
 
-logger = getLogger()
+logger = getLogger(__name__)
 
 # 一つのURLが持つ情報をまとめたもの
 # メソッドは自分のプロパティを設定するもの(PhantomJSを使わずに)
@@ -135,9 +135,7 @@ class Page:
             else:
                 self.url = ''
             if self.content_type is None:
-                # TODO: rm
                 logger.warning('Content-type is None: %s', self.url)
-                print('TODO: webpage 139: Content-type is None: ', self.url)
             self.hostName = urlparse(self.url).netloc # type: ignore
             self.scheme = urlparse(self.url).scheme # type: ignore
         return True

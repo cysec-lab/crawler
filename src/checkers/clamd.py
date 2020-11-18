@@ -11,8 +11,8 @@ from typing import Any, List, Union
 
 import pyclamd
 
-from file_rw import w_file
-from logger import worker_configurer
+from utils.file_rw import w_file
+from utils.logger import worker_configurer
 
 end = False                     # メインプロセスから'end'が送られてくると終了
 data_list = deque()             # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
@@ -80,7 +80,7 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
         try:
             result = cd.scan_stream(byte) # type: ignore
         except Exception as err:
-            logger.exception('Exception has occur, URL={url}, {err}')
+            logger.exception(f'Exception has occur, URL={url}, {err}')
             clamd_error.append(url + '\n' + str(err))
         else:
             # 検知されると結果を記録

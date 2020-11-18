@@ -6,7 +6,7 @@ from hashlib import sha256
 from shutil import copyfile
 from typing import Any, Dict, Optional, Tuple, Union
 
-from webpage import Page
+from dealwebpage.webpage import Page
 
 
 class UrlDict:

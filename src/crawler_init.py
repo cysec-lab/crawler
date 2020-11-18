@@ -13,12 +13,12 @@ from time import sleep, time
 from typing import Any, Deque, Dict, List, Tuple, Union, cast
 from urllib.parse import urlparse
 
-from clamd import clamd_main
+from checkers.clamd import clamd_main
 from crawler import crawler_main
-from file_rw import r_file, r_json, w_file, w_json
-from logger import worker_configurer
-from resources_observer import MemoryObserverThread
-from summarize_alert import summarize_alert_main
+from dealwebpage.summarize_alert import summarize_alert_main
+from utils.file_rw import r_file, r_json, w_file, w_json
+from utils.logger import worker_configurer
+from webdrivers.resources_observer import MemoryObserverThread
 
 logger = getLogger(__name__)
 
@@ -633,13 +633,14 @@ def receive_and_send(not_send: bool=False):
                     w_alert_flag = True
 
                     # ホスト名+パスの途中までを見てホワイトリストに引っかかるか
-                    filering_dictionaly= cast(Dict[str, Dict[str, List[str]]], filtering_dict["REDIRECT"]["allow"])
-                    for white_host, white_path_list in filering_dictionaly.items():
-                        if redirect_host.endswith(white_host) and \
-                                [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
-                            # ホワイトリスト内にリダイレクト先が存在するならアラート撤回
-                            w_alert_flag = False
-                            break
+                    if "allow" in filtering_dict["REDIRECT"]:
+                        allow_list = cast(Dict[str, str], filtering_dict["REDIRECT"]["allow"])
+                        for white_host, white_path_list in allow_list.items():
+                            if redirect_host.endswith(white_host) and \
+                                    [wh_pa for wh_pa in white_path_list if redirect_path.startswith(wh_pa)]:
+                                # ホワイトリスト内にリダイレクト先が存在するならアラート撤回
+                                w_alert_flag = False
+                                break
 
                     #######################################
                     # ToDo: Ifいらないと思う
@@ -819,7 +820,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     except FileNotFoundError:
         logger.error('You should check the run_count in setting file.')
 
-    # メモリ使用量監視スレッドの立ち上げ
+    # # メモリ使用量監視スレッドの立ち上げ
     t: MemoryObserverThread = MemoryObserverThread(queue_log)
     t.setDaemon(True) # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
     t.start()
@@ -964,14 +965,11 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                     fewest_host_now = tmp_list[-1][0]
                     make_fewest_host_proc_flag = True
                     if fewest_host is not None:
-                        # もしすでに最も待機の少ないホストのクローリングプロセスを作っていたなら
                         if fewest_host in hostName_process:
+                            # すでに最も待機の少ないホストのクローリングプロセスを作っていた
                             if hostName_process[fewest_host].is_alive():
-                                ##### Todo: first
-                                # ここ死んでるならばじゃね????
-                                # クローリングプロセスがまだ生きているならば
+                                # クローリングプロセスがまだ生きているならば新しく作り直さない
                                 make_fewest_host_proc_flag = False
-                                ########
                     if make_fewest_host_proc_flag:
                         # 現在もっとも待機数の少ないホストをクローリングしていないならプロセス作成
                         make_process(fewest_host_now, queue_log, setting_dict)
