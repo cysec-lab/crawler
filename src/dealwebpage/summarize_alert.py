@@ -33,6 +33,7 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queu
         mkdir(alert_dir_path)
 
     t = Thread(target=receive_alert, args=(recv_q,))  # 他プロセスからのデータを受信するスレッド
+    t.setDaemon(True)
     t.start()
 
     while True:

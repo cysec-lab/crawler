@@ -64,6 +64,7 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
     cd.scan_stream(eicar) # type: ignore
 
     t = Thread(target=receive, args=(recvq,))    # クローリングプロセスからのデータを受信するスレッド
+    t.setDaemon(True)
     t.start()
     while True:
         if not data_list:
