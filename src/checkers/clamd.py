@@ -77,21 +77,26 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
         url = temp[0]
         url_src = temp[1]
         byte = temp[2]
+        print(len(byte))
         # clamdでスキャン
-        try:
-            result = cd.scan_stream(byte) # type: ignore
-        except Exception as err:
-            logger.exception(f'Exception has occur, URL={url}, {err}')
-            clamd_error.append(url + '\n' + str(err))
+        if len(byte) < 25 * 1000000: # Max filesize 25MB
+            try:
+                result = cd.scan_stream(byte) # type: ignore
+            except Exception as err:
+                logger.exception(f'Exception has occur, URL={url}, {err}')
+                clamd_error.append(url + '\n' + str(err))
+            else:
+                # 検知されると結果を記録
+                if result is not None:
+                    w_file(org_path + '/alert/warning_clamd.txt', "{}\n\tURL={}\n\tsrc={}\n".format(result, url, url_src), mode="a")
+                    if not os.path.exists(org_path + '/clamd_files'):
+                        os.mkdir(org_path + '/clamd_files')
+                    w_file(org_path + '/clamd_files/b_' + str(len(listdir(org_path + '/clamd_files'))+1) + '.clam',
+                        url + '\n' + str(byte), mode="a")
+                logger.info('clamd have scanned: %s', url)
         else:
-            # 検知されると結果を記録
-            if result is not None:
-                w_file(org_path + '/alert/warning_clamd.txt', "{}\n\tURL={}\n\tsrc={}\n".format(result, url, url_src), mode="a")
-                if not os.path.exists(org_path + '/clamd_files'):
-                    os.mkdir(org_path + '/clamd_files')
-                w_file(org_path + '/clamd_files/b_' + str(len(listdir(org_path + '/clamd_files'))+1) + '.clam',
-                       url + '\n' + str(byte), mode="a")
-            logger.info('clamd have scanned: %s', url)
+            logger.info("big file... save to log file")
+            clamd_error.append(url + '\n' + "Over 25.0MB file")
 
         # エラーログが一定数を超えると外部ファイルに書き出す
         if len(clamd_error) > 100:
