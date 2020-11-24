@@ -818,7 +818,7 @@ def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
     try:
         temp_r = recv_r.get(block=True, timeout=5)
     except Exception as err:
-        logger.exception(f"{f_name}: Exception {err}")
+        logger.exception(f"{f_name}{err}")
         return False
     return temp_r
 

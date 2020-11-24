@@ -22,6 +22,7 @@ class MemoryObserverThread(Thread):
     def run(self): # type: ignore
         logger.debug("Start memory observer thread")
         proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
+        # proc_name: Set[str] = set(["firefox-bin"])
         while not self.ctx["stop"]:
             time = 0
             while time < 60:
@@ -32,6 +33,7 @@ class MemoryObserverThread(Thread):
 
             logger.debug("memory observer thread wakeup to work")
             kill_process_cand = get_relate_browser_proc(proc_name)
+            kill_process_list = list()
 
             for proc in kill_process_cand:
                 try:
@@ -39,16 +41,17 @@ class MemoryObserverThread(Thread):
                         logger.debug(f"kill target proc: {proc}")
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
-                        for killed_proc in kill_process_list:
-                            # Zombieたちがここで取れてるんだけど
-                            try:
-                                killed_proc.kill()
-                                logger.debug("killed: {}".format(killed_proc))
-                            except Exception as err:
-                                logger.exception(f'{err}')
                 except Exception as err:
-                    logger.exception(f'{err}', err)
+                    logger.exception(f'{err}')
                     pass
+                if kill_process_list:
+                    for kill_proc in kill_process_list:
+                        # Zombieたちがここで取れてるんだけど
+                        try:
+                            kill_proc.kill()
+                            logger.debug("killed: {}".format(kill_proc))
+                        except Exception as err:
+                            logger.exception(f'{err}')
         logger.debug("memory observer thread Finish")
 
 

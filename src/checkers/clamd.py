@@ -77,7 +77,6 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
         url = temp[0]
         url_src = temp[1]
         byte = temp[2]
-        print(len(byte))
         # clamdでスキャン
         if len(byte) < 25 * 1000000: # Max filesize 25MB
             try:
