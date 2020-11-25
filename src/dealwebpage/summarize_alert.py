@@ -5,17 +5,18 @@ from logging import getLogger
 from multiprocessing import Queue
 from os import mkdir, path
 from threading import Event, Thread
-from typing import Any
+from typing import Any, Union, cast
 
+from utils.alert_data import Alert
 from utils.file_rw import w_file
 from utils.logger import worker_configurer
 
-data_list = deque()
+data_list: deque[Union[str, Alert]] = deque()
 event = Event()
 
 logger = getLogger(__name__)
 
-def receive_alert(recv_q: Queue[str]):
+def receive_alert(recv_q: Queue[Union[str, Alert]]):
     """
     他プロセスからのアラートデータを受信するスレッド
 
@@ -32,12 +33,12 @@ def receive_alert(recv_q: Queue[str]):
             break
 
 
-def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queue[str], nth: int, org_path: str):
+def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]], send_q: Queue[str], nth: int, org_path: str):
     """
     Alertが出た場合に記録するためのプロセス
 
     Args:
-    - recv_q: 各プロセスからのアラートデータを受け取るためのキュー
+    - recv_q: 各プロセスからのアラートデータを受け取るためのキュー, endがきたら終了
     - send_q: 
     - nth: 
     - org_path: organizationのパス
@@ -61,18 +62,18 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queu
         if temp == 'end':
             break
 
-        url = temp['url']
-        # url_src = temp['src']
-        file_name = temp['file_name']
-        content = temp['content']
-        label = temp['label']
+        alert = cast(Alert, temp)
+
+        file_name = alert.file_name
+        content = alert.content
+        label = alert.label
 
         # label と content にnthを追加
         label = 'Nth,' + label
         content = str(nth) + ', ' + content
 
         # "falsification.cysec.cs.ritsumei.ac.jp"がURLに含まれる場合、ファイル名を変更する
-        if ("falsification.cysec.cs.ritsumei.ac.jp" in url) or ("192.168.0.233" in url):
+        if ("falsification.cysec.cs.ritsumei.ac.jp" in alert.url) or ("192.168.0.233" in alert.url):
             file_name = "TEST_" + file_name
 
         # label と content を出力

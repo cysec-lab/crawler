@@ -70,16 +70,12 @@ def invisible(iframe_list: list[ResultSet]) -> Union[list[str], bool]:
     for iframe in iframe_list:
         width: str = iframe.get('width')
         height: str = iframe.get('height')
-        style: str = iframe.get('style')
-        if 'display:none' in style or 'visibility:hidden' in style:
-            inv.append(iframe)
-        else:
-            if width or height:
-                if ston(width) + ston(height) < 3:   # widthとheightの両方が1以下ならば
-                    inv.append(iframe)
-            else:
-                # width か height が0のとき
+        if width or height:
+            if ston(width) + ston(height) < 3:   # widthとheightの両方が1以下ならば
                 inv.append(iframe)
+        else:
+            # width か height が0のとき
+            inv.append(iframe)
     if inv:
         re = check_style(inv)   # 簡単なstyleのチェック
         if re:

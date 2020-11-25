@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from logging import getLogger
-from multiprocessing import Queue
 from os import path
 from typing import Any, Dict
 

@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from checkers.clamd import clamd_main
 from crawler import crawler_main
 from dealwebpage.summarize_alert import summarize_alert_main
+from utils.alert_data import Alert
 from utils.file_rw import r_file, r_json, w_file, w_json
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
@@ -25,7 +26,14 @@ logger = getLogger(__name__)
 # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
 filtering_dict: Dict[str, Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]]] = dict()
 clamd_q: Dict[str, Union[Queue[str], Process]] = dict()
-summarize_alert_q: Dict[str, Any] = dict()
+
+# アラート関連の情報が記録される
+# - recv: Alertクラス
+#   - 親プロセスからsummarize_alertに送るキュー
+# - send: summarize_alertプロセスから情報を送るためのキュー
+# - process: Process
+#   - summarize_alertプロセスを記録
+summarize_alert_q: Dict[str, Union[Queue[Union[Alert, str]], Process]] = dict()
 
 # これらホスト名辞書はまとめてもいいが、まとめるとどこで何を使ってるか分かりにくくなる
 # ホスト名 : {"URL_list": 待機URLのリスト[(deque)], "update_time": リストからURLをpopした時の時間int}
@@ -260,8 +268,8 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
         return False
 
     # summarize_alertのプロセスを起動
-    recvq: Queue[str] = Queue()
-    sendq: Queue[str] = Queue()
+    recvq: Queue[Union[Alert, str]] = Queue()
+    sendq: Queue[Union[Alert, str]] = Queue()
     summarize_alert_q['recv'] = recvq  # 子プロセスが受け取る用のキュー
     summarize_alert_q['send'] = sendq  # 子プロセスから送信する用のキュー
     p = Process(target=summarize_alert_main, args=(queue_log, recvq, sendq, nth, org_path))
@@ -271,16 +279,16 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
 
     # clamdを使うためのプロセスを起動(その子プロセスでclamdを起動)
     if clamd_scan:
-        recvq: Queue[str] = Queue()
-        sendq: Queue[str] = Queue()
-        clamd_q['recv'] = recvq   # clamdプロセスが受け取る用のキュー
-        clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
-        p = Process(target=clamd_main, args=(queue_log, recvq, sendq, org_path))
+        clamd_recvq: Queue[str] = Queue()
+        clamd_sendq: Queue[str] = Queue()
+        clamd_q['recv'] = clamd_recvq   # clamdプロセスが受け取る用のキュー
+        clamd_q['send'] = clamd_sendq   # clamdプロセスから送信する用のキュー
+        p = Process(target=clamd_main, args=(queue_log, clamd_recvq, clamd_sendq, org_path))
         p.daemon = True
         p.start()
         clamd_q['process'] = p
         # clamdへの接続
-        if sendq.get(block=True):
+        if clamd_sendq.get(block=True):
             # 成功
             logger.info('connect to clamd')
         else:
@@ -460,7 +468,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         parent_sendq: Queue[str] = Queue()
 
         # 子プロセスに渡す引数辞書
-        args_dic: dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Dict[str, List[str]]]] = dict()
+        args_dic: Dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Queue[Union[Alert, str]], Dict[str, List[str]]]] = dict()
         args_dic['host_name'] = host_name                       # ホスト名
         args_dic['parent_sendq'] = parent_sendq                 # 通信用キュー
         args_dic['child_sendq'] = child_sendq                   # 通信用キュー
@@ -615,13 +623,12 @@ def receive_and_send(not_send: bool=False):
             elif received_data['type'] == 'new_window_url':
                 # 新しい窓(orタブ)に出たURL(今のところ見つかってない)
                 for url_tuple in url_tuple_set:
-                    data_temp = dict()
-                    data_temp['url'] = url_tuple[0]
-                    data_temp['src'] = url_src
-                    data_temp['file_name'] = 'new_window_url.csv'
-                    data_temp['content'] = url_tuple[0] + ', ' + url_src
-                    data_temp['label'] = 'NEW_WINDOW_URL,URL'
-                    summarize_alert_q['recv'].put(data_temp)
+                    summarize_alert_q['recv'].put(Alert(
+                        url       = url_tuple[0],
+                        file_name = 'new_window_url.csv',
+                        content   = url_tuple[0] + ', ' + url_src,
+                        label     = 'NEW_WINDOW_URL,URL'
+                    ))
             elif received_data['type'] == 'redirect':
                 # リダイレクトの場合、URLがホワイトリストにかからなければアラート
                 # リダイレクトの場合、url_tuple_setの要素は1個(リダイレクト先)だけ
@@ -643,13 +650,12 @@ def receive_and_send(not_send: bool=False):
                                 break
 
                     if w_alert_flag:
-                        data_temp: dict[str, str] = dict()
-                        data_temp['url'] = url
-                        data_temp['src'] = url_src
-                        data_temp['file_name'] = 'after_redirect_check.csv'
-                        data_temp['content'] = received_data["ini_url"] + ', ' + url_src + ', ' + url
-                        data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
-                        summarize_alert_q['recv'].put(data_temp)
+                        summarize_alert_q['recv'].put(Alert(
+                            url       = url,
+                            file_name = 'after_redirect_check.csv',
+                            content   = received_data["ini_url"] + ', ' + url_src + ', ' + url,
+                            label     = 'URL,SOURCE,REDIRECT_URL'
+                        ))
 
                 # リダイレクト状況を保存(after_redirect.csv)する
                 # (リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
@@ -1026,7 +1032,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
             # clamdプロセスを終了させる
             logger.info("Wait for clamd process finish...")
             clamd_q['recv'].put('end')
-            if not clamd_q['process'].join(timeout=60):
+            if not clamd_q['process'].join(timeout=60.0):
                 # 終わるまで待機
                 logger.info("Terminate Clamd proc")
                 clamd_q['process'].terminate()
@@ -1034,7 +1040,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         # summarize alertプロセス終了処理
         logger.info("Wait for summarize alert process")
         summarize_alert_q['recv'].put('end')
-        if not summarize_alert_q['process'].join(timeout=60):
+        if not summarize_alert_q['process'].join(timeout=60.0):
             # 終わるまで待機
             logger.info("Terminate summarize-alert proc.")
             summarize_alert_q['process'].terminate()
