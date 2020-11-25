@@ -123,6 +123,105 @@ anacondaなどの仮想環境を使うと面倒くさくなる。
 
 ### テストケース実行
 
-tests ディレクトリに移動して実行する必要あり...なんでだろう
+src ディレクトリに移動して実行する必要あり...なんでだろう
 
 `python -m unittest discover tests -v`
+
+## 出力内容
+
+- CPU
+  - .pickleで保存されたデータ
+- MEM
+  - .pickleで保存されたデータ
+- achievement
+  - 何回かに分けてクローリングされた結果がまとめられる
+- result_*
+  - 何回かに分けてクローリングされた結果が入る
+
+### achievementの中
+
+- after_redirect.csv
+  - リダイレクトの内容を保存
+  - `crawler_init.py` で作成
+  - リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果
+- inivisible_iframe.csv
+  - HTML のインラインフレーム要素 (<iframe>) 入れ子になった閲覧コンテキストを表現する
+  - width、height属性値が0か display:none か visibility:hidden が設定されている等、目に見えない <iframe> が記録される
+- new_page.csv
+  - `crawler.py/parse()` で作成
+  - url_dict に存在しないページの場合これは新規ページ
+- same_hash_page.csv
+  - `crawler.py/parse()` で作成
+  - url_dict に存在するSHAと新たに取得したSHAが一致するかを調べて作成
+- change_hash_page.csv
+  - `crawler.py/parse()` で作成
+  - Hash値が変わったページに関して何日で変わったかを記録する
+- script_name.csv
+  - スクリプト名が1文字のとき、怪しいスクリプト名のときに記録する
+  - タイトル内に `<script ` が存在しているとき
+  - `src/crawler.py/` 618行目
+  - `src/dealwebpage/inspection_page.py/script_inspection()`
+- clamd_error.txt
+  - clamdで起きたエラーをまとめて記録する
+  - 大きすぎるファイル等々記録される
+- meta_refresh.csv
+  - `crawler.py/parse()` で作成
+  - アドレス変更等で飛ばされた場合に記録する
+- server
+  - 各サーバの結果が入る
+- hack_word_Lv*.txt
+  - ハック関連の文字列があるときにレベルに応じて記録される
+- new_file.csv
+  - `crawler.py/parse()` で作成
+  - url_dict に存在しないページの場合これは新規ファイル
+- result.txt
+  - 達成URL数を全部まとめて記録する
+- notice.txt
+  - 特殊なケースとしてなんかKillされた時等に記録されるページ
+
+### alertの中身
+
+- new_form_url.csv
+  - 入力フォームのaction先が未知サーバの場合に記録する
+  - ActionにかかれているURLが不完全な場合には適度に修正( `webpage.py/comp_http` )
+- request_to_new_server.csv
+  - リクエスト先のURLが安全かを調べる
+- download_url.csv
+  - 自動ダウンロードが存在する場合に記録する
+- over_work_cpu.csv, over_work_memory.csv
+  - 使用率が大きいプロセスを記録する
+- url_history.csv
+  - URLの遷移が存在する際に記録する
+  - `inspection_url_by_filter` を用いて怪しいURLかどうかチェックする
+  - `crawler.py` 922
+- about_blank_url.csv
+  - URL開いたらポップアップでファイルDLが出てくる者たちが記録されている...
+  - FileDLに記録されてない？
+  - `crawler.py` 1195
+- alert_text.csv
+  - アラートででてきたURL, 内容が保存される
+  - `crawler.py` 1185
+- new_form_url.csv
+  - 未知サーバにフォームを送信しているページを記録する
+  - `crawler.py` 675
+- new_page_without_frequent_word.csv
+  - 新たなページにあった単語が今まで見てきた同一サーバ内のの頻出単語にどれだけ含まれているか調査
+  - 類似性が全然ないならば記録する
+  - `crawler.py` 553
+- after_redirect_check.csv
+  - リダイレクトが発生した場合ホワイトリストに含まれているかを調べて記録する
+  - `crawler_init.py` 649
+- new_window_url
+  - 新規ウィンドウを開く系ページを記録
+  - `crawler_init.py` 622
+- change_important_word.csv
+  - 過去の記録と頻発する文字列が変わっていたならば記録する
+  - `crawler.py` 553
+- link_to_new_server.csv
+  - 未知サーバへのリンクが存在する場合に記録する
+- new_iframeSrc.csv
+  - 前回のクローリングで確認されなかったiframeが存在する場合に記録
+  - `crawler.py` 591
+- new_scriptSrc.csv
+  - 前回のクローリングで確認されなかったscriptが使われているときに記録
+  - `crawler.py` 640

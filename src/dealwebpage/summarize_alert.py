@@ -16,23 +16,39 @@ event = Event()
 logger = getLogger(__name__)
 
 def receive_alert(recv_q: Queue[str]):
+    """
+    他プロセスからのアラートデータを受信するスレッド
+
+    Args:
+    - reqv_q: 他のプロセスからのアラートを受け取るためのキュー
+    """
     while True:
         recv_data = recv_q.get(block=True)
         data_list.append(recv_data)
         event.set()
         if recv_data == 'end':
+            # 終了処理
             logger.info("Summarize alert: Receive end")
             break
 
 
 def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queue[str], nth: int, org_path: str):
+    """
+    Alertが出た場合に記録するためのプロセス
+
+    Args:
+    - recv_q: 各プロセスからのアラートデータを受け取るためのキュー
+    - send_q: 
+    - nth: 
+    - org_path: organizationのパス
+    """
     worker_configurer(queue_log, logger)
     alert_dir_path = org_path + '/alert'
     # alertディレクトリを作成
     if not path.exists(alert_dir_path):
         mkdir(alert_dir_path)
 
-    t = Thread(target=receive_alert, args=(recv_q,))  # 他プロセスからのデータを受信するスレッド
+    t = Thread(target=receive_alert, args=(recv_q,))
     t.setDaemon(True)
     t.start()
 
@@ -53,7 +69,7 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[str], send_q: Queu
 
         # label と content にnthを追加
         label = 'Nth,' + label
-        content = str(nth) + ',' + content
+        content = str(nth) + ', ' + content
 
         # "falsification.cysec.cs.ritsumei.ac.jp"がURLに含まれる場合、ファイル名を変更する
         if ("falsification.cysec.cs.ritsumei.ac.jp" in url) or ("192.168.0.233" in url):

@@ -92,7 +92,7 @@ def invisible(iframe_list: list[ResultSet]) -> Union[list[str], bool]:
 
 def get_src_of_tag(tags: Iterable[ResultSet]) -> Union[list[str], bool]:
     """
-    tagsのsrc属性値のURLのリストを返す
+    script tagのsrc属性値のURLをリストで返す
     src値がなければFalse
     """
     src_list: list[str] = list()

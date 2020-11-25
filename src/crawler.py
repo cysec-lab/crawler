@@ -473,7 +473,7 @@ def parser(parse_args_dic: Dict[str, Any]):
             data_temp['src'] = page.src
             data_temp['file_name'] = 'link_to_new_server.csv'
             content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
-            data_temp['content'] = page.url_initial + "," + page.url + "," + content
+            data_temp['content'] = page.url_initial + ", " + page.url + ", " + content
             data_temp['label'] = 'InitialURL,URL,LINK'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
@@ -491,11 +491,11 @@ def parser(parse_args_dic: Dict[str, Any]):
     # None : どこかでエラー。
     if type(num_of_days) == int:
         update_write_file_dict('result', 'change_hash_page.csv',
-                               content=['URL,num of no-change days', page.url + ',' + str(num_of_days)])
+                               content=['URL,num of no-change days', page.url + ', ' + str(num_of_days)])
     elif num_of_days is True:
         update_write_file_dict('result', 'same_hash_page.csv', content=['URL', page.url])
     elif num_of_days is False:
-        update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ',' + page.src])
+        update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ', ' + page.src])
         page.new_page = True
 
     if use_mecab:
@@ -510,7 +510,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                 data_temp['url'] = page.url_initial
                 data_temp['src'] = page.src
                 data_temp['file_name'] = 'hack_word_Lv' + str(hack_level) + '.csv'
-                data_temp['content'] = page.url_initial + "," + page.url + ',' + page.src
+                data_temp['content'] = page.url_initial + ", " + page.url + ', ' + page.src
                 data_temp['label'] = 'InitialURL,URL,SOURCE'
                 with wfta_lock:
                     write_file_to_alertdir.append(data_temp)
@@ -534,7 +534,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                             data_temp['url'] = page.url_initial
                             data_temp['src'] = page.src
                             data_temp['file_name'] = 'change_important_word.csv'
-                            data_temp['content'] = page.url_initial + "," + page.url + ',' + str(top10)[1:-1] + ', ,' \
+                            data_temp['content'] = page.url_initial + ", " + page.url + ', ' + str(top10)[1:-1] + ', ,' \
                                                    + str(pre_top10)[1:-1]
                             data_temp['label'] = 'InitialURL,URL,TOP10,N/A,PRE'
                             with wfta_lock:
@@ -544,9 +544,9 @@ def parser(parse_args_dic: Dict[str, Any]):
                             #                 'num_diff_word': len(symmetric_difference)}
                             #     screenshots_svc_q.put(data_dic)
                         update_write_file_dict('result', 'symmetric_diff_of_word.csv',
-                                               content=['URL,length,top10,pre top10', page.url + ',' +
-                                                        str(len(symmetric_difference)) + ',' + str(top10)[1:-1] + ', ,'
-                                                        + str(pre_top10)[1:-1] + ',' + str(num_of_days)])
+                                               content=['URL,length,top10,pre top10', page.url + ', ' +
+                                                        str(len(symmetric_difference)) + ', ' + str(top10)[1:-1] + ', ,'
+                                                        + str(pre_top10)[1:-1] + ', ' + str(num_of_days)])
                 url_dict.add_top10_to_url_dict(url=page.url, top10=top10)   # top10を更新
 
             # ページにあった単語が今までの頻出単語にどれだけ含まれているか調査-------------------------------
@@ -560,8 +560,8 @@ def parser(parse_args_dic: Dict[str, Any]):
                 # このページにある単語から頻出単語リストの単語を引き、その数を調べる
                 diff_set = set(word_tf_dict.keys()).difference(set(frequent_word_list[0:max_num]))
                 update_write_file_dict('result', 'and_diff_of_word_in_new_page.csv',
-                                       ['URL,and,diff,per', page.url + ',' + str(len(and_set)) + ',' +
-                                        str(len(diff_set)) + ',' + str(len(diff_set)/len(word_tf_dict.keys()))])
+                                       ['URL,and,diff,per', page.url + ', ' + str(len(and_set)) + ', ' +
+                                        str(len(diff_set)) + ', ' + str(len(diff_set)/len(word_tf_dict.keys()))])
 
                 # 新しく見つかったURLで、ANDの単語(このページの単語と今までの頻出単語top50とのAND)が5個以下なら
                 if len(and_set) < 6 and page.new_page:
@@ -569,7 +569,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                     data_temp['url'] = page.url_initial
                     data_temp['src'] = page.src
                     data_temp['file_name'] = 'new_page_without_frequent_word.csv'
-                    data_temp['content'] = page.url_initial + "," + page.url + ',' + str(and_set)
+                    data_temp['content'] = page.url_initial + ", " + page.url + ', ' + str(and_set)
                     data_temp['label'] = 'InitalURL,URL,WORDS'
                     with wfta_lock:
                         write_file_to_alertdir.append(data_temp)
@@ -588,7 +588,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                     data_temp['url'] = page.url_initial
                     data_temp['src'] = page.src
                     data_temp['file_name'] = 'new_iframeSrc.csv'
-                    data_temp['content'] = page.url_initial + "," + page.url + "," + str(diff)[1:-1]
+                    data_temp['content'] = page.url_initial + ", " + page.url + ", " + str(diff)[1:-1]
                     data_temp['label'] = 'InitialURL,URL,iframe_src'
                     with wfta_lock:
                         write_file_to_alertdir.append(data_temp)
@@ -604,7 +604,7 @@ def parser(parse_args_dic: Dict[str, Any]):
         meta_refresh = ''
         for i in meta_refresh_result:
             meta_refresh += str(i) + ','
-        update_write_file_dict('result', 'meta_refresh.csv', content=['URL,meta-ref', page.url + ',' + meta_refresh])
+        update_write_file_dict('result', 'meta_refresh.csv', content=['URL, meta-ref', page.url + ', ' + meta_refresh])
         meta_refresh_list = get_meta_refresh_url(meta_refresh_result, page)   # refreshタグからURLを抽出
         # 親にURLを送信する。リダイレクトと同じ扱いをするため、複数あっても(そんなページ怪しすぎるが)１つずつ送る
         result_set = inspection_url_by_filter(url_list=meta_refresh_list, filtering_dict=filtering_dict)
@@ -674,7 +674,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                 data_temp['src'] = page.src
                 data_temp['file_name'] = 'new_form_url.csv'
                 content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
-                data_temp['content'] = page.url_initial + "," + page.url + "," + content
+                data_temp['content'] = page.url_initial + ", " + page.url + ", " + content
                 data_temp['label'] = 'InitialURL,URL,form_url'
                 with wfta_lock:
                     write_file_to_alertdir.append(data_temp)
@@ -759,7 +759,7 @@ def resource_observer_thread(args: Dict[str, Any]):
             data_temp['url'] = initial
             data_temp['src'] = src
             data_temp['file_name'] = 'over_work_cpu.csv'
-            data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
+            data_temp['content'] = initial + ", " + url + ", " + src + ", " + str(proc_info)[1:-1]
             data_temp['label'] = 'InitialURL,URL,Src,Info'
             proc_info = [(p_dict["p_name"], p_dict["cpu_per"]) for p_dict in ret]
             with wfta_lock:
@@ -780,7 +780,7 @@ def resource_observer_thread(args: Dict[str, Any]):
             data_temp['src'] = src
             data_temp['file_name'] = 'over_work_memory.csv'
             proc_info = [(p_dict["p_name"], p_dict["mem_used"]) for p_dict in ret]
-            data_temp['content'] = initial + "," + url + "," + src + "," + str(proc_info)[1:-1]
+            data_temp['content'] = initial + ", " + url + ", " + src + ", " + str(proc_info)[1:-1]
             data_temp['label'] = 'InitialURL,URL,Src,Info'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
@@ -897,7 +897,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
             data_temp['src'] = page.src
             data_temp['file_name'] = 'request_to_new_server.csv'
             content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
-            data_temp['content'] = page.url_initial + "," + page.url + "," + content
+            data_temp['content'] = page.url_initial + ", " + page.url + ", " + content
             data_temp['label'] = 'InitialURL,URL,request_url'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
@@ -909,9 +909,9 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
             data_temp['url'] = page.url_initial
             data_temp['src'] = page.src
             data_temp['file_name'] = 'download_url.csv'
-            data_temp['content'] = page.url_initial + "," + file_id + "," + info["StartTime"] + "," + info["FileName"]\
-                                   + "," + str(info["FileSize"]) + "," + str(info["TotalBytes"]) + "," + info["Mime"]\
-                                   + "," + info["URL"] + "," + info["Referrer"] + "," + page.url
+            data_temp['content'] = page.url_initial + ", " + file_id + ", " + info["StartTime"] + ", " + info["FileName"]\
+                                   + ", " + str(info["FileSize"]) + ", " + str(info["TotalBytes"]) + ", " + info["Mime"]\
+                                   + ", " + info["URL"] + ", " + info["Referrer"] + ", " + page.url
             data_temp['label'] = 'InitialURL,id,StartTime,FileName,FileSize,TotalBytes,Mime,URL,Referrer,FinalURL'
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
@@ -930,7 +930,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
             data_temp['label'] = 'InitialURL,FinalURL,src,AmongURL,,StrangeURL'      # [1:-1]はリストの"["と"]"を消すため
             content = str(page.among_url)[1:-1].replace(" ", "").replace("'", "") + ",N/A," + \
                       str(strange_set)[1:-1].replace(" ", "").replace("'", "")
-            data_temp['content'] = page.url_initial + "," + page.url + ',' + page.src + ',' + content
+            data_temp['content'] = page.url_initial + ", " + page.url + ', ' + page.src + ', ' + content
             with wfta_lock:
                 write_file_to_alertdir.append(data_temp)
 
@@ -1107,7 +1107,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         file_type = page_or_file(page)
         if page.content_type:
             update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', page.content_type.replace(',', ':')
-                                                            + ',' + page.url + ',' + page.src])  # 記録
+                                                            + ', ' + page.url + ', ' + page.src])  # 記録
         else:
             update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', 'NoneType,' + page.url + ',' + page.src]) # 記録
             logger.warning("Content-type is None: %s", page.url)
@@ -1182,7 +1182,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     data_temp['url'] = page.url_initial
                     data_temp['src'] = page.src
                     data_temp['file_name'] = 'alert_text.csv'
-                    data_temp['content'] = page.url_initial + "," + page.url + "," + str(page.alert_txt)[1:-1]
+                    data_temp['content'] = page.url_initial + ", " + page.url + ", " + str(page.alert_txt)[1:-1]
                     data_temp['label'] = 'InitialURL,URL,AlertText'
                     with wfta_lock:
                         write_file_to_alertdir.append(data_temp)
@@ -1193,7 +1193,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     data_temp['url'] = page.url_initial
                     data_temp['src'] = page.src
                     data_temp['file_name'] = 'about_blank_url.csv'
-                    data_temp['content'] = page.url_initial + ',' + page.src
+                    data_temp['content'] = page.url_initial + ', ' + page.src
                     data_temp['label'] = 'InitialURL,src'
                     with wfta_lock:
                         write_file_to_alertdir.append(data_temp)
@@ -1255,22 +1255,22 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 num_of_days, file_len = url_dict.compere_hash(page)
                 if type(num_of_days) == int:
                     update_write_file_dict('result', 'change_hash_file.csv',
-                                           content=['URL,content-type,no-change days', page.url + ',' + page.content_type +
-                                                    ',' + str(num_of_days)])
+                                           content=['URL,content-type,no-change days', page.url + ', ' + page.content_type +
+                                                    ', ' + str(num_of_days)])
                     if file_len is None:  # Noneは前回のファイルサイズが登録されていなかった場合
                         pass
                     else:  # ファイルサイズが変わっていたものを記録
                         update_write_file_dict('result', 'different_size_file.csv',
                                                content=['URL,src,content-type,difference,content-length',
-                                                        page.url + ',' + page.src + ',' + page.content_type + ',' +
-                                                        str(file_len) + ',' + str(page.content_length)])
+                                                        page.url + ', ' + page.src + ', ' + page.content_type + ',' +
+                                                        str(file_len) + ', ' + str(page.content_length)])
                 elif num_of_days is True:     # ハッシュ値が同じ場合
                     update_write_file_dict('result', 'same_hash_file.csv',
-                                           content=['URL,content-type', page.url + ',' + page.content_type])
+                                           content=['URL,content-type', page.url + ', ' + page.content_type])
                 elif num_of_days is False:  # 新規保存
                     update_write_file_dict('result', 'new_file.csv',
                                            content=['URL,content-type,src',
-                                                    page.url + ',' + page.content_type + ',' + page.src])
+                                                    page.url + ', ' + page.content_type + ', ' + page.src])
             else:
                 logger.error("there are no url_dict, unrechable Bug")
             # clamdによる検査

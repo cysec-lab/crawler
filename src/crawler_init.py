@@ -619,7 +619,7 @@ def receive_and_send(not_send: bool=False):
                     data_temp['url'] = url_tuple[0]
                     data_temp['src'] = url_src
                     data_temp['file_name'] = 'new_window_url.csv'
-                    data_temp['content'] = url_tuple[0] + ',' + url_src
+                    data_temp['content'] = url_tuple[0] + ', ' + url_src
                     data_temp['label'] = 'NEW_WINDOW_URL,URL'
                     summarize_alert_q['recv'].put(data_temp)
             elif received_data['type'] == 'redirect':
@@ -642,22 +642,19 @@ def receive_and_send(not_send: bool=False):
                                 w_alert_flag = False
                                 break
 
-                    #######################################
-                    # ToDo: Ifいらないと思う
                     if w_alert_flag:
                         data_temp: dict[str, str] = dict()
                         data_temp['url'] = url
                         data_temp['src'] = url_src
                         data_temp['file_name'] = 'after_redirect_check.csv'
-                        data_temp['content'] = received_data["ini_url"] + ',' + url_src + ',' + url
+                        data_temp['content'] = received_data["ini_url"] + ', ' + url_src + ', ' + url
                         data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
                         summarize_alert_q['recv'].put(data_temp)
-                    ########################################
 
                 # リダイレクト状況を保存(after_redirect.csv)する
                 # (リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
-                w_file('after_redirect.csv', received_data["ini_url"] + ',' + received_data["url_src"] + ',' +
-                       url + "," + str(check_result) + '\n', mode="a")
+                w_file('after_redirect.csv', received_data["ini_url"] + ', ' + received_data["url_src"] + ',' +
+                       url + ", " + str(check_result) + '\n', mode="a")
 
             # リンクやnew_window_url, リダイレクト先をurlリストに追加
             # 既に割り当て済みの場合は追加しない
