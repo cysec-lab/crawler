@@ -84,6 +84,10 @@ organization/ritsumeikan/の中にクローリング結果が保存されてい�
   - deny: リダイレクト後として危険なホスト名の辞書。(処理は未実装)
 - BLACK.json
   - 文字のリスト。この文字を含むURLは検索しない。
+- ONLY.json
+  - クローリング対象のURLを制限する
+  - クローリング対象にしたいURLの正規表現を書いていくと当てはまるURLのみをクローリングする
+  -  `{ "Regex": [regex1, regex2...]}`
 
 ### 実行方法  
 実行ファイル名 ： operate_main.py  

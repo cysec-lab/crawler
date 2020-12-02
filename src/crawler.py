@@ -379,7 +379,8 @@ def update_write_file_dict(dic_type: str, key: str, content: Any):
 
 def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], data: Union[str, Dict[str, Any], Tuple[str, ...]]):
     """
-    親プロセスにdataを送信する
+    親プロセス(main.py)に自身が担当しているサイトのURLを要求する
+    親からのデータは q_recv に入れられる
     """
     if not sendq.full():
         sendq.put(data)  # 親にdataを送信
@@ -1012,14 +1013,16 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         # クローリングするURLを取得
         send_to_parent(sendq=q_send, data='plz')   # 親プロセス(main.py)に自身が担当しているサイトのURLを要求
         search_tuple = receive(q_recv)
-        if search_tuple is False:  # 5秒間何も届かなければFalse
+        if search_tuple is False:
+            # 5秒間何も届かなければFalseが入っている
             logger.warning("%s: couldn't get data from main process.", host)
             # 実行中のパーススレッドが処理を終えると、クローラメインプロセスをbreakする
             while parser_threadId_set:
                 logger.warning('%s: wait 3sec because the queue is empty.', host)
                 sleep(3)
             break
-        elif search_tuple == 'nothing':   # このプロセスに割り当てるURLがない場合は"nothing"を受信する
+        elif search_tuple == 'nothing':
+            # このプロセスに割り当てるURLがないとき
             if "falsification" in host:
                 logger.warning("%s: nothing!!!!!!!!!!!!!!!!!!!!!!", host)
             while parser_threadId_set:
@@ -1035,7 +1038,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             else:
                 # ２回目もFalse or nothingだったらメインを抜ける
                 break
-        else:    # それ以外(URLのタプル)
+        else:
+            # クローリングするべきURLのタプルが来たとき
             if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
                 logger.debug("%s : receive '%s'", host, str(search_tuple[0]))
             send_to_parent(q_send, 'receive')

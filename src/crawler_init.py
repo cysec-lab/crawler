@@ -5,18 +5,20 @@ import dbm
 import json
 import os
 import pickle
+import re
 from collections import deque
 from logging import getLogger
 from multiprocessing import Process, Queue, cpu_count
 from shutil import copyfile, copytree
 from time import sleep, time
-from typing import Any, Deque, Dict, List, Tuple, Union, cast
+from typing import Any, Deque, Dict, List, Pattern, Tuple, Union, cast
 from urllib.parse import urlparse
 
 from checkers.clamd import clamd_main
 from crawler import crawler_main
 from dealwebpage.summarize_alert import summarize_alert_main
 from utils.alert_data import Alert
+from utils.deal_url import create_only_dict
 from utils.file_rw import r_file, r_json, w_file, w_json
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
@@ -24,7 +26,7 @@ from webdrivers.resources_observer import MemoryObserverThread
 logger = getLogger(__name__)
 
 # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
-filtering_dict: Dict[str, Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]]] = dict()
+filtering_dict: Dict[str, Union[Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]], re.Pattern[str], None]] = dict()
 clamd_q: Dict[str, Union[Queue[str], Process]] = dict()
 
 # アラート関連の情報が記録される
@@ -169,11 +171,20 @@ def import_file(path: str):
         path: 設定ファイルまでのパス(.../crawler/organization/<hoge>/ROD/LIST)
     """
 
-    filter_list = ["DOMAIN", "WHITE", "IPAddress", "REDIRECT", "BLACK"]
+    filter_list = ["DOMAIN", "WHITE", "IPAddress", "REDIRECT", "BLACK", "ONLY"]
     for filter_ in filter_list:
         if os.path.exists("{}/{}.json".format(path, filter_)):
             with open("{}/{}.json".format(path, filter_), "r") as f:
-                filtering_dict[filter_] = json.load(f)
+                try:
+                    filter_data = json.load(f)
+                    if filter_ == "ONLY":
+                        # ONLY.json の正規表現をつなげておいたものを保持するため
+                        filter_data = create_only_dict(filter_data)
+                except:
+                    # 形式違いのデータがあった場合は飛ばす
+                    logger.warn(f"{filter_}.json is not json format")
+                    continue
+                filtering_dict[filter_] = filter_data
         else:
             filtering_dict[filter_] = dict()
     logger.debug('Import Setting filters Fin!')
@@ -468,7 +479,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         parent_sendq: Queue[str] = Queue()
 
         # 子プロセスに渡す引数辞書
-        args_dic: Dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Queue[Union[Alert, str]], Dict[str, List[str]]]] = dict()
+        args_dic: Dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Queue[Union[Alert, str]], Dict[str, Union[List[str], Pattern[str]]]]] = dict()
         args_dic['host_name'] = host_name                       # ホスト名
         args_dic['parent_sendq'] = parent_sendq                 # 通信用キュー
         args_dic['child_sendq'] = child_sendq                   # 通信用キュー
@@ -491,7 +502,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         args_dic['mecab'] = cast(bool, setting_dict['mecab'])               # Mecabを利用するか否か
         args_dic['screenshots'] = cast(bool, setting_dict['screenshots'])   # スクリーンショットを撮るか否か
         args_dic['org_path'] = org_path
-        args_dic["filtering_dict"] = cast(Dict[str, List[str]], filtering_dict)
+        args_dic["filtering_dict"] = cast(Dict[str, Union[List[str], Pattern[str]]], filtering_dict)
 
         # クローリングプロセスの引数は、サーバ毎に毎回同じ
         # hostName_args[]に設定を保存しておく
