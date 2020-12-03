@@ -11,7 +11,6 @@ from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
-
 from utils.alert_data import Alert
 import psutil
 from bs4 import BeautifulSoup
@@ -807,8 +806,8 @@ def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
 
     try:
         temp_r = recv_r.get(block=True, timeout=5)
-    except Exception as err:
-        logger.exception(f"{f_name}{err}")
+    except:
+        logger.info(f"queue is Empty")
         return False
     return temp_r
 
