@@ -175,7 +175,7 @@ def quit_driver(driver: WebDriver) -> bool:
     try:
         driver.close()
     except Exception as err:
-        logger.info("There are no window.... {err}")
+        logger.info(f"There are no window.... {err}")
         pass
 
     try:
