@@ -549,20 +549,21 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
 def receive_and_send(not_send: bool=False):
     """
     子プロセスからの情報を受信する、plzを受け取るとURLを子プロセスに送信する
-    受信したリスト:
-        辞書、タプル、文字列の3種類
-        - {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "url_src": URLが貼ってあったページURL, オプション}
-          - links: ページクローリング結果
-          - file_done: ファイルクローリング結果
-          - new_window_url: 新しい窓(or tab)に出たURL
-          - redirect: ホワイトリストになければアラートを発する
-        - (url, 'redirect')
-          - リダイレクトが起こったが、ホスト名が変わらず、そのまま子プロセスで処理続行した
-        - "receive"
-          - 子プロセスがURLのタプルを受け取るたびに送信する
-        - "plz"
-          - 子プロセスがURLのタプルを要求
-        クローリングするURLならばurl_listに追加
+
+    - 受信するもの 辞書、タプル、文字列の3種類
+      - {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "url_src": URLが貼ってあったページURL, オプション}
+        - links: ページクローリング結果
+        - file_done: ファイルクローリング結果
+        - new_window_url: 新しい窓(or tab)に出たURL
+        - redirect: ホワイトリストになければアラートを発する
+      - (url, 'redirect')
+        - リダイレクトが起こったが、ホスト名が変わらず、そのまま子プロセスで処理続行した
+      - "receive"
+        - 子プロセスがURLのタプルを受け取るたびに送信する
+      - "plz"
+        - 子プロセスがURLのタプルを要求
+        - クローリングするURLならばurl_listに追加
+
     args:
         not_send: Trueならば子プロセスにURLを送信しない
                   子プロセスからのデータを受け取りたいだけの時に利用
@@ -713,7 +714,7 @@ def del_child(now: int):
     - 基準は、待機キューの更新が300秒以上なかったら
 
     args:
-        now: ToDo
+        now: float で現在の時間が与えられる
     """
 
     del_process_list: List[str] = list()

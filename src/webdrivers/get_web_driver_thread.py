@@ -45,25 +45,3 @@ class GetFirefoxDriverThread(Thread):
             self.driver = False
         finally:
             self.re = True
-
-
-# class GetChromeDriverThread(Thread):
-#     def __init__(self, options, d):
-#         super(GetChromeDriverThread, self).__init__()
-#         self.options = options
-#         self.d = d
-#         self.driver = False
-#         self.re = False
-
-#     def run(self):
-#         try:
-#             self.driver = webdriver.Chrome(chrome_options=self.options, executable_path='/usr/local/bin/chromedriver',
-#                                            desired_capabilities=self.d)
-#         except selenium.common.exceptions.WebDriverException as e:
-#             print(location() + str(e), flush=True)
-#             self.driver = False
-#         except LookupError as e:
-#             print(location() + str(e), flush=True)
-#             self.driver = False
-#         finally:
-#             self.re = True
