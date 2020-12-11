@@ -1044,18 +1044,22 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
             # clamdプロセスを終了させる
             logger.info("Wait for clamd process finish...")
             clamd_q['recv'].put('end')
-            if not clamd_q['process'].join(timeout=60.0):
+            clamd_q['process'].join(timeout=60.0)
+            if clamd_q['process'].is_alive():
                 # 終わるまで待機
                 logger.info("Terminate Clamd proc")
                 clamd_q['process'].terminate()
+                sleep(1)
 
         # summarize alertプロセス終了処理
         logger.info("Wait for summarize alert process")
         summarize_alert_q['recv'].put('end')
-        if not summarize_alert_q['process'].join(timeout=60.0):
+        summarize_alert_q['process'].join(timeout=60.0)
+        if summarize_alert_q['process'].is_alive():
             # 終わるまで待機
             logger.info("Terminate summarize-alert proc.")
             summarize_alert_q['process'].terminate()
+            sleep(1)
 
         url_db.close()
         # メインループをもう一度回すかどうか
