@@ -5,17 +5,20 @@ import dbm
 import json
 import os
 import pickle
+import re
 from collections import deque
 from logging import getLogger
 from multiprocessing import Process, Queue, cpu_count
 from shutil import copyfile, copytree
 from time import sleep, time
-from typing import Any, Deque, Dict, List, Tuple, Union, cast
+from typing import Any, Deque, Dict, List, Pattern, Tuple, Union, cast
 from urllib.parse import urlparse
 
 from checkers.clamd import clamd_main
 from crawler import crawler_main
 from dealwebpage.summarize_alert import summarize_alert_main
+from utils.alert_data import Alert
+from utils.deal_url import create_only_dict
 from utils.file_rw import r_file, r_json, w_file, w_json
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
@@ -23,9 +26,16 @@ from webdrivers.resources_observer import MemoryObserverThread
 logger = getLogger(__name__)
 
 # 接続すべきURLかどうか判断するのに必要なリストをまとめた辞書
-filtering_dict: Dict[str, Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]]] = dict()
+filtering_dict: Dict[str, Union[Dict[str, Union[str, int, None, Dict[str, Dict[str, List[str]]]]], re.Pattern[str], None]] = dict()
 clamd_q: Dict[str, Union[Queue[str], Process]] = dict()
-summarize_alert_q: Dict[str, Any] = dict()
+
+# アラート関連の情報が記録される
+# - recv: Alertクラス
+#   - 親プロセスからsummarize_alertに送るキュー
+# - send: summarize_alertプロセスから情報を送るためのキュー
+# - process: Process
+#   - summarize_alertプロセスを記録
+summarize_alert_q: Dict[str, Union[Queue[Union[Alert, str]], Process]] = dict()
 
 # これらホスト名辞書はまとめてもいいが、まとめるとどこで何を使ってるか分かりにくくなる
 # ホスト名 : {"URL_list": 待機URLのリスト[(deque)], "update_time": リストからURLをpopした時の時間int}
@@ -161,11 +171,20 @@ def import_file(path: str):
         path: 設定ファイルまでのパス(.../crawler/organization/<hoge>/ROD/LIST)
     """
 
-    filter_list = ["DOMAIN", "WHITE", "IPAddress", "REDIRECT", "BLACK"]
+    filter_list = ["DOMAIN", "WHITE", "IPAddress", "REDIRECT", "BLACK", "ONLY"]
     for filter_ in filter_list:
         if os.path.exists("{}/{}.json".format(path, filter_)):
             with open("{}/{}.json".format(path, filter_), "r") as f:
-                filtering_dict[filter_] = json.load(f)
+                try:
+                    filter_data = json.load(f)
+                    if filter_ == "ONLY":
+                        # ONLY.json の正規表現をつなげておいたものを保持するため
+                        filter_data = create_only_dict(filter_data)
+                except:
+                    # 形式違いのデータがあった場合は飛ばす
+                    logger.warn(f"{filter_}.json is not json format")
+                    continue
+                filtering_dict[filter_] = filter_data
         else:
             filtering_dict[filter_] = dict()
     logger.debug('Import Setting filters Fin!')
@@ -260,8 +279,8 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
         return False
 
     # summarize_alertのプロセスを起動
-    recvq: Queue[str] = Queue()
-    sendq: Queue[str] = Queue()
+    recvq: Queue[Union[Alert, str]] = Queue()
+    sendq: Queue[Union[Alert, str]] = Queue()
     summarize_alert_q['recv'] = recvq  # 子プロセスが受け取る用のキュー
     summarize_alert_q['send'] = sendq  # 子プロセスから送信する用のキュー
     p = Process(target=summarize_alert_main, args=(queue_log, recvq, sendq, nth, org_path))
@@ -271,16 +290,16 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
 
     # clamdを使うためのプロセスを起動(その子プロセスでclamdを起動)
     if clamd_scan:
-        recvq: Queue[str] = Queue()
-        sendq: Queue[str] = Queue()
-        clamd_q['recv'] = recvq   # clamdプロセスが受け取る用のキュー
-        clamd_q['send'] = sendq   # clamdプロセスから送信する用のキュー
-        p = Process(target=clamd_main, args=(queue_log, recvq, sendq, org_path))
+        clamd_recvq: Queue[str] = Queue()
+        clamd_sendq: Queue[str] = Queue()
+        clamd_q['recv'] = clamd_recvq   # clamdプロセスが受け取る用のキュー
+        clamd_q['send'] = clamd_sendq   # clamdプロセスから送信する用のキュー
+        p = Process(target=clamd_main, args=(queue_log, clamd_recvq, clamd_sendq, org_path))
         p.daemon = True
         p.start()
         clamd_q['process'] = p
         # clamdへの接続
-        if sendq.get(block=True):
+        if clamd_sendq.get(block=True):
             # 成功
             logger.info('connect to clamd')
         else:
@@ -460,7 +479,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         parent_sendq: Queue[str] = Queue()
 
         # 子プロセスに渡す引数辞書
-        args_dic: dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Dict[str, List[str]]]] = dict()
+        args_dic: Dict[str, Union[str, int, Queue[str], bool, Process, Queue[Dict[str, str]], Dict[str, str], Queue[Union[Alert, str]], Dict[str, Union[List[str], Pattern[str]]]]] = dict()
         args_dic['host_name'] = host_name                       # ホスト名
         args_dic['parent_sendq'] = parent_sendq                 # 通信用キュー
         args_dic['child_sendq'] = child_sendq                   # 通信用キュー
@@ -483,7 +502,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         args_dic['mecab'] = cast(bool, setting_dict['mecab'])               # Mecabを利用するか否か
         args_dic['screenshots'] = cast(bool, setting_dict['screenshots'])   # スクリーンショットを撮るか否か
         args_dic['org_path'] = org_path
-        args_dic["filtering_dict"] = cast(Dict[str, List[str]], filtering_dict)
+        args_dic["filtering_dict"] = cast(Dict[str, Union[List[str], Pattern[str]]], filtering_dict)
 
         # クローリングプロセスの引数は、サーバ毎に毎回同じ
         # hostName_args[]に設定を保存しておく
@@ -530,20 +549,21 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
 def receive_and_send(not_send: bool=False):
     """
     子プロセスからの情報を受信する、plzを受け取るとURLを子プロセスに送信する
-    受信したリスト:
-        辞書、タプル、文字列の3種類
-        - {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "url_src": URLが貼ってあったページURL, オプション}
-          - links: ページクローリング結果
-          - file_done: ファイルクローリング結果
-          - new_window_url: 新しい窓(or tab)に出たURL
-          - redirect: ホワイトリストになければアラートを発する
-        - (url, 'redirect')
-          - リダイレクトが起こったが、ホスト名が変わらず、そのまま子プロセスで処理続行した
-        - "receive"
-          - 子プロセスがURLのタプルを受け取るたびに送信する
-        - "plz"
-          - 子プロセスがURLのタプルを要求
-        クローリングするURLならばurl_listに追加
+
+    - 受信するもの 辞書、タプル、文字列の3種類
+      - {'type': '文字列', 'url_set': [(url, 検査結果), (url, 検査結果),...], "url_src": URLが貼ってあったページURL, オプション}
+        - links: ページクローリング結果
+        - file_done: ファイルクローリング結果
+        - new_window_url: 新しい窓(or tab)に出たURL
+        - redirect: ホワイトリストになければアラートを発する
+      - (url, 'redirect')
+        - リダイレクトが起こったが、ホスト名が変わらず、そのまま子プロセスで処理続行した
+      - "receive"
+        - 子プロセスがURLのタプルを受け取るたびに送信する
+      - "plz"
+        - 子プロセスがURLのタプルを要求
+        - クローリングするURLならばurl_listに追加
+
     args:
         not_send: Trueならば子プロセスにURLを送信しない
                   子プロセスからのデータを受け取りたいだけの時に利用
@@ -615,13 +635,12 @@ def receive_and_send(not_send: bool=False):
             elif received_data['type'] == 'new_window_url':
                 # 新しい窓(orタブ)に出たURL(今のところ見つかってない)
                 for url_tuple in url_tuple_set:
-                    data_temp = dict()
-                    data_temp['url'] = url_tuple[0]
-                    data_temp['src'] = url_src
-                    data_temp['file_name'] = 'new_window_url.csv'
-                    data_temp['content'] = url_tuple[0] + ',' + url_src
-                    data_temp['label'] = 'NEW_WINDOW_URL,URL'
-                    summarize_alert_q['recv'].put(data_temp)
+                    summarize_alert_q['recv'].put(Alert(
+                        url       = url_tuple[0],
+                        file_name = 'new_window_url.csv',
+                        content   = url_tuple[0] + ', ' + url_src,
+                        label     = 'NEW_WINDOW_URL,URL'
+                    ))
             elif received_data['type'] == 'redirect':
                 # リダイレクトの場合、URLがホワイトリストにかからなければアラート
                 # リダイレクトの場合、url_tuple_setの要素は1個(リダイレクト先)だけ
@@ -642,22 +661,18 @@ def receive_and_send(not_send: bool=False):
                                 w_alert_flag = False
                                 break
 
-                    #######################################
-                    # ToDo: Ifいらないと思う
                     if w_alert_flag:
-                        data_temp: dict[str, str] = dict()
-                        data_temp['url'] = url
-                        data_temp['src'] = url_src
-                        data_temp['file_name'] = 'after_redirect_check.csv'
-                        data_temp['content'] = received_data["ini_url"] + ',' + url_src + ',' + url
-                        data_temp['label'] = 'URL,SOURCE,REDIRECT_URL'
-                        summarize_alert_q['recv'].put(data_temp)
-                    ########################################
+                        summarize_alert_q['recv'].put(Alert(
+                            url       = url,
+                            file_name = 'after_redirect_check.csv',
+                            content   = received_data["ini_url"] + ', ' + url_src + ', ' + url,
+                            label     = 'URL,SOURCE,REDIRECT_URL'
+                        ))
 
                 # リダイレクト状況を保存(after_redirect.csv)する
                 # (リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
-                w_file('after_redirect.csv', received_data["ini_url"] + ',' + received_data["url_src"] + ',' +
-                       url + "," + str(check_result) + '\n', mode="a")
+                w_file('after_redirect.csv', received_data["ini_url"] + ', ' + received_data["url_src"] + ',' +
+                       url + ", " + str(check_result) + '\n', mode="a")
 
             # リンクやnew_window_url, リダイレクト先をurlリストに追加
             # 既に割り当て済みの場合は追加しない
@@ -699,7 +714,7 @@ def del_child(now: int):
     - 基準は、待機キューの更新が300秒以上なかったら
 
     args:
-        now: ToDo
+        now: float で現在の時間が与えられる
     """
 
     del_process_list: List[str] = list()
@@ -821,8 +836,8 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         logger.error('You should check the run_count in setting file.')
 
     # # メモリ使用量監視スレッドの立ち上げ
-    t: MemoryObserverThread = MemoryObserverThread(queue_log)
-    t.setDaemon(True) # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
+    ctx = {"stop": False}
+    t: MemoryObserverThread = MemoryObserverThread(queue_log, ctx)
     t.start()
     if not t:
         logger.error("Fail to open memory observer thread")
@@ -1029,18 +1044,22 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
             # clamdプロセスを終了させる
             logger.info("Wait for clamd process finish...")
             clamd_q['recv'].put('end')
-            if not clamd_q['process'].join(timeout=60):
+            clamd_q['process'].join(timeout=60.0)
+            if clamd_q['process'].is_alive():
                 # 終わるまで待機
                 logger.info("Terminate Clamd proc")
                 clamd_q['process'].terminate()
+                sleep(1)
 
         # summarize alertプロセス終了処理
         logger.info("Wait for summarize alert process")
         summarize_alert_q['recv'].put('end')
-        if not summarize_alert_q['process'].join(timeout=60):
+        summarize_alert_q['process'].join(timeout=60.0)
+        if summarize_alert_q['process'].is_alive():
             # 終わるまで待機
             logger.info("Terminate summarize-alert proc.")
             summarize_alert_q['process'].terminate()
+            sleep(1)
 
         url_db.close()
         # メインループをもう一度回すかどうか
@@ -1052,4 +1071,6 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
             os.chdir('..')
             break
 
+    ctx["stop"] = True
+    t.join()
     logger.info('Finish!')

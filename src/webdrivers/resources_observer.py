@@ -11,43 +11,48 @@ from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
-# だったが、60秒感覚でppidが1のブラウザをkillするスレッドに
+# 60秒間隔でppidが1のブラウザをkillするスレッドに
 class MemoryObserverThread(Thread):
-    def __init__(self, queue_log: Queue[Any], limit: int=0):
-        # TODO: Thread だから作る必要なさそうだがなんかログが取れないため作った
+    def __init__(self, queue_log: Queue[Any], ctx: Dict[str, Any], limit: int=0):
         worker_configurer(queue_log, logger)
         super(MemoryObserverThread, self).__init__()
+        self.ctx = ctx
         self.limit = limit
 
     def run(self): # type: ignore
         logger.debug("Start memory observer thread")
         proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
-        while True:
-            sleep(60)
+        # proc_name: Set[str] = set(["firefox-bin"])
+        while not self.ctx["stop"]:
+            time = 0
+            while time < 60:
+                if self.ctx["stop"]:
+                    break
+                sleep(0.5)
+                time += 0.5
+
             logger.debug("memory observer thread wakeup to work")
-            # if psutil.virtual_memory().percent > self.limit:
-            # kill_chrome(process="geckodriver")
-            # kill_chrome(process='firefox')
             kill_process_cand = get_relate_browser_proc(proc_name)
+            kill_process_list = list()
+
             for proc in kill_process_cand:
                 try:
                     if proc.ppid() == 1:
-                        logger.debug(f"kill: {proc}")
+                        logger.debug(f"kill target proc: {proc}")
                         kill_process_list = get_family(proc.pid) # type: ignore
                         kill_process_list.append(proc)
-                        for killed_proc in kill_process_list:
-                            # Zombieたちがここで取れてるんだけど
-                            try:
-                                killed_proc.kill()
-                                logger.debug("kill: {}".format(killed_proc))
-                            except Exception as err:
-                                logger.exception(f'{err}')
-                    # else:
-                    #     print("else {}".format(proc))
-                    #     print("\tppid ={}, parent name ={}".format(proc.ppid(), psutil.Process(proc.ppid()).name()))
                 except Exception as err:
-                    logger.exception(f'{err}', err)
+                    logger.exception(f'{err}')
                     pass
+                if kill_process_list:
+                    for kill_proc in kill_process_list:
+                        # Zombieたちがここで取れてるんだけど
+                        try:
+                            kill_proc.kill()
+                            logger.debug("killed: {}".format(kill_proc))
+                        except Exception as err:
+                            logger.exception(f'{err}')
+        logger.debug("memory observer thread Finish")
 
 
 def memory_checker(family: list[psutil.Process], limit: int)->Tuple[list[Dict[str, Union[str, int]]], list[int]]:

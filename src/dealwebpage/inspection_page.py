@@ -63,6 +63,7 @@ def check_style(iframe_list: list[ResultSet]) -> Union[list[str], bool]:
 
 def invisible(iframe_list: list[ResultSet]) -> Union[list[str], bool]:
     """
+    display:none か visibility:hidden が設定されている
     width、height属性値が0か、または設定されていない場合、目に見えないと判定。
     """
     inv: list[ResultSet] = list()
@@ -73,6 +74,7 @@ def invisible(iframe_list: list[ResultSet]) -> Union[list[str], bool]:
             if ston(width) + ston(height) < 3:   # widthとheightの両方が1以下ならば
                 inv.append(iframe)
         else:
+            # width か height が0のとき
             inv.append(iframe)
     if inv:
         re = check_style(inv)   # 簡単なstyleのチェック
@@ -86,7 +88,7 @@ def invisible(iframe_list: list[ResultSet]) -> Union[list[str], bool]:
 
 def get_src_of_tag(tags: Iterable[ResultSet]) -> Union[list[str], bool]:
     """
-    tagsのsrc属性値のURLのリストを返す
+    script tagのsrc属性値のURLをリストで返す
     src値がなければFalse
     """
     src_list: list[str] = list()

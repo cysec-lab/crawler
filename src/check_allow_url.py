@@ -3,6 +3,8 @@ from logging import getLogger
 from threading import Lock, Thread
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
+import re
+from re import Pattern
 from urllib.parse import urlparse
 
 logger = getLogger(__name__)
@@ -70,6 +72,17 @@ def check_searched_url(url_tuple: Tuple[str, str], run_time: int, filtering_dict
         return False
     else:
         # 組織外URLはFalse. 組織内だがブラリスの場合は'black'、 不明の場合は'unknown'
+
+        if "ONLY" in filtering_dict and filtering_dict["ONLY"]:
+            # RODで ONLY.json が設定されている場合
+            # 設定に書かれているURL正規表現に合わないものはすべてアクセスしない Black として処理
+            only_access_regex_pattern: Pattern[str] = filtering_dict["ONLY"]
+            result = only_access_regex_pattern.match(check_url)
+            if result:
+                # 当てはまる場合はクローリングする
+                return True
+            else:
+                return 'Black'
 
         # リンクやリクエストの特別なホワイトリストがあれば
         if special_white:

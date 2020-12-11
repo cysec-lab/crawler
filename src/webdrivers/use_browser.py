@@ -77,10 +77,11 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         except Exception as err:
             if i < GET_WEBDRIVER_RETRY - 1:
                 logger.info(f"Failed to access {page.url}: {err}")
+                driver.close()
                 # スレッド生成時に run timeエラーが出たら、10秒待ってもう一度
                 sleep(10)
             else:
-                logger.exception(f"Failed to get WebDriver thread error: {err}")
+                logger.error(f"Failed to get WebDriver thread error: {err}")
                 return ['makingWebDriverGetThreadError', page.url + '\n' + str(err)]
 
     re = True
@@ -170,9 +171,14 @@ def quit_driver(driver: WebDriver) -> bool:
     """
     WebDriverを終了させる
     """
+    logger.debug("Call quit_driver func")
     try:
-        logger.debug("Call quit_driver func")
         driver.close()
+    except Exception as err:
+        logger.info(f"There are no window.... {err}")
+        pass
+
+    try:
         driver.quit()
     except Exception as err:
         logger.exception(f'Failed to quit driver: {err}')

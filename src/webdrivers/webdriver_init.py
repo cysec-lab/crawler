@@ -11,7 +11,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from utils.logger import worker_configurer
 
 from webdrivers.firefox_custom_profile import FirefoxProfile
-from webdrivers.get_web_driver import GetFirefoxDriver
+from webdrivers.get_web_driver_thread import GetFirefoxDriverThread
 from webdrivers.use_browser import quit_driver
 from webdrivers.use_extentions import get_watcher_window
 from webdrivers.webdriver_settings import *
@@ -36,36 +36,30 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
 
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     # Todo: メモリが足りなかったらドライバーの取得でフリーズする
-    # try:
-    #     t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
-    #     t.start()
-    #     t.join(10.0)
-    #     if t.is_alive():
-    #         raise Exception(TimeoutException)
-    # except Exception as err:
-    #     # runtime error とか
-    #     logger.info(f'Faild to get Firefox Driver Thread, retrying: {err}')
-    #     sleep(10.0)
-    #     try:
-    #         t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
-    #         t.start()
-    #         t.join(10.0)
-    #         if t.is_alive():
-    #             raise Exception(TimeoutException)
-    #     except Exception as err:
-    #         # runtime error とか
-    #         logger.exception(f'Faild to get Firefox Driver Thread again, Failed: {err}')
-    #         t.re = False
-
-    t = GetFirefoxDriver(options=options, ffprofile=profile, capabilities=caps)
-    if t.re == False:
+    try:
+        t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
+        t.start()
+        t.join(10.0)
+    except Exception as err:
+        # runtime error とか
+        logger.info(f'Faild to get Firefox Driver Thread, retrying: {err}')
         sleep(10.0)
-        t = GetFirefoxDriver(options=options, ffprofile=profile, capabilities=caps)
-        if t.re == False:
-            logger.info(f'Faild to get Firefox Driver Thread again, Failed')
+        pass
 
-    if t.re is False:
-        # ドライバ取得でフリーズしている場合
+    if t.re == False:
+        # 1度だけドライバ取得をリトライする
+        try:
+            t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
+            t.start()
+            t.join(10.0)
+        except Exception as err:
+            # runtime error とか
+            logger.debug(f'Faild to get Firefox Driver Thread again, Failed: {err}')
+            t.re = False
+            pass
+
+    if t.re == False:
+        # ドライバ取得でフリーズする等のエラー処理
         if type(t.driver) == WebDriver:
             driver = cast(WebDriver, t.driver)
             quit_driver(driver) # 一応終了させて
@@ -75,6 +69,7 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
         # 単にエラーで取得できなかった場合
         logger.info("Fail to getting driver: Error, return fail")
         return False
+
     if type(t.driver) == WebDriver:
         driver = cast(WebDriver, t.driver)
         driver.set_window_size(1280, 1024)
