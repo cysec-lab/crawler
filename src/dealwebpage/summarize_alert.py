@@ -5,11 +5,10 @@ from logging import getLogger
 from multiprocessing import Queue
 from os import mkdir, path
 from threading import Event, Thread
-from typing import Any, Union, cast
+from typing import Union, cast
 
 from utils.alert_data import Alert
 from utils.file_rw import w_file
-from utils.logger import worker_configurer
 
 data_list: deque[Union[str, Alert]] = deque()
 event = Event()
@@ -33,7 +32,7 @@ def receive_alert(recv_q: Queue[Union[str, Alert]]):
             break
 
 
-def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]], send_q: Queue[str], nth: int, org_path: str):
+def summarize_alert_main(recv_q: Queue[Union[Alert, str]], send_q: Queue[str], nth: int, org_path: str):
     """
     Alertが出た場合に記録するためのプロセス
 
@@ -43,7 +42,7 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]]
     - nth: 
     - org_path: organizationのパス
     """
-    worker_configurer(queue_log, logger)
+
     alert_dir_path = org_path + '/alert'
     # alertディレクトリを作成
     if not path.exists(alert_dir_path):

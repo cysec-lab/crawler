@@ -10,12 +10,10 @@ from typing import Any, Optional
 from crawler_init import crawler_host
 from utils.logger import (log_listener_configure, log_listener_process,
                           worker_configurer)
-from utils.sys_command import kill_chrome
 from utils.save_result import dealing_after_fact, save_rod
+from utils.sys_command import kill_chrome
 
 queue_log: Queue[Any] = Queue(-1)
-logger = getLogger(__name__)
-
 
 def main(organization: str):
     # 以下のwhileループ内で
@@ -28,7 +26,8 @@ def main(organization: str):
     log_listener = Process(target=log_listener_process,
                     args=(now_dir, queue_log, log_listener_configure))
     log_listener.start()
-    worker_configurer(queue_log, logger)
+    worker_configurer(queue_log)
+    logger = getLogger(__name__)
 
     # 引数として与えられた組織名のディレクトリが存在するか
     organization_path = now_dir[0:now_dir.rfind('/')] + '/organization/' + organization
@@ -73,8 +72,8 @@ def main(organization: str):
         logger.info('crawling has finished.')
 
         # 孤児のchrome じゃなくてfirefoxをkill
-        kill_chrome(queue_log, process='geckodriver')
-        kill_chrome(queue_log, process='firefox-bin')
+        kill_chrome(process='geckodriver')
+        kill_chrome(process='firefox-bin')
 
         logger.info('save used ROD before overwriting the ROD directory : START')
         save_rod(org_arg)

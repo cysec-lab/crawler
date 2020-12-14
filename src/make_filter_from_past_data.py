@@ -30,7 +30,9 @@ def make_idf_dict_frequent_word_dict(queue_log: Queue[Any],org_path: str):
     をまとめて保存する
     また、リンク、リクエストURLの既知サーバを示すホワイトリストのフィルタを作成する
     """
-    worker_configurer(queue_log, logger)
+    worker_configurer(queue_log)
+    # TODO rm
+    logger.info('make_idf_dict_frequent_word_dict called!')
     df_dict: Dict[str, Dict[str, Any]] = dict()   # {file名(server.json) : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
     if not os.path.exists(org_path + '/ROD/idf_dict'):
         os.mkdir(org_path + '/ROD/idf_dict')
@@ -126,6 +128,8 @@ def make_filter(org_path: str):
     作ったフィルタは org_path/ に保存
     """
     obj_list = ["link", "request"]
+    # TODO rm
+    logger.info('make_filter called!')
 
     for obj in obj_list:
         new_url_set = set()
@@ -150,6 +154,8 @@ def make_filter(org_path: str):
 
 
 def merge_filter(org_path: str):
+    # TODO rm
+    logger.info('merge_filter called!')
     obj_list = ["link", "request"]
     temp_dict: Dict[str, Dict[str, Any]] = dict()
 
@@ -194,7 +200,9 @@ def make_request_url_iframeSrc_link_host_set(queue_log: Queue[Any], org_path: st
     4. それぞれのデータ(pick[obj])を過去(ROD)のデータ(url_set)とマージする
     5. マージしたデータ(url_set)を ROD/[object]_url/ホスト名.json に保存
     """
-    worker_configurer(queue_log, logger)
+    worker_configurer(queue_log)
+    # TODO rm
+    logger.info('make_request_url_iframeSrc_link_host_set called!')
     object_list = ['request', 'iframe', 'link', 'script']
 
     # RODに保存dirがなければ作る

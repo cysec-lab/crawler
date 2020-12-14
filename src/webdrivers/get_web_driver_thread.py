@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from logging import getLogger
-from multiprocessing import Queue
 from os import path
 from threading import Thread
 from typing import Any, Dict
@@ -10,7 +9,6 @@ import selenium.common
 from selenium import webdriver
 from selenium.webdriver.firefox.firefox_binary import FirefoxBinary
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
-from utils.logger import worker_configurer
 
 from webdrivers.firefox_custom_profile import FirefoxProfile
 
@@ -19,10 +17,8 @@ geck_path = '/usr/local/bin/geckodriver'
 ff_binary = FirefoxBinary('/opt/firefox_dev/firefox')
 
 class GetFirefoxDriverThread(Thread):
-    def __init__(self, queue_log: Queue[Any], options: FirefoxOptions, ffprofile: FirefoxProfile, capabilities: Dict[str, Any]):
+    def __init__(self, options: FirefoxOptions, ffprofile: FirefoxProfile, capabilities: Dict[str, Any]):
         super(GetFirefoxDriverThread, self).__init__()
-        worker_configurer(queue_log, logger)
-
         self.options = options
         self.fpro = ffprofile
         self.capabilities = capabilities

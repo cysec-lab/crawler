@@ -11,6 +11,8 @@ from typing import Any
 console_format = '%(levelname)-8s %(process)6d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
 file_format    = '%(asctime)s %(levelname)-8s %(process)6d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
 
+loglevel = logging.DEBUG
+
 def log_listener_configure(path: str):
     """
     Log受信機の作成
@@ -21,7 +23,7 @@ def log_listener_configure(path: str):
     """
     root = logging.getLogger()
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    ch.setLevel(loglevel)
     format_console = logging.Formatter(console_format)
     ch.setFormatter(format_console)
     root.addHandler(ch)
@@ -34,8 +36,8 @@ def log_listener_configure(path: str):
     log_file = base_path + '/log/' + time_now.strftime('%Y%m%d-%H%M') + '.log'
 
     # Logファイルを作成
-    fh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10000)
-    fh.setLevel(logging.DEBUG)
+    fh = logging.handlers.RotatingFileHandler(log_file, maxBytes=2000000000, backupCount=100000)
+    fh.setLevel(loglevel)
     format_file = logging.Formatter(file_format)
     fh.setFormatter(format_file)
     root.addHandler(fh)
@@ -64,7 +66,7 @@ def log_listener_process(path: str, queue: Queue[Any], configurer: Callable[[str
             print('logger.py: Exception occured!', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
-def worker_configurer(queue: Queue[Any], logger: logging.Logger):
+def worker_configurer(queue: Queue[Any]):
     """
     各プロセスに対して実行される
     1つのログにまとめるために配置されたプロセスからキューに向けてログを流す
@@ -73,5 +75,6 @@ def worker_configurer(queue: Queue[Any], logger: logging.Logger):
         queue: ログを流すキュー
     """
     h = logging.handlers.QueueHandler(queue)
-    logger.addHandler(h)
-    logger.setLevel(logging.DEBUG)
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(logging.DEBUG)

@@ -3,12 +3,12 @@ from __future__ import annotations
 from logging import getLogger
 from typing import Any, Union
 
+from dealwebpage.webpage import Page
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-from dealwebpage.webpage import Page
 
 logger = getLogger(__name__)
 
