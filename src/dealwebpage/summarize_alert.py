@@ -3,6 +3,7 @@ from __future__ import annotations
 from logging import getLogger
 from multiprocessing import Queue
 from os import mkdir, path
+from queue import Empty
 from queue import Queue as threadQueue
 from threading import Thread
 from typing import Any, Union, cast
@@ -53,35 +54,39 @@ def summarize_alert_main(recv_q: Queue[Union[Alert, str]], send_q: Queue[str], n
 
     while True:
         if not data_list.empty():
-            temp = data_list.get()
-            if temp == 'end':
-                logger.info('receive end!!')
-                data_list.task_done()
-                break
-
-            alert = cast(Alert, temp)
-
-            file_name = alert.file_name
-            content = alert.content
-            label = alert.label
-
-            # label と content にnthを追加
-            label = 'Nth,' + label
-            content = str(nth) + ', ' + content
-
-            # "falsification.cysec.cs.ritsumei.ac.jp"がURLに含まれる場合、ファイル名を変更する
-            if ("falsification.cysec.cs.ritsumei.ac.jp" in alert.url) or ("192.168.0.233" in alert.url):
-                file_name = "TEST_" + file_name
-
-            # label と content を出力
-            if file_name.endswith('.csv'):
-                if not path.exists(alert_dir_path + '/' + file_name):
-                    w_file(alert_dir_path + '/' + file_name, label + '\n', mode="a")
-                w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
+            try:
+                temp = data_list.get()
+            except Empty:
+                logger.info('data_list is empty....')
+                continue
             else:
-                w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
+                if temp == 'end':
+                    logger.info('receive end!!')
+                    break
 
-            data_list.task_done()
+                alert = cast(Alert, temp)
+
+                file_name = alert.file_name
+                content = alert.content
+                label = alert.label
+
+                # label と content にnthを追加
+                label = 'Nth,' + label
+                content = str(nth) + ', ' + content
+
+                # "falsification.cysec.cs.ritsumei.ac.jp"がURLに含まれる場合、ファイル名を変更する
+                if ("falsification.cysec.cs.ritsumei.ac.jp" in alert.url) or ("192.168.0.233" in alert.url):
+                    file_name = "TEST_" + file_name
+
+                # label と content を出力
+                if file_name.endswith('.csv'):
+                    if not path.exists(alert_dir_path + '/' + file_name):
+                        w_file(alert_dir_path + '/' + file_name, label + '\n', mode="a")
+                    w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
+                else:
+                    w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
+            finally:
+                data_list.task_done()
 
     data_list.join()
     logger.info("Summarize_alert: FIN")
