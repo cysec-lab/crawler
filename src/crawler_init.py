@@ -638,7 +638,7 @@ def receive_and_send(not_send: bool=False):
                         url       = url_tuple[0],
                         file_name = 'new_window_url.csv',
                         content   = url_tuple[0] + ', ' + url_src,
-                        label     = 'NEW_WINDOW_URL,URL'
+                        label     = 'NEW_WINDOW_URL, URL'
                     ))
             elif received_data['type'] == 'redirect':
                 # リダイレクトの場合、URLがホワイトリストにかからなければアラート
