@@ -509,7 +509,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
 
         # プロセス作成
         try:
-            p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
+            p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name], ))
             p.daemon = True # 親が死ぬと子も死ぬ
             p.start()       # スタート
         except Exception as err:
@@ -538,7 +538,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         logger.info("%s is not alive", host_name)
 
         # 新規のプロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name],))
+        p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
         p.daemon = True # 親が死ぬと子も死ぬ
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する

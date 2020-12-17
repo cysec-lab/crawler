@@ -10,7 +10,7 @@ from datetime import datetime
 from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Tuple, Union, cast
 
 import psutil
 from bs4 import BeautifulSoup
@@ -45,12 +45,13 @@ dir_name: str = ''   # このプロセスの作業ディレクトリ
 f_name: str = ''     # このプロセスのホスト名をファイル名として使えるように変換したもの
 org_path: str = ""   # 組織のディレクトリ絶対パス
 
-parser_threadId_set = set()                     # パーサのスレッドid集合
-parser_threadId_time: dict[int, int] = dict()   # スレッドid : 実行時間
+parser_threadId_set = set()                     # パーサのスレッドid集合 TODO: 消せる変数
+parser_threads: Dict[int, Dict[str, Any]] = dict() # スレッドid : 実行時間
+parser_thread_lock = threading.Lock()           # スレッド集合更新用ロック
 num_of_pages: int = 0                           # 取得してパースした重複なしページ数. リダイレクト後が外部URL, エラーだったURLを含まない
 num_of_files: int = 0                           # 取得してパースした重複なしファイル数. リダイレクト後に外部になるURL, エラーだったURLは含まない
 url_cache = set()                               # 接続を試したURL集合. 他サーバへのリダイレクトURL含む. プロセスが終わっても消さずに保存
-url_dict: Optional[UrlDict] = None               # サーバ毎のurl_dictの辞書を扱うクラス
+url_dict: UrlDict = UrlDict('')                   # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None                                   # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
@@ -387,41 +388,6 @@ def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], da
         sendq.put(data)
 
 
-# # iframeタグをさらに枠が設定されているかどうかで分けたタグのリスト
-# def special_course(tags):
-#     tag_list = list()
-#     for tag in tags:
-#         if tag.name == 'iframe':
-#             re = invisible([tag])    # 枠が0のiframeタグを探すときに使っている関数を借りる
-#             if re:   # width、heightのどちらかが0だった、もしくはwidth、height属性値が設定されていなかった場合
-#                 tag_list.append('invisible_iframe')
-#             else:
-#                 tag_list.append('iframe')   # width、heightに0以外が設定されていた
-#         else:
-#             tag_list.append(tag.name)
-#     return tag_list
-
-
-# def get_tags_from_html(soup, page, machine_learning_q):
-#     # 正確にタグ情報を取得するためにprettifyで整形したソースコードからもう一度soupを作る
-#     try:
-#         soup2 = BeautifulSoup(soup.prettify(), 'lxml')
-#     except Exception:
-#         soup2 = BeautifulSoup(soup.prettify(), 'html.parser')
-
-#     # 全てのtagを取り出し、MLプロセスへ送信
-#     tags = soup2.find_all()
-#     tag_list = [tag.name for tag in tags]   # tagの名前だけ取り出す
-#     if tag_list:
-#         if 'iframe' in tag_list:   # iframeがあれは
-#             tag_list = special_course(tags)   # ちょっといじる
-
-#         url_dict.add_tag_data(page, tag_list)   # 外部ファイルへ保存するためのクラスへ格納
-#         if machine_learning_q is not False:
-#             # 機械学習プロセスへ送信
-#             dic = {'url': page.url, 'src': page.src, 'tags': tag_list, 'host': f_name}
-#             machine_learning_q.put(dic)
-
 def parser(parse_args_dic: Dict[str, Any]):
     global word_df_dict
     host: str = parse_args_dic['host']
@@ -675,16 +641,16 @@ def parser(parse_args_dic: Dict[str, Any]):
         else:
             logger.error("There are no url_dict")
 
-    # スレッド集合から削除して、検査終了
-    try:
-        parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
-        del parser_threadId_time[threading.get_ident()]
-    except KeyError:
-        logger.info(f"{host} thread was deleted by del_thread")
-        pass
-    except Exception as err:
-        logger.exception(f"Failed to del thread: {err}")
-        pass
+    # # スレッド集合から削除して、検査終了
+    # try:
+    #     parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
+    #     del parser_threadId_time[threading.get_ident()]
+    # except KeyError:
+    #     logger.info(f"{host} thread was deleted by del_thread")
+    #     pass
+    # except Exception as err:
+    #     logger.exception(f"Failed to del thread: {err}")
+    #     pass
 
 
 def check_thread_time():
@@ -693,9 +659,10 @@ def check_thread_time():
     """
     thread_list: List[int] = list()
     try:
-        for threadId, th_time in parser_threadId_time.items():
-            if (int(time()) - th_time) > 180:
-                thread_list.append(threadId)
+        with parser_thread_lock:
+            for threadId, thread_detail in parser_threads.items():
+                if (int(time()) - thread_detail['time']) > 180:
+                    thread_list.append(threadId)
     except RuntimeError as err:
         logger.exception(f'Exception occur: {err}')
     return thread_list
@@ -703,18 +670,38 @@ def check_thread_time():
 
 def del_thread(host: str):
     """
-    5秒間隔で180秒以上続いているparserスレッドがあるかチェックし、あるとリストから削除
+    5秒間隔でパーススレッドが生きているかを調べる
+    終わっているならjoinしてリソースの回収
+
+    TODO: 180秒以上かかっているならスレッドを強制終了したい
     """
-    logger.info("del_thread is working...")
     while True:
+        del_thread: List[int] = list()
         sleep(5)
+        # 正常に終了しているスレッドを回収する
+        for threadId, thread_detail in parser_threads.items():
+            if not thread_detail['thread'].is_alive():
+                logger.debug('thread joined')
+                thread_detail['thread'].join()
+                del_thread.append(threadId)
+                with parser_thread_lock:
+                    parser_threadId_set.remove(threadId)
+        with parser_thread_lock:
+            for target in del_thread:
+                del parser_threads[target]
+
+        # 180秒以上続いているスレッドを強制削除したいが実際はできていない
+        # thread を強制終了できるクラスに変更してterminateする必要がある
+        # というかまずそんなパーススレッドができるとは思えない
+        # まぁDAEMONにしてるしいいか...
         del_thread_list = check_thread_time()
         for th in del_thread_list:
             logger.critical('DEL_thread: %s deleted: %s', host, str(th))
             try:
                 # 消去処理がパーススレッドとほぼ同時に行われるとなるかも？(多分ない)
-                parser_threadId_set.remove(th)
-                del parser_threadId_time[th]
+                with parser_thread_lock:
+                    parser_threadId_set.remove(th)
+                    del parser_threads[th]
             except KeyError:
                 logger.warning('KeyError occur')
             except Exception as err:
@@ -920,7 +907,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                 ))
 
 
-def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
+def crawler_main(args_dic: dict[str, Any]):
     """
     接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
     """
@@ -933,16 +920,14 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
     # 引数取り出し
     host: str = args_dic['host_name']
-    q_recv = args_dic['parent_sendq']
-    q_send: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]] = args_dic['child_sendq']
-    clamd_q = args_dic['clamd_q']
+    q_recv: Queue[Any] = args_dic['parent_sendq']
+    q_send: Queue[Any] = args_dic['child_sendq']
+    clamd_q: Queue[Any] = args_dic['clamd_q']
     screenshots: bool = args_dic['screenshots']
-    # machine_learning_q = args_dic['machine_learning_q']
-    # screenshots_svc_q = args_dic['screenshots_svc_q']
-    use_browser = args_dic['headless_browser']
-    use_mecab = args_dic['mecab']
+    use_browser: bool = args_dic['headless_browser']
+    use_mecab: bool = args_dic['mecab']
     alert_process_q: Queue[Union[Alert, str]] = args_dic['alert_process_q']
-    nth = args_dic['nth']
+    nth: int = args_dic['nth']
     org_path = args_dic['org_path']
     filtering_dict: Dict[str, Any] = args_dic["filtering_dict"]
 
@@ -1102,6 +1087,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
         if type(file_type) is str:   # ウェブページの場合
             # img_name = False
+            logger.debug("%s is webpage", page.url)
             if use_browser:
                 # ヘッドレスブラウザでURLに再接続。関数内で接続後１秒待機
                 # robots.txtを参照
@@ -1110,17 +1096,23 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                         continue
                 # ページをロードするためのabout:blankのwindowを作る
+                logger.debug('creating blank_window...')
                 blank_window = create_blank_window(driver=driver, wait=wait, watcher_window=watcher_window)
                 if blank_window is False:
+                    logger.debug('Failed to create blank...')
                     error_break = True
                     break
+                logger.debug('creating blank_window... FIN!')
                 blank_window = cast(str, blank_window)
                 # watchingを開始し、ブランクページに移動する(URLに接続する準備完了)
+                logger.debug('start watcher and move to blank...')
                 re = start_watcher_and_move_blank(driver=driver, wait=wait, watcher_window=watcher_window,
                                                   blank_window=blank_window)
                 if re is False:
+                    logger.debug('Filed to move blank...')
                     error_break = True
                     break
+                logger.debug('start watcher and move to blank... FIN')
 
                 # ヘッドレスブラウザのリソース使用率を監視するスレッドを作る
                 # os.getpid(): 現在のプロセスidを返す
@@ -1225,10 +1217,11 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             t.start()
             if type(t.ident) != None:
                 ident = cast(int, t.ident)
-                parser_threadId_set.add(ident)  # スレッド集合に追加
-                parser_threadId_time[ident] = int(time())  # スレッド開始時刻保存
+                with parser_thread_lock:
+                    parser_threadId_set.add(ident)  # スレッド集合に追加
+                    parser_threads[ident] = {'thread': t, 'time':int(time())}  # スレッド開始時刻保存
             else:
-                logger.critical("Unrechable bug, Fail to start thread")
+                logger.critical("Unrechable bug, Failed to start thread")
 
             # ページの達成数をインクリメント
             num_of_pages += 1
