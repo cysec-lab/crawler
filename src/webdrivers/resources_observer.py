@@ -127,8 +127,11 @@ def get_relate_browser_proc(proc_name: Set[str])->list[psutil.Process]:
             if proc.name() in proc_name:
                 res.append(proc)
     except psutil.NoSuchProcess:
+        # TODO: rm
         print('No process alive')
+        logger.info('TODO: No process alive')
     except Exception as err:
+        logger.exception(f'TODO: {err}')
         print(f'{err}')
 
     return res
@@ -142,6 +145,8 @@ def get_family(ppid: int) -> list[psutil.Process]:
         # 子プロセスを先にする(Killするときに親から殺さないために)
         family.reverse()
     except Exception as err:
+        # TODO: rm
+        logger.exception(f'TODO: Exception: {err}')
         print(f'Exception: {err}')
     return family
 
@@ -170,13 +175,13 @@ def main():
         if os.path.isdir(organization_path + "/" + org_dir):
             if os.path.exists(organization_path + "/" + org_dir + "/running.tmp"):
                 # TODO: rm
-                logger.info("%s is running...")
+                logger.info("TODO: %s is running...")
                 print("TODO: {} is running.".format(org_dir))
                 reboot_flag = False
 
     # メモリ使用量確認
     mem_per: float = psutil.virtual_memory().percent
-    logger.info("Used RAM percent is %f%", mem_per)
+    logger.info("TODO: Used RAM percent is %f%", mem_per)
     print("TODO: Used RAM percent is {}%.".format(mem_per))
 
     # クローラが実行されていないのに、メモリを50%使っているのはおかしいので再起動
