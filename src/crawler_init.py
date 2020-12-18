@@ -453,7 +453,6 @@ def end():
 
     # キューに要素があるか
     for _, remaining_temp in hostName_remaining.items():
-        remaining_temp = cast(Dict[str, deque[Tuple[str]]], remaining_temp)
         if len(remaining_temp['URL_list']):
             return False
 
@@ -587,18 +586,17 @@ def receive_and_send(not_send: bool=False):
                 else:
                     if hostName_remaining[host_name]['URL_list']:
                         # クローリング対象URLが残っていればクローリングするurlを送信
-                        remain = cast(deque[str], hostName_remaining[host_name]['URL_list'])
                         while True:
-                            url_tuple: str = remain.popleft()
+                            if not hostName_remaining[host_name]['URL_list']:
+                                # 待機リストが空ならば子プロセスにもうURLがないことを伝えてbreak
+                                queue['parent_send'].put('nothing')
+                                break
+                            url_tuple: str = hostName_remaining[host_name]['URL_list'].popleft()
                             if url_tuple[0] not in assignment_url_set:
                                 # まだ送信していないURLならばURLを送信してBreak
                                 assignment_url_set.add(url_tuple[0])
                                 queue['parent_send'].put(url_tuple)
                                 send_num += 1
-                                break
-                            if not hostName_remaining[host_name]['URL_list']:
-                                # 待機リストが空ならば子プロセスにもうURLがないことを伝えてbreak
-                                queue['parent_send'].put('nothing')
                                 break
                     else:
                         # クローリング対象URLがもうないのならば終了を伝える
