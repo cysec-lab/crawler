@@ -1,9 +1,10 @@
 import socket
 from logging import getLogger
-from re import Pattern
 from threading import Lock, Thread
 from time import sleep
 from typing import Any, Dict, List, Optional, Tuple, Union, cast
+import re
+from re import Pattern
 from urllib.parse import urlparse
 
 logger = getLogger(__name__)
@@ -18,8 +19,6 @@ class CheckSearchedIPAddressThread(Thread):
         親クラスを継承した子クラスの作成
         """
         super(CheckSearchedIPAddressThread, self).__init__()
-        # TODO: rm
-        logger.info('create CheckSearchedIPAddressThread')
         self.url_tuple = url_tuple
         self.url_host = urlparse(url_tuple[0]).netloc
         if "allow" in ip_address_dict:
@@ -30,7 +29,6 @@ class CheckSearchedIPAddressThread(Thread):
         self.lock = Lock()
 
     def run(self):
-        # TODO: rm
         logger.info("Checking searched ip address...")
         self.lock.acquire()   # 最後にacquireするときに自身でデッドロックをかけるため
         crawling_flag = False

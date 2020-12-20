@@ -11,6 +11,7 @@ from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
 from typing import Any, Dict, List, Tuple, Union, cast
+from utils.alert_data import Alert
 
 import psutil
 from bs4 import BeautifulSoup
@@ -27,14 +28,15 @@ from dealwebpage.inspection_page import (
 from dealwebpage.robotparser import RobotFileParser
 from dealwebpage.urldict import UrlDict
 from dealwebpage.webpage import Page
-from utils.alert_data import Alert
 from utils.file_rw import r_file, w_file
 from utils.location import location
+from utils.logger import worker_configurer
 from utils.sys_command import kill_chrome
 from webdrivers.resources_observer import (cpu_checker, get_family,
                                            memory_checker)
-from webdrivers.use_browser import (create_blank_window, get_window_url,
-                                    quit_driver, set_html, take_screenshots)
+from webdrivers.use_browser import (configure_logger, create_blank_window,
+                                    get_window_url, quit_driver, set_html,
+                                    take_screenshots)
 from webdrivers.use_extentions import (start_watcher_and_move_blank,
                                        stop_watcher_and_get_data)
 from webdrivers.webdriver_init import get_fox_driver
@@ -907,11 +909,12 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                 ))
 
 
-def crawler_main(args_dic: dict[str, Any]):
+def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     """
     接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
     """
     global org_path, num_of_pages, num_of_files
+    worker_configurer(queue_log, logger)
 
     logger.info("crawler_main start")
 
@@ -938,7 +941,7 @@ def crawler_main(args_dic: dict[str, Any]):
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
     if use_browser:
-        driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+        driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
@@ -950,6 +953,7 @@ def crawler_main(args_dic: dict[str, Any]):
         driver: WebDriver = driver_info["driver"]
         watcher_window: Union[int, str] = driver_info["watcher_window"]
         wait: WebDriverWait = driver_info["wait"]
+        configure_logger(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -1040,7 +1044,7 @@ def crawler_main(args_dic: dict[str, Any]):
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
 
-        logger.info("Try to Check %s", page.url)
+        logger.debug("Try to Check %s", page.url)
 
         # urlopenで接続
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
@@ -1133,7 +1137,7 @@ def crawler_main(args_dic: dict[str, Any]):
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
-                    driver_info = get_fox_driver(screenshots, user_agent=user_agent, org_path=org_path)
+                    driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
                         break

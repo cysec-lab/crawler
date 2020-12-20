@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from multiprocessing import Queue
 from typing import Any, Dict, Union, cast
 
 from webdrivers.use_extentions import get_watcher_window
@@ -15,7 +16,8 @@ class TestStringMethods(unittest.TestCase):
         from selenium.webdriver.remote.webelement import WebElement
         from selenium.webdriver.support.ui import WebDriverWait
 
-        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(org_path='/dev/null')
+        queue_log: Queue[Any] = Queue()
+        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(queue_log, org_path='/dev/null')
         self.assertIsNot(driver_info, False)
         driver_info = cast(Dict[str, str], driver_info)
         driver = driver_info["driver"]

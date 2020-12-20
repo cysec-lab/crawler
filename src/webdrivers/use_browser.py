@@ -5,7 +5,7 @@ from logging import getLogger
 from time import sleep
 from typing import Any, Union, cast
 from urllib.parse import urlparse
-
+from multiprocessing import Queue
 from dealwebpage.html_read_thread import WebDriverGetThread
 from dealwebpage.webpage import Page
 from selenium.common.exceptions import (NoAlertPresentException,
@@ -16,7 +16,15 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 
+from utils.logger import worker_configurer
+
 logger = getLogger(__name__)
+
+def configure_logger(queue_log: Queue[Any]):
+    """
+    Loggerをセット
+    """
+    worker_configurer(queue_log, logger)
 
 def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int]) -> Union[bool, str]:
     """
@@ -113,7 +121,7 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
         if page.html:
-            logger.debug("get html from page(%s)", page.url)
+            logger.debug("Correct to get html from page(%s)", page.url)
             # True or 'timeout'がreに入っている。タイムアウトでもhtmlは取れている.全ファイルのロードができてないだけ？
             return re
         else:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import subprocess
 from logging import getLogger
+from multiprocessing import Queue
 from typing import Any, Iterable, List
 
 logger = getLogger(__name__)

@@ -10,6 +10,7 @@ from typing import Any, Union, cast
 
 from utils.alert_data import Alert
 from utils.file_rw import w_file
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
@@ -29,7 +30,7 @@ def receive_alert(recv_q: Queue[Union[str, Alert]], data_list: threadQueue[Any])
             break
 
 
-def summarize_alert_main(recv_q: Queue[Union[Alert, str]], send_q: Queue[str], nth: int, org_path: str):
+def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]], send_q: Queue[str], nth: int, org_path: str):
     """
     Alertが出た場合に記録するためのプロセス
 
@@ -39,7 +40,7 @@ def summarize_alert_main(recv_q: Queue[Union[Alert, str]], send_q: Queue[str], n
     - nth: 
     - org_path: organizationのパス
     """
-
+    worker_configurer(queue_log, logger)
     alert_dir_path = org_path + '/alert'
     # alertディレクトリを作成
     if not path.exists(alert_dir_path):

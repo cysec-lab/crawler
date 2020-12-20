@@ -10,10 +10,12 @@ from typing import Any, Optional
 from crawler_init import crawler_host
 from utils.logger import (log_listener_configure, log_listener_process,
                           worker_configurer)
-from utils.save_result import dealing_after_fact, save_rod
 from utils.sys_command import kill_chrome
+from utils.save_result import dealing_after_fact, save_rod
 
 queue_log: Queue[Any] = Queue(-1)
+logger = getLogger(__name__)
+
 
 def main(organization: str):
     # 以下のwhileループ内で
@@ -26,8 +28,7 @@ def main(organization: str):
     log_listener = Process(target=log_listener_process,
                     args=(now_dir, queue_log, log_listener_configure))
     log_listener.start()
-    worker_configurer(queue_log)
-    logger = getLogger(__name__)
+    worker_configurer(queue_log, logger)
 
     # 引数として与えられた組織名のディレクトリが存在するか
     organization_path = now_dir[0:now_dir.rfind('/')] + '/organization/' + organization

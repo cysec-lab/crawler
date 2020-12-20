@@ -20,6 +20,7 @@ from dealwebpage.summarize_alert import summarize_alert_main
 from utils.alert_data import Alert
 from utils.deal_url import create_only_dict
 from utils.file_rw import r_file, r_json, w_file, w_json
+from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
 
 logger = getLogger(__name__)
@@ -282,7 +283,7 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
     sendq: Queue[Union[Alert, str]] = Queue()
     summarize_alert_q['recv'] = recvq  # 子プロセスが受け取る用のキュー
     summarize_alert_q['send'] = sendq  # 子プロセスから送信する用のキュー
-    p = Process(target=summarize_alert_main, args=(recvq, sendq, nth, org_path))
+    p = Process(target=summarize_alert_main, args=(queue_log, recvq, sendq, nth, org_path))
     p.daemon = True
     p.start()
     summarize_alert_q['process'] = p
@@ -510,7 +511,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
 
         # プロセス作成
         try:
-            p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name], ))
+            p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
             p.start()       # スタート
         except Exception as err:
             logger.exception(f'{err}')
@@ -538,7 +539,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         logger.info("%s is not alive", host_name)
 
         # 新規のプロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(hostName_args[host_name],))
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name],))
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する
         logger.info("%s's process start(pid=%d)", host_name, p.pid)
@@ -718,7 +719,7 @@ def del_child(now: int):
     for host_name, process_dc in hostName_process.items():
         if process_dc.is_alive():
             # プロセスが生きている
-            logger.info('alive process: %d, %s', process_dc.pid, process_dc.name)
+            logger.debug('alive process: %d, %s', process_dc.pid, process_dc.name)
             # 通信路が空だった最後の時間をリセット
             if 'latest_time' in hostName_queue[host_name]:
                 del hostName_queue[host_name]['latest_time']
@@ -761,6 +762,8 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     """
 
     global nth, org_path
+    # spawnで子プロセスを生成しているかチェック(windowsではデフォ、unixではforkがデフォ)
+    worker_configurer(queue_log, logger)
     logger.debug('crawler_host process started')
 
     if org_arg is None:
@@ -1030,10 +1033,9 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                 logger.info("Terminate Clamd proc")
                 clamd_q['process'].terminate()
                 sleep(1)
-            logger.info("Wait for clamd process finish... FIN!")
 
         # summarize alertプロセス終了処理
-        logger.info("Wait for summarize alert process...")
+        logger.info("Wait for summarize alert process")
         summarize_alert_q['recv'].put('end')
         summarize_alert_q['process'].join(timeout=60.0)
         if summarize_alert_q['process'].is_alive():
@@ -1041,7 +1043,6 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
             logger.info("Terminate summarize-alert proc.")
             summarize_alert_q['process'].terminate()
             sleep(1)
-        logger.info("Wait for summarize alert process... FIN!")
 
         url_db.close()
         # メインループをもう一度回すかどうか
@@ -1055,6 +1056,4 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
 
     ctx["stop"] = True
     t.join()
-    if t.is_alive():
-        logger.info("failed to stop thread")
     logger.info('Finish!')

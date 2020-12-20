@@ -99,6 +99,6 @@ def make_mimelist() -> List[str]:
                     if row["Template"]:
                         mime_list.append(row["Template"])
         except csv.Error as err:
-            logger.exception(f'Failed to make MIME list: {err}')
+            print(f'Faile to make MIME list: {err}')
 
     return mime_list

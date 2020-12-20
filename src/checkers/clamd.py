@@ -10,7 +10,9 @@ from time import sleep
 from typing import Any, List, Union
 
 import pyclamd
+
 from utils.file_rw import w_file
+from utils.logger import worker_configurer
 
 end = False                     # メインプロセスから'end'が送られてくると終了
 data_list = deque()             # 子プロセスから送られてきたデータリスト[(url, url_src, buff),(),()...]
@@ -37,6 +39,7 @@ def receive(recvq: Queue[str]):
 
 
 def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str, bool]], org_path: str):
+    worker_configurer(queue_log, logger)
     # clamAVのデーモンが動いているか確認
     while True:
         try:

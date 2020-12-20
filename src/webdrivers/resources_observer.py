@@ -7,12 +7,14 @@ from time import sleep
 from typing import Any, Dict, List, Set, Tuple, Union
 
 import psutil
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
 # 60秒間隔でppidが1のブラウザをkillするスレッドに
 class MemoryObserverThread(Thread):
     def __init__(self, queue_log: Queue[Any], ctx: Dict[str, Any], limit: int=0):
+        worker_configurer(queue_log, logger)
         super(MemoryObserverThread, self).__init__()
         self.ctx = ctx
         self.limit = limit

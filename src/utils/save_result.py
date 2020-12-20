@@ -12,10 +12,13 @@ from dealwebpage.falcification_dealing import (copy_ROD_from_cysec,
 from make_filter_from_past_data import (
     make_filter, make_idf_dict_frequent_word_dict,
     make_request_url_iframeSrc_link_host_set, merge_filter)
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
 def dealing_after_fact(queue_log: Queue[Any], org_arg: Dict[str,str]):
+    worker_configurer(queue_log, logger)
+
     dir_name = org_arg['result_no']
     org_path = org_arg['org_path']
 

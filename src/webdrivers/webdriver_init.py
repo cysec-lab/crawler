@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from logging import getLogger
+from multiprocessing.queues import Queue
 from time import sleep
 from typing import Any, Dict, Union, cast
 
 from selenium.webdriver.firefox.options import Options as FirefoxOptions
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.ui import WebDriverWait
+from utils.logger import worker_configurer
 
 from webdrivers.firefox_custom_profile import FirefoxProfile
 from webdrivers.get_web_driver_thread import GetFirefoxDriverThread
@@ -16,13 +18,14 @@ from webdrivers.webdriver_settings import *
 
 logger = getLogger(__name__)
 
-def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
+def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: str='', org_path: str='') -> Union[bool, Dict[str, Any]]:
     """
     Firefoxを使うためのdriverをヘッドレスモードで起動
     ファイルダウンロード可能
     RequestURLの取得可能(アドオンを用いて)
     ログコンソールの取得不可能(アドオンの結果は</body>と</html>の間にはさむことで、取得する)
     """
+    worker_configurer(queue_log, logger)
 
     logger.debug("Setting FireFox driver...")
     # headless FireFoxの設定
@@ -34,7 +37,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     # Firefoxのドライバを取得。ここでフリーズしていることがあったため、スレッド化した
     # Todo: メモリが足りなかったらドライバーの取得でフリーズする
     try:
-        t = GetFirefoxDriverThread(options=options, ffprofile=profile, capabilities=caps)
+        t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
         t.start()
         t.join(10.0)
     except Exception as err:
@@ -46,7 +49,7 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     if t.re == False:
         # 1度だけドライバ取得をリトライする
         try:
-            t = GetFirefoxDriverThread(options=options, ffprofile=profile, capabilities=caps)
+            t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
             t.start()
             t.join(10.0)
         except Exception as err:
@@ -58,15 +61,13 @@ def get_fox_driver(screenshots: bool=False, user_agent: str='', org_path: str=''
     if t.re == False:
         # ドライバ取得でフリーズする等のエラー処理
         if type(t.driver) == WebDriver:
-            logger.info("Failed to get WebDriver, but t.driver has WebDriver")
             driver = cast(WebDriver, t.driver)
             quit_driver(driver) # 一応終了させて
-            logger.info("driver quited!")
-        logger.info("Failed to getting driver: Freeze, return false")
+        logger.info("Fail to getting driver: Freeze, return fail")
         return False
     if t.driver is False:
         # 単にエラーで取得できなかった場合
-        logger.info("Failed to getting driver: Error, return false")
+        logger.info("Fail to getting driver: Error, return fail")
         return False
 
     if type(t.driver) == WebDriver:

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from multiprocessing import Queue
 from typing import Any, Dict, Union, cast
 
-from dealwebpage.webpage import Page
 from webdrivers.use_browser import set_html
 from webdrivers.webdriver_init import get_fox_driver
+from dealwebpage.webpage import Page
 
 
 class TestStringMethods(unittest.TestCase):
@@ -13,8 +14,8 @@ class TestStringMethods(unittest.TestCase):
         """
         webdriverにアクセスできるかの確認
         """
-
-        driver_info = get_fox_driver(org_path='/dev/null')
+        queue_log: Queue[Any] = Queue()
+        driver_info = get_fox_driver(queue_log, org_path='/dev/null')
         self.assertIsNot(driver_info, False)
         driver_info["driver"].quit() # type: ignore
 
@@ -23,7 +24,8 @@ class TestStringMethods(unittest.TestCase):
         Webdriverを用いて実際にHPが取得できているかを確認
         """
         page: Page = Page("http://abehiroshi.la.coocan.jp/", "")
-        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(org_path='/dev/null')
+        queue_log: Queue[Any] = Queue()
+        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(queue_log, org_path='/dev/null')
         self.assertIsNot(driver_info, False)
         driver_info = cast(Dict[str, str], driver_info)
         driver = driver_info["driver"]
@@ -50,7 +52,8 @@ class TestStringMethods(unittest.TestCase):
         存在しないURLで失敗することの確認
         """
         page: Page = Page("hogehoge", "")
-        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(org_path='/dev/null')
+        queue_log: Queue[Any] = Queue()
+        driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(queue_log, org_path='/dev/null')
         self.assertIsNot(driver_info, False)
         driver_info = cast(Dict[str, str], driver_info)
         driver = driver_info["driver"]

@@ -23,7 +23,7 @@ def log_listener_configure(path: str):
     """
     root = logging.getLogger()
     ch = logging.StreamHandler()
-    ch.setLevel(loglevel)
+    ch.setLevel(logging.DEBUG)
     format_console = logging.Formatter(console_format)
     ch.setFormatter(format_console)
     root.addHandler(ch)
@@ -74,7 +74,7 @@ def log_listener_process(path: str, queue: Queue[Any], configurer: Callable[[str
             print('logger.py: Exception occured!', file=sys.stderr)
             traceback.print_exc(file=sys.stderr)
 
-def worker_configurer(queue: Queue[Any]):
+def worker_configurer(queue: Queue[Any], logger: logging.Logger):
     """
     各プロセスに対して実行される
     1つのログにまとめるために配置されたプロセスからキューに向けてログを流す
@@ -83,6 +83,5 @@ def worker_configurer(queue: Queue[Any]):
         queue: ログを流すキュー
     """
     h = logging.handlers.QueueHandler(queue)
-    root = logging.getLogger()
-    root.addHandler(h)
-    root.setLevel(logging.DEBUG)
+    logger.addHandler(h)
+    logger.setLevel(logging.DEBUG)
