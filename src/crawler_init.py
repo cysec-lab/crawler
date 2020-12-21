@@ -8,7 +8,7 @@ import pickle
 import re
 from collections import deque
 from logging import getLogger
-from multiprocessing import Process, Queue, cpu_count
+from multiprocessing import Process, Queue, cpu_count, process
 from shutil import copyfile, copytree
 from time import sleep, time
 from typing import Any, Deque, Dict, List, Pattern, Tuple, Union, cast
@@ -463,7 +463,7 @@ def end():
     return True
 
 
-def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, Union[str, bool, int, None]]):
+def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, Union[str, bool, int, None]]) -> Process:
     """
     クローリングプロセスの生成
     すでに一度作ったことがあるならばプロセスを生成するのみ
@@ -489,14 +489,6 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             args_dic['clamd_q'] = clamd_q['recv']
         else:
             args_dic['clamd_q'] = False
-        # if setting_dict['machine_learning']:
-        #     args_dic['machine_learning_q'] = machine_learning_q['recv']
-        # else:
-        #     args_dic['machine_learning_q'] = False
-        # if setting_dict['screenshots_svc']:
-        #     args_dic['screenshots_svc_q'] = screenshots_svc_q['recv']
-        # else:
-        #     args_dic['screenshots_svc_q'] = False
 
         args_dic['nth'] = cast(int, nth)
         args_dic['headless_browser'] = cast(bool, setting_dict['headless_browser'])
@@ -510,11 +502,8 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         hostName_args[host_name] = args_dic
 
         # プロセス作成
-        try:
-            p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
-            p.start()       # スタート
-        except Exception as err:
-            logger.exception(f'{err}')
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
+        p.start()       # スタート
 
         # クローリングプロセスのpidを保存
         hostName_process[host_name] = p
@@ -533,9 +522,6 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             logger.warning("Try to start %s's process, but pid is None", host_name)
 
     else:
-        # 一度プロセスを作ったことのあるホストに対して
-        # すでに保存されていたpidの削除
-        del hostName_process[host_name]
         logger.debug("%s is not alive", host_name)
 
         # 新規のプロセス作成
@@ -543,6 +529,8 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する
         logger.debug("%s's process start(pid=%d)", host_name, p.pid)
+
+    return p
 
 
 def receive_and_send(not_send: bool=False):
@@ -862,8 +850,19 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         if not init(queue_log, process_run_count=run_count, setting_dict=setting_dict):
             os._exit(255) # type: ignore
 
+        processes: List[Process] = []
         # メインループ
         while True:
+            # 死んでるプロセスを回収しねぇとなぁ
+            del_list = []
+            for proc in processes:
+                if not proc.is_alive():
+                    logger.info(f"proc_joined {proc}")
+                    proc.join()
+                    del_list.append(proc)
+            for del_proc in del_list:
+                processes.remove(del_proc)
+
             current_achievement = get_achievement_amount()
             remaining = len(url_list) + sum([len(dic['URL_list']) for dic in hostName_remaining.values()])
             receive_and_send()
@@ -944,6 +943,8 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                         # すべてのURLが探索済みであれば回ったurlを更新して終了
                         all_achievement += current_achievement
                         w_json(name='assignment_url_set', data=list(assignment_url_set))
+                        while processes:
+                            processes.pop().join()
                         break
                 except Exception:
                     all_achievement += current_achievement
@@ -970,7 +971,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                                 make_fewest_host_proc_flag = False
                     if make_fewest_host_proc_flag:
                         # 現在もっとも待機数の少ないホストをクローリングしていないならプロセス作成
-                        make_process(fewest_host_now, queue_log, setting_dict)
+                        processes.append(make_process(fewest_host_now, queue_log, setting_dict))
                         num_of_runnable_process -= 1
                         fewest_host = fewest_host_now
 
@@ -982,7 +983,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                         if host_url_list_tuple[0] in hostName_process:
                             if hostName_process[host_url_list_tuple[0]].is_alive():
                                 continue   # プロセスが活動中なら、次に多いホストをtmp_listから探す
-                        make_process(host_url_list_tuple[0], queue_log, setting_dict)
+                        processes.append(make_process(host_url_list_tuple[0], queue_log, setting_dict))
                         num_of_runnable_process -= 1
 
         # すべてのURLを探索し終わったや規定数に探索が達したならメインループを抜け、結果表示＆保存

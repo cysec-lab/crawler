@@ -1,5 +1,10 @@
 # クローリングの流れ
 
+## crawler_host
+
+各サーバを回るcrawler_main() を作る、プロセスの数を管理する
+processes のリストに作られたプロセスを格納していき処理が終わったら順次join していく
+
 ## 各サーバを回るcrawler_main
 
 1. 初期設定
