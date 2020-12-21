@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 from logging import getLogger
+from multiprocessing import Queue
 from time import sleep
 from typing import Any, Union, cast
 from urllib.parse import urlparse
-from multiprocessing import Queue
+
 from dealwebpage.html_read_thread import WebDriverGetThread
 from dealwebpage.webpage import Page
 from selenium.common.exceptions import (NoAlertPresentException,
@@ -15,7 +16,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-
 from utils.logger import worker_configurer
 
 logger = getLogger(__name__)

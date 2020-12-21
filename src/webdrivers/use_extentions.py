@@ -1,17 +1,25 @@
 from __future__ import annotations
 
 from logging import getLogger
-from typing import Any, Union
+from multiprocessing import Queue
+from typing import Any, List, Union, cast
 
+from dealwebpage.webpage import Page
 from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-from dealwebpage.webpage import Page
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
+def configure_logger_for_use_extentions(queue_log: Queue[Any]):
+    """
+    Loggerをセット
+    logger の使い方が正しくないがゆえにここでセットしないといけない
+    """
+    worker_configurer(queue_log, logger)
 
 def get_watcher_window(driver: WebDriver, wait: WebDriverWait) -> Union[bool, int, str]:
     """
@@ -102,3 +110,40 @@ def start_watcher_and_move_blank(driver: WebDriver, wait: WebDriverWait, watcher
         return False
     else:
         return True
+
+
+def rm_other_than_watcher(driver: WebDriver, wait: WebDriverWait, watcher_window: Union[str, int]) -> Union[int, str]:
+    """
+    Watcherタブ以外を消してWatcherタブを開く
+    """
+    logger.debug("rm_other_than_watcher...")
+
+    try:
+        windows = driver.window_handles
+    except Exception as err:
+        logger.exception(f"{err}")
+        return watcher_window
+    
+    windows = cast(List[Union[int, str]], windows)
+    for window in windows:
+        driver.switch_to.window(window)
+        title = driver.title
+        if title == "Watcher":
+            watcher_window = window
+        else:
+            try:
+                # 不要なページを消す
+                logger.info("close some window")
+                driver.close()
+            except Exception as err:
+                logger.exception(f"failed to close window {err}")
+                pass
+
+    try:
+        driver.switch_to.window(watcher_window)
+    except Exception as err:
+        logger.exception(f"Faild to switch extension page: {err}")
+        pass
+
+    logger.debug("rm_other_than_watcher... FIN")
+    return watcher_window

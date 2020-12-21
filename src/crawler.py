@@ -11,7 +11,6 @@ from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
 from typing import Any, Dict, List, Tuple, Union, cast
-from utils.alert_data import Alert
 
 import psutil
 from bs4 import BeautifulSoup
@@ -28,6 +27,7 @@ from dealwebpage.inspection_page import (
 from dealwebpage.robotparser import RobotFileParser
 from dealwebpage.urldict import UrlDict
 from dealwebpage.webpage import Page
+from utils.alert_data import Alert
 from utils.file_rw import r_file, w_file
 from utils.location import location
 from utils.logger import worker_configurer
@@ -37,7 +37,9 @@ from webdrivers.resources_observer import (cpu_checker, get_family,
 from webdrivers.use_browser import (configure_logger, create_blank_window,
                                     get_window_url, quit_driver, set_html,
                                     take_screenshots)
-from webdrivers.use_extentions import (start_watcher_and_move_blank,
+from webdrivers.use_extentions import (configure_logger_for_use_extentions,
+                                       rm_other_than_watcher,
+                                       start_watcher_and_move_blank,
                                        stop_watcher_and_get_data)
 from webdrivers.webdriver_init import get_fox_driver
 
@@ -956,6 +958,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         watcher_window: Union[int, str] = driver_info["watcher_window"]
         wait: WebDriverWait = driver_info["wait"]
         configure_logger(queue_log)
+        configure_logger_for_use_extentions(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -1097,7 +1100,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             if use_browser:
                 # ヘッドレスブラウザでURLに再接続。関数内で接続後１秒待機
                 # robots.txtを参照
+                # watcher window以外を消す
                 watcher_window = cast(Union[int, str], watcher_window)
+                watcher_window = rm_other_than_watcher(driver, wait, watcher_window)
                 if robots is not None:
                     if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                         continue
