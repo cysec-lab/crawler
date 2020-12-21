@@ -713,8 +713,9 @@ def del_thread(host: str):
 def resource_observer_thread(args: Dict[str, Any]):
     """
     資源監視スレッド
-    """     
+    """
     global resource_terminate_flag, resource_dict
+    t = threading.currentThread()
     cpu_limit: int = args["cpu"]
     memory_limit: int = args["mem"]
     cpu_num: int = args["cpu_num"]
@@ -722,7 +723,7 @@ def resource_observer_thread(args: Dict[str, Any]):
     src: str = args["src"]
     url: str = args["url"]
     pid: int = args["pid"]
-    while True:
+    while getattr(t, "run", True):
         kill_flag = False
         family: List[psutil.Process] = get_family(pid)
         if "falsification" in url:
@@ -781,6 +782,7 @@ def resource_observer_thread(args: Dict[str, Any]):
             if "falsification.cysec.cs" in url:
                 logger.info("Resource Check has completed : %s", url)
             break
+    logger.debug("Finish resource_observer_thread")
 
 
 def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
@@ -1047,7 +1049,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         logger.info("Try to Check %s", page.url)
 
         # urlopenで接続
-        urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+        urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=30)
         if type(urlopen_result) is list:  # listが返るとエラー
             urlopen_result = cast(list[str], urlopen_result)
             # URLがこのサーバの中でひとつ目じゃなかった場合、次のURLへ
@@ -1058,7 +1060,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             # これにアクセスできなかったら、そのサイトの全てのページを取得できない可能性があるため)
             logger.info("Retrying to first access server: %s", page.url)
             update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1] + ', and try again')
-            urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=90)  # 次は90秒待機する
+            urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)  # 次は90秒待機する
             if type(urlopen_result) is list:  # 二回目も無理なら諦める
                 urlopen_result = cast(list[str], urlopen_result)
                 logger.warning("Give up to access %s", url)
@@ -1123,7 +1125,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 args = {"src": page.src, "url": page.url, "initial": page.url_initial, "cpu": 60,
                         "cpu_num": cpu_count(), "mem": 2000, "pid": os.getpid()}
                 r_t = threading.Thread(target=resource_observer_thread, args=(args,))
-                r_t.daemon = True  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
                 check_resource_threadId_set.add(r_t.ident)
                 r_t.start()
 
@@ -1132,7 +1133,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 if "falsification.cysec.cs" in host:
                     logger.info("result of getting html by browser: %s, %s", page.url, browser_result)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
-                    logger.info("Fail to connect... Remaking headless browser")
+                    logger.info("Failed to connect... Remaking headless browser")
                     browser_result = cast(List[str], browser_result)
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
@@ -1140,6 +1141,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
+                        r_t.run = False
+                        r_t.join()
                         break
                     else:
                         driver_info = cast(Dict[str, Any], driver_info)
@@ -1147,6 +1150,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         watcher_window: Union[str, int] = driver_info["watcher_window"]
                         wait: WebDriverWait = driver_info["wait"]
                     # 次のURLへ
+                    r_t.run = False
+                    r_t.join()
                     continue
 
                 # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
@@ -1154,6 +1159,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 if re is False:
                     logger.info("stop_watcher_and_get_data, break")
                     error_break = True
+                    r_t.run = False
+                    r_t.join()
                     break
 
                 # watcher.htmlのHLTML文から、拡張機能によって取得した情報を抽出する
@@ -1179,6 +1186,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                             content   = page.url_initial + ', ' + page.src,
                             label     = 'InitialURL, src',
                         ))
+                    r_t.run = False
+                    r_t.join()
                     continue
 
                 # リダイレクトのチェック
@@ -1188,12 +1197,16 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     result_set = inspection_url_by_filter(url_list=page_url_set, filtering_dict=filtering_dict)
                     send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                             "url_src": page.src})
+                    r_t.run = False
+                    r_t.join()
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
                     send_to_parent(sendq=q_send, data=(page.url, "redirect"))
 
                 # ブラウザでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
+                    r_t.run = False
+                    r_t.join()
                     continue
 
                 # スクショが欲しければ撮る
@@ -1212,6 +1225,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     if window_url_list:   # URLがあった場合、リンクURLを渡すときと同じ形にして親プロセスに送信
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)
                         send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "url_src": page.url})
+
+                r_t.run = False
+                r_t.join()
 
             logger.debug("%s: Parse start...", page.url)
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
