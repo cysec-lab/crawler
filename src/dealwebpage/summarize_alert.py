@@ -11,6 +11,7 @@ from typing import Any, Union, cast
 from utils.alert_data import Alert
 from utils.file_rw import w_file
 from utils.logger import worker_configurer
+from time import sleep
 
 logger = getLogger(__name__)
 
@@ -33,6 +34,7 @@ def receive_alert(recv_q: Queue[Union[str, Alert]], data_list: threadQueue[Any])
 def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]], send_q: Queue[str], nth: int, org_path: str):
     """
     Alertが出た場合に記録するためのプロセス
+    スレッドとの通信キューに何もなければ一旦スリープすることでCPU負荷を下げる
 
     Args:
     - recv_q: 各プロセスからのアラートデータを受け取るためのキュー, endがきたら終了
@@ -50,7 +52,6 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]]
     data_list: threadQueue[Any] = threadQueue()
 
     t = Thread(target=receive_alert, args=(recv_q, data_list))
-    t.daemon = True
     t.start()
 
     while True:
@@ -63,6 +64,7 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]]
             else:
                 if temp == 'end':
                     logger.info('receive end!!')
+                    t.join()
                     break
 
                 alert = cast(Alert, temp)
@@ -88,6 +90,8 @@ def summarize_alert_main(queue_log: Queue[Any], recv_q: Queue[Union[Alert, str]]
                     w_file(alert_dir_path + '/' + file_name, content + '\n', mode="a")
             finally:
                 data_list.task_done()
+        else:
+            sleep(0.1)
 
     data_list.join()
     logger.info("Summarize_alert: FIN")

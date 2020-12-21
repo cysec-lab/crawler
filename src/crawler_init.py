@@ -8,7 +8,7 @@ import pickle
 import re
 from collections import deque
 from logging import getLogger
-from multiprocessing import Process, Queue, cpu_count, process
+from multiprocessing import Process, Queue, cpu_count
 from shutil import copyfile, copytree
 from time import sleep, time
 from typing import Any, Deque, Dict, List, Pattern, Tuple, Union, cast
@@ -853,6 +853,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         processes: List[Process] = []
         # メインループ
         while True:
+            sleep(0.1) # 負荷対策
             # 死んでるプロセスを回収しねぇとなぁ
             del_list = []
             for proc in processes:
