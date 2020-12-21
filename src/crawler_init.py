@@ -536,13 +536,13 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         # 一度プロセスを作ったことのあるホストに対して
         # すでに保存されていたpidの削除
         del hostName_process[host_name]
-        logger.info("%s is not alive", host_name)
+        logger.debug("%s is not alive", host_name)
 
         # 新規のプロセス作成
         p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name],))
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する
-        logger.info("%s's process start(pid=%d)", host_name, p.pid)
+        logger.debug("%s's process start(pid=%d)", host_name, p.pid)
 
 
 def receive_and_send(not_send: bool=False):
@@ -719,7 +719,7 @@ def del_child(now: int):
     for host_name, process_dc in hostName_process.items():
         if process_dc.is_alive():
             # プロセスが生きている
-            logger.debug('alive process: %d, %s', process_dc.pid, process_dc.name)
+            logger.info('alive process: %d, %s', process_dc.pid, process_dc.name)
             # 通信路が空だった最後の時間をリセット
             if 'latest_time' in hostName_queue[host_name]:
                 del hostName_queue[host_name]['latest_time']

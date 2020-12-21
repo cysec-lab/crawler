@@ -916,7 +916,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     global org_path, num_of_pages, num_of_files
     worker_configurer(queue_log, logger)
 
-    logger.info("crawler_main start")
+    logger.debug("crawler_main start")
 
     page = None
     error_break = False
@@ -1044,7 +1044,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
 
-        logger.debug("Try to Check %s", page.url)
+        logger.info("Try to Check %s", page.url)
 
         # urlopenで接続
         urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
