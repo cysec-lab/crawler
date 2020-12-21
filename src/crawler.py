@@ -1259,21 +1259,21 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 num_of_days, file_len = url_dict.compere_hash(page)
                 if type(num_of_days) == int:
                     update_write_file_dict('result', 'change_hash_file.csv',
-                                           content=['URL,content-type,no-change days', page.url + ', ' + page.content_type +
+                                           content=['URL, content-type, no-change days', page.url + ', ' + page.content_type +
                                                     ', ' + str(num_of_days)])
                     if file_len is None:  # Noneは前回のファイルサイズが登録されていなかった場合
                         pass
                     else:  # ファイルサイズが変わっていたものを記録
                         update_write_file_dict('result', 'different_size_file.csv',
-                                               content=['URL,src,content-type,difference,content-length',
+                                               content=['URL, src, content-type, difference, content-length',
                                                         page.url + ', ' + page.src + ', ' + page.content_type + ',' +
                                                         str(file_len) + ', ' + str(page.content_length)])
                 elif num_of_days is True:     # ハッシュ値が同じ場合
                     update_write_file_dict('result', 'same_hash_file.csv',
-                                           content=['URL,content-type', page.url + ', ' + page.content_type])
+                                           content=['URL, content-type', page.url + ', ' + page.content_type])
                 elif num_of_days is False:  # 新規保存
                     update_write_file_dict('result', 'new_file.csv',
-                                           content=['URL,content-type,src',
+                                           content=['URL, content-type, src',
                                                     page.url + ', ' + page.content_type + ', ' + page.src])
             else:
                 logger.error("there are no url_dict, unrechable Bug")
