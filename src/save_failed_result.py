@@ -22,8 +22,8 @@ if __name__ == "__main__":
     log_listener = Process(target=log_listener_process,
                     args=(now_dir, queue_log, log_listener_configure))
     log_listener.start()
-    worker_configurer(queue_log)
     logger = getLogger(__name__)
+    worker_configurer(queue_log, logger)
 
     organization_path = organization_path = now_dir[0:now_dir.rfind('/')] + '/organization/' + organization
     print(organization_path)
