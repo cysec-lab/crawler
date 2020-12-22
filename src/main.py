@@ -73,8 +73,8 @@ def main(organization: str):
         logger.info('crawling has finished.')
 
         # 孤児のchrome じゃなくてfirefoxをkill
-        kill_chrome(queue_log, process='geckodriver')
-        kill_chrome(queue_log, process='firefox-bin')
+        kill_chrome(process='geckodriver')
+        kill_chrome(process='firefox-bin')
 
         logger.info('save used ROD before overwriting the ROD directory : START')
         save_rod(org_arg)

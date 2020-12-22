@@ -394,6 +394,8 @@ def print_progress(run_time_pp: int, current_achievement: int):
             # else:
             #     print('main : ' + host + "'s remaining is " + str(remaining_num) + "\t active = isn't made")
 
+    # recv: この10秒で取得した新規URLやファイル
+    # send_num: 子プロセスに依頼したURLの数
     logger.info(f"""
     ---------progress--------
     remain host      = {count}
@@ -454,7 +456,6 @@ def end():
 
     # キューに要素があるか
     for _, remaining_temp in hostName_remaining.items():
-        remaining_temp = cast(Dict[str, deque[Tuple[str]]], remaining_temp)
         if len(remaining_temp['URL_list']):
             return False
 
@@ -462,7 +463,7 @@ def end():
     return True
 
 
-def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, Union[str, bool, int, None]]):
+def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, Union[str, bool, int, None]]) -> Process:
     """
     クローリングプロセスの生成
     すでに一度作ったことがあるならばプロセスを生成するのみ
@@ -488,14 +489,6 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             args_dic['clamd_q'] = clamd_q['recv']
         else:
             args_dic['clamd_q'] = False
-        # if setting_dict['machine_learning']:
-        #     args_dic['machine_learning_q'] = machine_learning_q['recv']
-        # else:
-        #     args_dic['machine_learning_q'] = False
-        # if setting_dict['screenshots_svc']:
-        #     args_dic['screenshots_svc_q'] = screenshots_svc_q['recv']
-        # else:
-        #     args_dic['screenshots_svc_q'] = False
 
         args_dic['nth'] = cast(int, nth)
         args_dic['headless_browser'] = cast(bool, setting_dict['headless_browser'])
@@ -509,12 +502,8 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         hostName_args[host_name] = args_dic
 
         # プロセス作成
-        try:
-            p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
-            p.daemon = True # 親が死ぬと子も死ぬ
-            p.start()       # スタート
-        except Exception as err:
-            logger.exception(f'{err}')
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
+        p.start()       # スタート
 
         # クローリングプロセスのpidを保存
         hostName_process[host_name] = p
@@ -533,17 +522,15 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             logger.warning("Try to start %s's process, but pid is None", host_name)
 
     else:
-        # 一度プロセスを作ったことのあるホストに対して
-        # すでに保存されていたpidの削除
-        del hostName_process[host_name]
-        logger.info("%s is not alive", host_name)
+        logger.debug("%s is not alive", host_name)
 
         # 新規のプロセス作成
         p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name],))
-        p.daemon = True # 親が死ぬと子も死ぬ
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する
-        logger.info("%s's process start(pid=%d)", host_name, p.pid)
+        logger.debug("%s's process start(pid=%d)", host_name, p.pid)
+
+    return p
 
 
 def receive_and_send(not_send: bool=False):
@@ -588,18 +575,17 @@ def receive_and_send(not_send: bool=False):
                 else:
                     if hostName_remaining[host_name]['URL_list']:
                         # クローリング対象URLが残っていればクローリングするurlを送信
-                        remain = cast(deque[str], hostName_remaining[host_name]['URL_list'])
                         while True:
-                            url_tuple: str = remain.popleft()
+                            if not hostName_remaining[host_name]['URL_list']:
+                                # 待機リストが空ならば子プロセスにもうURLがないことを伝えてbreak
+                                queue['parent_send'].put('nothing')
+                                break
+                            url_tuple: str = hostName_remaining[host_name]['URL_list'].popleft()
                             if url_tuple[0] not in assignment_url_set:
                                 # まだ送信していないURLならばURLを送信してBreak
                                 assignment_url_set.add(url_tuple[0])
                                 queue['parent_send'].put(url_tuple)
                                 send_num += 1
-                                break
-                            if not hostName_remaining[host_name]['URL_list']:
-                                # 待機リストが空ならば子プロセスにもうURLがないことを伝えてbreak
-                                queue['parent_send'].put('nothing')
                                 break
                     else:
                         # クローリング対象URLがもうないのならば終了を伝える
@@ -639,7 +625,7 @@ def receive_and_send(not_send: bool=False):
                         url       = url_tuple[0],
                         file_name = 'new_window_url.csv',
                         content   = url_tuple[0] + ', ' + url_src,
-                        label     = 'NEW_WINDOW_URL,URL'
+                        label     = 'NEW_WINDOW_URL, URL'
                     ))
             elif received_data['type'] == 'redirect':
                 # リダイレクトの場合、URLがホワイトリストにかからなければアラート
@@ -721,7 +707,7 @@ def del_child(now: int):
     for host_name, process_dc in hostName_process.items():
         if process_dc.is_alive():
             # プロセスが生きている
-            logger.debug('alive process: %d, %s', process_dc.pid, process_dc.name)
+            logger.info('alive process: %d, %s', process_dc.pid, process_dc.name)
             # 通信路が空だった最後の時間をリセット
             if 'latest_time' in hostName_queue[host_name]:
                 del hostName_queue[host_name]['latest_time']
@@ -736,6 +722,7 @@ def del_child(now: int):
                     w_file('notice.txt', str(process_dc) + ' is deleted.\n', mode="a")
         else:
             # プロセスが死んでいる
+            process_dc.join()
             if host_name in hostName_remaining:
                 # ホスト最終更新時間をリセット
                 hostName_remaining[host_name]["update_time"] = 0
@@ -863,8 +850,20 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         if not init(queue_log, process_run_count=run_count, setting_dict=setting_dict):
             os._exit(255) # type: ignore
 
+        processes: List[Process] = []
         # メインループ
         while True:
+            sleep(0.1) # 負荷対策
+            # 死んでるプロセスを回収しねぇとなぁ
+            del_list = []
+            for proc in processes:
+                if not proc.is_alive():
+                    logger.info(f"proc_joined {proc}")
+                    proc.join()
+                    del_list.append(proc)
+            for del_proc in del_list:
+                processes.remove(del_proc)
+
             current_achievement = get_achievement_amount()
             remaining = len(url_list) + sum([len(dic['URL_list']) for dic in hostName_remaining.values()])
             receive_and_send()
@@ -876,7 +875,21 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                 print_progress(now - int(current_start_time), current_achievement)
                 pre_time = now
 
-            # 途中保存関連オプション
+            # url_list(まだクローリングしていないURLのリスト)からURLのタプルを取り出してホスト名で分類
+            while url_list:
+                url_tuple = url_list.popleft()
+                # ホスト名ごとに分け、子プロセスへの送信待ちリストに追加
+                allocate_to_host_remaining(url_tuple=url_tuple)
+
+            # 指定した時間経過すると実行結果を全て保存する
+            # プログラム本体は終わらず、メインループを再スタートする
+            if save_time:
+                if now - int(current_start_time) >= save_time:
+                    forced_termination()
+                    save = True
+                    break
+
+            # クローリング制限オプション関連
             if max_time:
                 # max_timeオプションが指定されている場合
                 if now - start >= int(max_time):
@@ -885,9 +898,6 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                     forced_termination()
                     break
 
-            ####################
-            ### Todo
-            ### 開発用Option
             if assign_or_achievement:
                 # assign_or_achievementオプションが指定されていた場合
                 if len(assignment_url_set) >= max_page:
@@ -899,27 +909,17 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                         for temp in hostName_process.values():
                             if temp.is_alive():
                                 logger.debug("alived process [%s]", str(temp))
+                            else:
+                                temp.join()
                     break
-            #####################
-            ### Todo
-            ### ここのelse不要では?
             else:
                 # 指定数URLを達成したら
                 if (all_achievement + current_achievement) >= max_page:
                     logger.info("Num of achievement reached MAX")
                     forced_termination()
                     break
-            ######################
 
-            # 指定した時間経過すると実行結果を全て保存する
-            # プログラム本体は終わらず、メインループを再スタートする
-            if save_time:
-                if now - int(current_start_time) >= save_time:
-                    forced_termination()
-                    save = True
-                    break
-
-            # 終了条件
+            # 回り終わって終了するとき
             if end():
                 # url_dbから過去発見したURLを取ってきて、クローリングしていないのがあればurl_listに追加する
                 # TODO: うまく動いていない可能性あり
@@ -944,28 +944,13 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                         # すべてのURLが探索済みであれば回ったurlを更新して終了
                         all_achievement += current_achievement
                         w_json(name='assignment_url_set', data=list(assignment_url_set))
+                        while processes:
+                            processes.pop().join()
                         break
                 except Exception:
                     all_achievement += current_achievement
                     w_json(name='assignment_url_set', data=list(assignment_url_set))
                     break
-
-            # url_list(まだクローリングしていないURLのリスト)からURLのタプルを取り出してホスト名で分類
-            while url_list:
-                url_tuple = url_list.popleft()
-                # ホスト名ごとに分け、子プロセスへの送信待ちリストに追加
-                allocate_to_host_remaining(url_tuple=url_tuple)
-
-            # プロセス数が上限に達していなければ、プロセスを生成する
-            # falsification.cysecは最優先で周る機能
-            # host = 'falsification.cysec.cs.ritsumei.ac.jp'
-            # if host in hostName_remaining:
-            #     if hostName_remaining[host]['URL_list']:
-            #         if host in hostName_process:
-            #             if not hostName_process[host].is_alive():
-            #                 make_process(host, setting_dict)
-            #         else:
-            #             make_process(host, setting_dict)
 
             # 生成可能なプロセス数を計算しプロセスを作成する
             num_of_runnable_process: int = max_process - get_alive_child_num()
@@ -987,7 +972,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                                 make_fewest_host_proc_flag = False
                     if make_fewest_host_proc_flag:
                         # 現在もっとも待機数の少ないホストをクローリングしていないならプロセス作成
-                        make_process(fewest_host_now, queue_log, setting_dict)
+                        processes.append(make_process(fewest_host_now, queue_log, setting_dict))
                         num_of_runnable_process -= 1
                         fewest_host = fewest_host_now
 
@@ -999,7 +984,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                         if host_url_list_tuple[0] in hostName_process:
                             if hostName_process[host_url_list_tuple[0]].is_alive():
                                 continue   # プロセスが活動中なら、次に多いホストをtmp_listから探す
-                        make_process(host_url_list_tuple[0], queue_log, setting_dict)
+                        processes.append(make_process(host_url_list_tuple[0], queue_log, setting_dict))
                         num_of_runnable_process -= 1
 
         # すべてのURLを探索し終わったや規定数に探索が達したならメインループを抜け、結果表示＆保存

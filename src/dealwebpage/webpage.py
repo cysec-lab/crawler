@@ -85,6 +85,11 @@ class Page:
         self.among_url = url_history.copy()
 
     def set_html_and_content_type_urlopen(self, url: str, time_out: int)-> Union[list[str], bool, None]:
+        """
+        指定されたURLに向けてrequestを投げる
+        404をふくむすべてのエラーでエラー詳細をList型を返す
+        取得できた場合にはPageの情報をこのオブジェクトに格納してTrueを返す
+        """
         # レスポンスのtimeoutを決める(適当)
         if time_out > 40:
             res_time_out = time_out - 30

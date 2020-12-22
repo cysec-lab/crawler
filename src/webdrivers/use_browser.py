@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 from logging import getLogger
+from multiprocessing import Queue
 from time import sleep
 from typing import Any, Union, cast
 from urllib.parse import urlparse
-from multiprocessing import Queue
+
 from dealwebpage.html_read_thread import WebDriverGetThread
 from dealwebpage.webpage import Page
 from selenium.common.exceptions import (NoAlertPresentException,
@@ -15,7 +16,6 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
-
 from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
@@ -71,9 +71,11 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             # URLに接続する(フリーズすることがあるので、スレッドで行う)
             t = WebDriverGetThread(driver, page.url)
             t.start()
-            t.join(timeout=60)   # 60秒のロード待機時間
-            if t.is_alive():
-                raise TimeoutException("Failed to get WebDriverGetThread")
+            t.join(timeout=20)   # 60秒のロード待機時間
+            # timeout してもそのまま処理を続行する
+            # 以降の処理でうまくHTMLが出てる場合は調査するしだめならだめで処理する
+            # if t.is_alive():
+            #     raise TimeoutException("Failed to get WebDriverGetThread")
         except Exception as err:
             if i < GET_WEBDRIVER_RETRY - 1:
                 logger.info(f"Failed to access {page.url}: {err}")

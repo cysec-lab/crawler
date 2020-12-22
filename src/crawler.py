@@ -10,8 +10,8 @@ from datetime import datetime
 from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
-from utils.alert_data import Alert
+from typing import Any, Dict, List, Tuple, Union, cast
+
 import psutil
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
@@ -27,6 +27,7 @@ from dealwebpage.inspection_page import (
 from dealwebpage.robotparser import RobotFileParser
 from dealwebpage.urldict import UrlDict
 from dealwebpage.webpage import Page
+from utils.alert_data import Alert
 from utils.file_rw import r_file, w_file
 from utils.location import location
 from utils.logger import worker_configurer
@@ -36,7 +37,9 @@ from webdrivers.resources_observer import (cpu_checker, get_family,
 from webdrivers.use_browser import (configure_logger, create_blank_window,
                                     get_window_url, quit_driver, set_html,
                                     take_screenshots)
-from webdrivers.use_extentions import (start_watcher_and_move_blank,
+from webdrivers.use_extentions import (configure_logger_for_use_extentions,
+                                       rm_other_than_watcher,
+                                       start_watcher_and_move_blank,
                                        stop_watcher_and_get_data)
 from webdrivers.webdriver_init import get_fox_driver
 
@@ -46,12 +49,13 @@ dir_name: str = ''   # このプロセスの作業ディレクトリ
 f_name: str = ''     # このプロセスのホスト名をファイル名として使えるように変換したもの
 org_path: str = ""   # 組織のディレクトリ絶対パス
 
-parser_threadId_set = set()                     # パーサのスレッドid集合
-parser_threadId_time: dict[int, int] = dict()   # スレッドid : 実行時間
+parser_threadId_set = set()                     # パーサのスレッドid集合 TODO: 消せる変数
+parser_threads: Dict[int, Dict[str, Any]] = dict() # スレッドid : 実行時間
+parser_thread_lock = threading.Lock()           # スレッド集合更新用ロック
 num_of_pages: int = 0                           # 取得してパースした重複なしページ数. リダイレクト後が外部URL, エラーだったURLを含まない
 num_of_files: int = 0                           # 取得してパースした重複なしファイル数. リダイレクト後に外部になるURL, エラーだったURLは含まない
 url_cache = set()                               # 接続を試したURL集合. 他サーバへのリダイレクトURL含む. プロセスが終わっても消さずに保存
-url_dict: Optional[UrlDict] = None               # サーバ毎のurl_dictの辞書を扱うクラス
+url_dict: UrlDict = UrlDict('')                   # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None                                   # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
@@ -388,41 +392,6 @@ def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], da
         sendq.put(data)
 
 
-# # iframeタグをさらに枠が設定されているかどうかで分けたタグのリスト
-# def special_course(tags):
-#     tag_list = list()
-#     for tag in tags:
-#         if tag.name == 'iframe':
-#             re = invisible([tag])    # 枠が0のiframeタグを探すときに使っている関数を借りる
-#             if re:   # width、heightのどちらかが0だった、もしくはwidth、height属性値が設定されていなかった場合
-#                 tag_list.append('invisible_iframe')
-#             else:
-#                 tag_list.append('iframe')   # width、heightに0以外が設定されていた
-#         else:
-#             tag_list.append(tag.name)
-#     return tag_list
-
-
-# def get_tags_from_html(soup, page, machine_learning_q):
-#     # 正確にタグ情報を取得するためにprettifyで整形したソースコードからもう一度soupを作る
-#     try:
-#         soup2 = BeautifulSoup(soup.prettify(), 'lxml')
-#     except Exception:
-#         soup2 = BeautifulSoup(soup.prettify(), 'html.parser')
-
-#     # 全てのtagを取り出し、MLプロセスへ送信
-#     tags = soup2.find_all()
-#     tag_list = [tag.name for tag in tags]   # tagの名前だけ取り出す
-#     if tag_list:
-#         if 'iframe' in tag_list:   # iframeがあれは
-#             tag_list = special_course(tags)   # ちょっといじる
-
-#         url_dict.add_tag_data(page, tag_list)   # 外部ファイルへ保存するためのクラスへ格納
-#         if machine_learning_q is not False:
-#             # 機械学習プロセスへ送信
-#             dic = {'url': page.url, 'src': page.src, 'tags': tag_list, 'host': f_name}
-#             machine_learning_q.put(dic)
-
 def parser(parse_args_dic: Dict[str, Any]):
     global word_df_dict
     host: str = parse_args_dic['host']
@@ -469,13 +438,13 @@ def parser(parse_args_dic: Dict[str, Any]):
         # 検査結果がFalse(組織外)、もしくは"Unknown"(不明)だったURLを外部ファイルに出力
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
+            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
             with wfta_lock:
                 write_file_to_alertdir.append(Alert(
                     url = page.url_initial,
                     file_name ='link_to_new_server.csv',
                     content = content,
-                    label = 'InitialURL,URL,LINK'
+                    label = 'InitialURL, URL, LINK'
                 ))
 
     # 組織内かどうかをチェックしたリンクURLをすべて親に送信
@@ -511,7 +480,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                         url       = page.url_initial,
                         file_name = 'hack_word_Lv' + str(hack_level) + '.csv',
                         content   = page.url_initial + ", " + page.url + ', ' + page.src,
-                        label     = 'InitialURL,URL,SOURCE'
+                        label     = 'InitialURL, URL, SOURCE'
                     ))
         if word_tf_dict is not False:
             word_tf_dict = cast(Dict[str, float], word_tf_dict)
@@ -535,7 +504,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                                     file_name ='change_important_word.csv',
                                     content   = page.url_initial + ", " + page.url + ', ' \
                                                   + str(top10)[1:-1] + ', ,' + str(pre_top10)[1:-1],
-                                    label     = 'InitialURL,URL,TOP10,N/A,PRE'
+                                    label     = 'InitialURL, URL, TOP10, N/A, PRE'
                                 ))
                         update_write_file_dict('result', 'symmetric_diff_of_word.csv',
                                                content=['URL,length,top10,pre top10', page.url + ', ' +
@@ -564,7 +533,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                             url       = page.url_initial,
                             file_name = 'new_page_without_frequent_word.csv',
                             content   = page.url_initial + ", " + page.url + ', ' + str(and_set),
-                            label     = 'InitalURL,URL,WORDS'
+                            label     = 'InitalURL, URL, WORDS'
                         ))
 
     # iframeの検査
@@ -582,7 +551,7 @@ def parser(parse_args_dic: Dict[str, Any]):
                             url       = page.url_initial,
                             file_name = 'new_iframeSrc.csv',
                             content   = page.url_initial + ", " + page.url + ", " + str(diff)[1:-1],
-                            label     = 'InitialURL,URL,iframe_src'
+                            label     = 'InitialURL, URL, iframe_src'
                         ))
         # 目に見えないiframeがあるか。javascriptを動かすためのiframeが結構見つかる。
         if iframe_result['invisible_iframe_list']:
@@ -630,8 +599,8 @@ def parser(parse_args_dic: Dict[str, Any]):
                         write_file_to_alertdir.append(Alert(
                             url       = page.url_initial,
                             file_name = 'new_scriptSrc.csv',
-                            content   = page.url_initial + "," + page.url + "," + str(diff)[1:-1],
-                            label     = 'InitialURL,URL,script_src',
+                            content   = page.url_initial + ", " + page.url + ", " + str(diff)[1:-1],
+                            label     = 'InitialURL, URL, script_src',
                         ))
 
     # formの検査
@@ -660,13 +629,13 @@ def parser(parse_args_dic: Dict[str, Any]):
             # ２つのフィルタを通しても未知のサーバだと判断されたらアラート
             strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
             if strange_set:
-                content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
+                content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
                 with wfta_lock:
                     write_file_to_alertdir.append(Alert(
                         url = page.url_initial,
                         file_name = 'new_form_url.csv',
                         content = page.url_initial + ", " + page.url + ", " + content,
-                        label = 'InitialURL,URL,form_url'
+                        label = 'InitialURL, URL, form_url'
                     ))
 
     # requestURL を url_dictに追加(ページをレンダリングする際のリクエストURLを、各ページごとに保存。しかし、何かに使っているわけではない。)
@@ -676,16 +645,16 @@ def parser(parse_args_dic: Dict[str, Any]):
         else:
             logger.error("There are no url_dict")
 
-    # スレッド集合から削除して、検査終了
-    try:
-        parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
-        del parser_threadId_time[threading.get_ident()]
-    except KeyError:
-        logger.info(f"{host} thread was deleted by del_thread")
-        pass
-    except Exception as err:
-        logger.exception(f"Failed to del thread: {err}")
-        pass
+    # # スレッド集合から削除して、検査終了
+    # try:
+    #     parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
+    #     del parser_threadId_time[threading.get_ident()]
+    # except KeyError:
+    #     logger.info(f"{host} thread was deleted by del_thread")
+    #     pass
+    # except Exception as err:
+    #     logger.exception(f"Failed to del thread: {err}")
+    #     pass
 
 
 def check_thread_time():
@@ -694,9 +663,10 @@ def check_thread_time():
     """
     thread_list: List[int] = list()
     try:
-        for threadId, th_time in parser_threadId_time.items():
-            if (int(time()) - th_time) > 180:
-                thread_list.append(threadId)
+        with parser_thread_lock:
+            for threadId, thread_detail in parser_threads.items():
+                if (int(time()) - thread_detail['time']) > 180:
+                    thread_list.append(threadId)
     except RuntimeError as err:
         logger.exception(f'Exception occur: {err}')
     return thread_list
@@ -704,18 +674,38 @@ def check_thread_time():
 
 def del_thread(host: str):
     """
-    5秒間隔で180秒以上続いているparserスレッドがあるかチェックし、あるとリストから削除
+    5秒間隔でパーススレッドが生きているかを調べる
+    終わっているならjoinしてリソースの回収
+
+    TODO: 180秒以上かかっているならスレッドを強制終了したい
     """
-    logger.info("del_thread is working...")
     while True:
+        del_thread: List[int] = list()
         sleep(5)
+        # 正常に終了しているスレッドを回収する
+        for threadId, thread_detail in parser_threads.items():
+            if not thread_detail['thread'].is_alive():
+                logger.debug('thread joined')
+                thread_detail['thread'].join()
+                del_thread.append(threadId)
+                with parser_thread_lock:
+                    parser_threadId_set.remove(threadId)
+        with parser_thread_lock:
+            for target in del_thread:
+                del parser_threads[target]
+
+        # 180秒以上続いているスレッドを強制削除したいが実際はできていない
+        # thread を強制終了できるクラスに変更してterminateする必要がある
+        # というかまずそんなパーススレッドができるとは思えない
+        # まぁDAEMONにしてるしいいか...
         del_thread_list = check_thread_time()
         for th in del_thread_list:
             logger.critical('DEL_thread: %s deleted: %s', host, str(th))
             try:
                 # 消去処理がパーススレッドとほぼ同時に行われるとなるかも？(多分ない)
-                parser_threadId_set.remove(th)
-                del parser_threadId_time[th]
+                with parser_thread_lock:
+                    parser_threadId_set.remove(th)
+                    del parser_threads[th]
             except KeyError:
                 logger.warning('KeyError occur')
             except Exception as err:
@@ -725,8 +715,9 @@ def del_thread(host: str):
 def resource_observer_thread(args: Dict[str, Any]):
     """
     資源監視スレッド
-    """     
+    """
     global resource_terminate_flag, resource_dict
+    t = threading.currentThread()
     cpu_limit: int = args["cpu"]
     memory_limit: int = args["mem"]
     cpu_num: int = args["cpu_num"]
@@ -734,7 +725,7 @@ def resource_observer_thread(args: Dict[str, Any]):
     src: str = args["src"]
     url: str = args["url"]
     pid: int = args["pid"]
-    while True:
+    while getattr(t, "run", True):
         kill_flag = False
         family: List[psutil.Process] = get_family(pid)
         if "falsification" in url:
@@ -752,7 +743,7 @@ def resource_observer_thread(args: Dict[str, Any]):
                     url       = initial,
                     file_name = 'over_work_cpu.csv',
                     content   = initial + ", " + url + ", " + src + ", " + str(proc_info)[1:-1],
-                    label     = 'InitialURL,URL,Src,Info'
+                    label     = 'InitialURL, URL, Src, Info'
                 ))
         # CPU使用率調査(ブラウザ関連プロセスの中で、一番CPU使用率が高かったものを記録)
         apdata = [url, max(ret2)]
@@ -771,7 +762,7 @@ def resource_observer_thread(args: Dict[str, Any]):
                     url = initial,
                     file_name = 'over_work_memory.csv',
                     content = initial + ", " + url + ", " + src + ", " + str(proc_info)[1:-1],
-                    label = 'InitialURL,URL,Src,Info'
+                    label = 'InitialURL ,URL, Src, Info'
                 ))
         # メモリ使用率調査(ブラウザ関連プロセスの中で、一番メモリ使用率が高かったものを記録)
         apdata = [url, max(ret2)]
@@ -793,6 +784,7 @@ def resource_observer_thread(args: Dict[str, Any]):
             if "falsification.cysec.cs" in url:
                 logger.info("Resource Check has completed : %s", url)
             break
+    logger.debug("Finish resource_observer_thread")
 
 
 def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
@@ -881,7 +873,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                                               special_filter=request_url_filter)
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
+            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
             with wfta_lock:
                 write_file_to_alertdir.append(Alert(
                     url       = page.url_initial,
@@ -900,7 +892,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                     content   = page.url_initial + ", " + file_id + ", " + info["StartTime"] + ", " + info["FileName"] \
                                 + ", " + str(info["FileSize"]) + ", " + str(info["TotalBytes"]) + ", " + info["Mime"] \
                                 + ", " + info["URL"] + ", " + info["Referrer"] + ", " + page.url,
-                    label     = 'InitialURL,id,StartTime,FileName,FileSize,TotalBytes,Mime,URL,Referrer,FinalURL',
+                    label     = 'InitialURL, id, StartTime, FileName, FileSize, TotalBytes, Mime, URL, Referrer, FinalURL',
                 ))
 
     # URL遷移の記録があれば、リンクのフィルタを通し、疑わしいURLを含んでいればアラート
@@ -917,7 +909,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                     url       = page.url_initial,
                     file_name = 'url_history.csv',
                     content   = page.url_initial + ", " + page.url + ', ' + page.src + ', ' + content,
-                    label     = 'InitialURL,FinalURL,src,AmongURL,,StrangeURL',
+                    label     = 'InitialURL, FinalURL, src, AmongURL, , StrangeURL',
                 ))
 
 
@@ -928,23 +920,21 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     global org_path, num_of_pages, num_of_files
     worker_configurer(queue_log, logger)
 
-    logger.info("crawler_main start")
+    logger.debug("crawler_main start")
 
     page = None
     error_break = False
 
     # 引数取り出し
     host: str = args_dic['host_name']
-    q_recv = args_dic['parent_sendq']
-    q_send: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]] = args_dic['child_sendq']
-    clamd_q = args_dic['clamd_q']
+    q_recv: Queue[Any] = args_dic['parent_sendq']
+    q_send: Queue[Any] = args_dic['child_sendq']
+    clamd_q: Queue[Any] = args_dic['clamd_q']
     screenshots: bool = args_dic['screenshots']
-    # machine_learning_q = args_dic['machine_learning_q']
-    # screenshots_svc_q = args_dic['screenshots_svc_q']
-    use_browser = args_dic['headless_browser']
-    use_mecab = args_dic['mecab']
+    use_browser: bool = args_dic['headless_browser']
+    use_mecab: bool = args_dic['mecab']
     alert_process_q: Queue[Union[Alert, str]] = args_dic['alert_process_q']
-    nth = args_dic['nth']
+    nth: int = args_dic['nth']
     org_path = args_dic['org_path']
     filtering_dict: Dict[str, Any] = args_dic["filtering_dict"]
 
@@ -960,8 +950,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
-            kill_chrome(queue_log, "geckodriver")
-            kill_chrome(queue_log, "firefox-bin")
+            kill_chrome("geckodriver")
+            kill_chrome("firefox-bin")
             os._exit(0) # type: ignore
 
         driver_info = cast(Dict[str, Any], driver_info)
@@ -969,6 +959,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         watcher_window: Union[int, str] = driver_info["watcher_window"]
         wait: WebDriverWait = driver_info["wait"]
         configure_logger(queue_log)
+        configure_logger_for_use_extentions(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
     init(host, screenshots)
@@ -1059,10 +1050,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
 
-        logger.debug("Try to Check %s", page.url)
+        logger.info("Try to Check %s", page.url)
 
         # urlopenで接続
-        urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)
+        urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=30)
         if type(urlopen_result) is list:  # listが返るとエラー
             urlopen_result = cast(list[str], urlopen_result)
             # URLがこのサーバの中でひとつ目じゃなかった場合、次のURLへ
@@ -1073,7 +1064,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             # これにアクセスできなかったら、そのサイトの全てのページを取得できない可能性があるため)
             logger.info("Retrying to first access server: %s", page.url)
             update_write_file_dict('host', urlopen_result[0]+'.txt', content=urlopen_result[1] + ', and try again')
-            urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=90)  # 次は90秒待機する
+            urlopen_result = page.set_html_and_content_type_urlopen(page.url, time_out=60)  # 次は90秒待機する
             if type(urlopen_result) is list:  # 二回目も無理なら諦める
                 urlopen_result = cast(list[str], urlopen_result)
                 logger.warning("Give up to access %s", url)
@@ -1106,32 +1097,40 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
         if type(file_type) is str:   # ウェブページの場合
             # img_name = False
+            logger.debug("%s is webpage", page.url)
             if use_browser:
                 # ヘッドレスブラウザでURLに再接続。関数内で接続後１秒待機
                 # robots.txtを参照
+                # watcher window以外を消す
                 watcher_window = cast(Union[int, str], watcher_window)
+                watcher_window = rm_other_than_watcher(driver, wait, watcher_window)
                 if robots is not None:
                     if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                         continue
                 # ページをロードするためのabout:blankのwindowを作る
+                logger.debug('creating blank_window...')
                 blank_window = create_blank_window(driver=driver, wait=wait, watcher_window=watcher_window)
                 if blank_window is False:
+                    logger.debug('Failed to create blank...')
                     error_break = True
                     break
+                logger.debug('creating blank_window... FIN!')
                 blank_window = cast(str, blank_window)
                 # watchingを開始し、ブランクページに移動する(URLに接続する準備完了)
+                logger.debug('start watcher and move to blank...')
                 re = start_watcher_and_move_blank(driver=driver, wait=wait, watcher_window=watcher_window,
                                                   blank_window=blank_window)
                 if re is False:
+                    logger.debug('Filed to move blank...')
                     error_break = True
                     break
+                logger.debug('start watcher and move to blank... FIN')
 
                 # ヘッドレスブラウザのリソース使用率を監視するスレッドを作る
                 # os.getpid(): 現在のプロセスidを返す
                 args = {"src": page.src, "url": page.url, "initial": page.url_initial, "cpu": 60,
                         "cpu_num": cpu_count(), "mem": 2000, "pid": os.getpid()}
                 r_t = threading.Thread(target=resource_observer_thread, args=(args,))
-                r_t.daemon = True  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
                 check_resource_threadId_set.add(r_t.ident)
                 r_t.start()
 
@@ -1140,7 +1139,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 if "falsification.cysec.cs" in host:
                     logger.info("result of getting html by browser: %s, %s", page.url, browser_result)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
-                    logger.info("Fail to connect... Remaking headless browser")
+                    logger.info("Failed to connect... Remaking headless browser")
                     browser_result = cast(List[str], browser_result)
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
@@ -1148,6 +1147,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
+                        r_t.run = False
+                        r_t.join()
                         break
                     else:
                         driver_info = cast(Dict[str, Any], driver_info)
@@ -1155,6 +1156,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         watcher_window: Union[str, int] = driver_info["watcher_window"]
                         wait: WebDriverWait = driver_info["wait"]
                     # 次のURLへ
+                    r_t.run = False
+                    r_t.join()
                     continue
 
                 # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
@@ -1162,6 +1165,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 if re is False:
                     logger.info("stop_watcher_and_get_data, break")
                     error_break = True
+                    r_t.run = False
+                    r_t.join()
                     break
 
                 # watcher.htmlのHLTML文から、拡張機能によって取得した情報を抽出する
@@ -1185,8 +1190,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                             url       = page.url_initial,
                             file_name = 'about_blank_url.csv',
                             content   = page.url_initial + ', ' + page.src,
-                            label     = 'InitialURL,src',
+                            label     = 'InitialURL, src',
                         ))
+                    r_t.run = False
+                    r_t.join()
                     continue
 
                 # リダイレクトのチェック
@@ -1196,12 +1203,16 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     result_set = inspection_url_by_filter(url_list=page_url_set, filtering_dict=filtering_dict)
                     send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                             "url_src": page.src})
+                    r_t.run = False
+                    r_t.join()
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
                     send_to_parent(sendq=q_send, data=(page.url, "redirect"))
 
                 # ブラウザでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
+                    r_t.run = False
+                    r_t.join()
                     continue
 
                 # スクショが欲しければ撮る
@@ -1221,6 +1232,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)
                         send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "url_src": page.url})
 
+                r_t.run = False
+                r_t.join()
+
             logger.debug("%s: Parse start...", page.url)
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
@@ -1229,10 +1243,11 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             t.start()
             if type(t.ident) != None:
                 ident = cast(int, t.ident)
-                parser_threadId_set.add(ident)  # スレッド集合に追加
-                parser_threadId_time[ident] = int(time())  # スレッド開始時刻保存
+                with parser_thread_lock:
+                    parser_threadId_set.add(ident)  # スレッド集合に追加
+                    parser_threads[ident] = {'thread': t, 'time':int(time())}  # スレッド開始時刻保存
             else:
-                logger.critical("Unrechable bug, Fail to start thread")
+                logger.critical("Unrechable bug, Failed to start thread")
 
             # ページの達成数をインクリメント
             num_of_pages += 1
@@ -1245,21 +1260,21 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 num_of_days, file_len = url_dict.compere_hash(page)
                 if type(num_of_days) == int:
                     update_write_file_dict('result', 'change_hash_file.csv',
-                                           content=['URL,content-type,no-change days', page.url + ', ' + page.content_type +
+                                           content=['URL, content-type, no-change days', page.url + ', ' + page.content_type +
                                                     ', ' + str(num_of_days)])
                     if file_len is None:  # Noneは前回のファイルサイズが登録されていなかった場合
                         pass
                     else:  # ファイルサイズが変わっていたものを記録
                         update_write_file_dict('result', 'different_size_file.csv',
-                                               content=['URL,src,content-type,difference,content-length',
+                                               content=['URL, src, content-type, difference, content-length',
                                                         page.url + ', ' + page.src + ', ' + page.content_type + ',' +
                                                         str(file_len) + ', ' + str(page.content_length)])
                 elif num_of_days is True:     # ハッシュ値が同じ場合
                     update_write_file_dict('result', 'same_hash_file.csv',
-                                           content=['URL,content-type', page.url + ', ' + page.content_type])
+                                           content=['URL, content-type', page.url + ', ' + page.content_type])
                 elif num_of_days is False:  # 新規保存
                     update_write_file_dict('result', 'new_file.csv',
-                                           content=['URL,content-type,src',
+                                           content=['URL, content-type, src',
                                                     page.url + ', ' + page.content_type + ', ' + page.src])
             else:
                 logger.error("there are no url_dict, unrechable Bug")

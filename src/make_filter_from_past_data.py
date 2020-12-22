@@ -126,7 +126,6 @@ def make_filter(org_path: str):
     作ったフィルタは org_path/ に保存
     """
     obj_list = ["link", "request"]
-
     for obj in obj_list:
         new_url_set = set()
         new_url_filter: Dict[str, list[str]] = dict()

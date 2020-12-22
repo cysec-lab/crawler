@@ -11,6 +11,8 @@ from typing import Any
 console_format = '%(levelname)-8s %(process)6d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
 file_format    = '%(asctime)s %(levelname)-8s %(process)6d %(processName)-12s: <%(name)s, %(lineno)d> %(message)s'
 
+loglevel = logging.INFO
+
 def log_listener_configure(path: str):
     """
     Log受信機の作成
@@ -31,14 +33,22 @@ def log_listener_configure(path: str):
     time_now = datetime.datetime.now()
     if not os.path.exists(base_path + '/log'):
         os.mkdir(base_path + '/log')
-    log_file = base_path + '/log/' + time_now.strftime('%Y%m%d-%H%M') + '.log'
+    # log_file = base_path + '/log/' + time_now.strftime('%Y%m%d-%H%M') + '.log'
+    debug_log_file = base_path + '/log/' + time_now.strftime('%Y%m%d-%H%M') + '-debug.log'
 
-    # Logファイルを作成
-    fh = logging.handlers.RotatingFileHandler(log_file, maxBytes=10000)
-    fh.setLevel(logging.DEBUG)
+    # # Logファイルを作成
+    # fh = logging.handlers.RotatingFileHandler(log_file, maxBytes=40000000, backupCount=10)
+    # fh.setLevel(loglevel)
+    # format_file = logging.Formatter(file_format)
+    # fh.setFormatter(format_file)
+    # root.addHandler(fh)
+
+    # Debug Logファイルを作成
+    dh = logging.handlers.RotatingFileHandler(debug_log_file, maxBytes=100000000, backupCount=10)
+    dh.setLevel(logging.DEBUG)
     format_file = logging.Formatter(file_format)
-    fh.setFormatter(format_file)
-    root.addHandler(fh)
+    dh.setFormatter(format_file)
+    root.addHandler(dh)
 
 def log_listener_process(path: str, queue: Queue[Any], configurer: Callable[[str], None]):
     """

@@ -89,9 +89,9 @@ def dealing_after_fact(queue_log: Queue[Any], org_arg: Dict[str,str]):
     # crawler_deinit.pyの実行
     del_and_make_achievement(result_history_path)
 
-    # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
-    if '/organization/ritsumeikan' in org_path:
-        copy_ROD_from_cysec(org_path=org_path)
+    # # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
+    # if '/organization/ritsumeikan' in org_path:
+    #     copy_ROD_from_cysec(org_path=org_path)
 
 
 def save_rod(org_arg: Dict[str, str]):

@@ -5,8 +5,6 @@ from logging import getLogger
 from multiprocessing import Queue
 from typing import Any, Iterable, List
 
-from utils.logger import worker_configurer
-
 logger = getLogger(__name__)
 
 def return_children(my_pid: str) -> List[str]:
@@ -72,8 +70,7 @@ def check_upstart(proc_ppid: str):
                 return False
 
 
-def kill_chrome(queue_log: Queue[Any], process: str):
-    worker_configurer(queue_log, logger)
+def kill_chrome(process: str):
     logger.debug("kill_chrome process called")
     try:
         # zombie_chrome_list = subprocess.check_output(['ps', '-f', '-C', 'google-chrome-stable', '--ppid', '1', '|',
