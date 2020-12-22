@@ -71,9 +71,11 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             # URLに接続する(フリーズすることがあるので、スレッドで行う)
             t = WebDriverGetThread(driver, page.url)
             t.start()
-            t.join(timeout=60)   # 60秒のロード待機時間
-            if t.is_alive():
-                raise TimeoutException("Failed to get WebDriverGetThread")
+            t.join(timeout=20)   # 60秒のロード待機時間
+            # timeout してもそのまま処理を続行する
+            # 以降の処理でうまくHTMLが出てる場合は調査するしだめならだめで処理する
+            # if t.is_alive():
+            #     raise TimeoutException("Failed to get WebDriverGetThread")
         except Exception as err:
             if i < GET_WEBDRIVER_RETRY - 1:
                 logger.info(f"Failed to access {page.url}: {err}")
