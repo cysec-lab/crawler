@@ -6,8 +6,9 @@ from hashlib import sha256
 from shutil import copyfile
 from typing import Any, Dict, Optional, Tuple, Union
 
-from dealwebpage.webpage import Page
+import ssdeep
 
+from dealwebpage.webpage import Page
 
 class UrlDict:
     """
@@ -238,3 +239,41 @@ class UrlDict:
             self.url_dict[page.url]['run_date'] = today
             self.url_dict[page.url]['source'] = page.src
             return False, False
+
+
+    def compere_ssdeephash(self, page: Page)->Union[bool, int, None]:
+        """
+        ファジーハッシュを比較する。
+        変わっていなければTrue, Falseは新規
+        intが返ってきた場合は変化量
+        None の場合はエラー
+        """
+        file_length = len(str(page.html))
+        if file_length:
+            if type(page.html) == str:
+                try:
+                    html = page.html.encode('utf-8') # type: ignore
+                except Exception:
+                    return None
+            else:
+                html = page.html
+            try:
+                sshash: Union[str, None] = ssdeep.hash(html)
+            except Exception:
+                return None
+        else:
+            sshash = None
+
+        pre_info = deepcopy(self.url_dict[page.url])
+        if page.url in self.url_dict and 'sshash' in pre_info:
+            pre_sshash = pre_info['sshash']            # 前回のハッシュ値
+            self.url_dict[page.url]['sshash'] = sshash # 今回のハッシュ値を保存
+
+            if pre_sshash == sshash:
+                return True
+            else:
+                comp: int = ssdeep.compare(pre_sshash, sshash)
+                return comp
+        else:
+            self.url_dict[page.url]['sshash'] = sshash
+            return False

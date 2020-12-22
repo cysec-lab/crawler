@@ -55,7 +55,7 @@ parser_thread_lock = threading.Lock()           # スレッド集合更新用ロ
 num_of_pages: int = 0                           # 取得してパースした重複なしページ数. リダイレクト後が外部URL, エラーだったURLを含まない
 num_of_files: int = 0                           # 取得してパースした重複なしファイル数. リダイレクト後に外部になるURL, エラーだったURLは含まない
 url_cache = set()                               # 接続を試したURL集合. 他サーバへのリダイレクトURL含む. プロセスが終わっても消さずに保存
-url_dict: UrlDict = UrlDict('')                   # サーバ毎のurl_dictの辞書を扱うクラス
+url_dict: UrlDict = UrlDict('')                 # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None                                   # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
@@ -466,6 +466,11 @@ def parser(parse_args_dic: Dict[str, Any]):
     elif num_of_days is False:
         update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ', ' + page.src])
         page.new_page = True
+
+    sshash_diff = url_dict.compere_ssdeephash(page)
+    if type(sshash_diff) == int:
+        update_write_file_dict('result', 'change_sshash.csv',
+            content=['URL, sshash_diff', page.url + ', ' + str(sshash_diff)])
 
     if use_mecab:
         # このページの各単語のtf値を計算、df辞書を更新
