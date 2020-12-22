@@ -1,10 +1,7 @@
 import os
 import shutil
-from logging import getLogger
 
 from utils.file_rw import r_file, w_file
-
-logger = getLogger(__name__)
 
 # クローリング完了後、複数のresult_*に分かれて保存されているデータをまとめる
 
@@ -30,7 +27,7 @@ def del_temp_file(path: str, j: int, k: int):
         k -= 1
         j = 1
     # 削除していく
-    for i in range(j, k+1):
+    for i in range(j, k + 1):
         temp_lis = os.listdir(path + '/result_' + str(i))
         for tempppp in temp_lis:
             # Jsonファイルを処理する
@@ -113,9 +110,9 @@ def make_achievement(dire: str):
         os.chdir(result)
         result_list = os.listdir()
         for j in range(len(result_list)):
-            if result_list[j].endswith('.json'):
-                continue
-            elif os.path.isdir(result_list[j]):
+            # if result_list[j].endswith('.json'):
+            #     continue
+            if os.path.isdir(result_list[j]):
                 continue
             else:
                 data = r_file(result_list[j], mode="r")
