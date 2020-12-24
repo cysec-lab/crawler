@@ -11,21 +11,25 @@ from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
 
-# 60秒間隔でppidが1のブラウザをkillするスレッドに
+
 class MemoryObserverThread(Thread):
+    """
+    60秒間隔でppidが1のブラウザをkillするスレッドに
+    """
     def __init__(self, queue_log: Queue[Any], ctx: Dict[str, Any], limit: int=0):
         worker_configurer(queue_log, logger)
         super(MemoryObserverThread, self).__init__()
         self.ctx = ctx
         self.limit = limit
 
-    def run(self): # type: ignore
+    def run(self):
         logger.debug("Start memory observer thread")
-        proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
-        # proc_name: Set[str] = set(["firefox-bin"])
+        # proc_name: Set[str] = set(["geckodriver", "firefox-bin"])
+        proc_name: Set[str] = set(["firefox-bin"])
         while not self.ctx["stop"]:
             time = 0
             while time < 60:
+                # 60秒待機する
                 if self.ctx["stop"]:
                     break
                 sleep(0.5)
@@ -33,9 +37,9 @@ class MemoryObserverThread(Thread):
 
             logger.debug("memory observer thread wakeup to work")
             kill_process_cand = get_relate_browser_proc(proc_name)
-            kill_process_list = list()
 
             for proc in kill_process_cand:
+                kill_process_list: List[psutil.Process] = list()
                 try:
                     if proc.ppid() == 1:
                         logger.debug(f"kill target proc: {proc}")
@@ -46,7 +50,6 @@ class MemoryObserverThread(Thread):
                     pass
                 if kill_process_list:
                     for kill_proc in kill_process_list:
-                        # Zombieたちがここで取れてるんだけど
                         try:
                             kill_proc.kill()
                             logger.debug("killed: {}".format(kill_proc))
