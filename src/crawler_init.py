@@ -22,6 +22,7 @@ from utils.deal_url import create_only_dict
 from utils.file_rw import r_file, r_json, w_file, w_json
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
+from crawler_utils.update_urldb import get_not_achieved_url
 
 logger = getLogger(__name__)
 
@@ -921,25 +922,10 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
 
             # 回り終わって終了するとき
             if end():
-                # url_dbから過去発見したURLを取ってきて、クローリングしていないのがあればurl_listに追加する
-                # TODO: うまく動いていない可能性あり
                 try:
-                    k = url_db.firstkey()
-                    url_db_set = set()
-                    while k is not None:
-                        # url_dbにデータがある間ループする
-                        content: str = url_db[k].decode("utf-8")
-                        if "True" in content:
-                            # url_dbからクローリングすべきurlたちをurl_db_setに追加する
-                            url: str = k.decode("utf-8")
-                            url_db_set.add(url)
-                        k = url_db.nextkey(k)
-                    # すでに探索したurlとurl_dbから取った探索すべきurlの差集合をとる
-                    not_achieved = url_db_set.difference(assignment_url_set)
+                    not_achieved = get_not_achieved_url(url_db, assignment_url_set, filtering_dict)
                     if not_achieved:
-                        # 探索していないurlをurl_listに追加する
-                        for url in not_achieved:
-                            url_list.append((url, "url_db"))
+                        url_list.extend(not_achieved)
                     else:
                         # すべてのURLが探索済みであれば回ったurlを更新して終了
                         all_achievement += current_achievement
