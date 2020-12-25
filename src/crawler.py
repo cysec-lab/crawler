@@ -438,7 +438,7 @@ def parser(parse_args_dic: Dict[str, Any]):
         # 検査結果がFalse(組織外)、もしくは"Unknown"(不明)だったURLを外部ファイルに出力
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
+            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ', ')
             with wfta_lock:
                 write_file_to_alertdir.append(Alert(
                     url = page.url_initial,
