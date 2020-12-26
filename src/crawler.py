@@ -19,6 +19,7 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
 from check_allow_url import inspection_url_by_filter
+from checkers.html_diff import Difference
 from checkers.mecab import (add_word_dic, get_tf_dict_by_mecab,
                             get_top10_tfidf, make_tfidf_dict)
 from dealwebpage.inspection_page import (
@@ -471,6 +472,21 @@ def parser(parse_args_dic: Dict[str, Any]):
     if type(sshash_diff) == int:
         update_write_file_dict('result', 'change_sshash.csv',
             content=['URL, sshash_diff', page.url + ', ' + str(sshash_diff)])
+    else:
+        sshash_diff = 'nan'
+
+    # HTMLの比較を行う
+    # 検査用に作成したので普段は使わない予定だが...
+    html_diff_res = url_dict.emit_ssdeephash_data(page)
+    if html_diff_res[0]:
+        diffs: List[Difference] = html_diff_res[1][2]
+        for diff in diffs:
+            update_write_file_dict('result', 'changed_html.csv',
+                content=[
+                    'URL, sshash_diff, pastlen, len, diff',
+                    page.url + ', ' + str(sshash_diff) + ', '
+                    + str(html_diff_res[1][0]) + ', ' + str(html_diff_res[1][1]) + str(diff.data())])
+
 
     if use_mecab:
         # このページの各単語のtf値を計算、df辞書を更新

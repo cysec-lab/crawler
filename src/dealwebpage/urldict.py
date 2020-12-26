@@ -4,11 +4,13 @@ from copy import deepcopy
 from datetime import date
 from hashlib import sha256
 from shutil import copyfile
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import ssdeep
+from checkers.html_diff import Difference, differ
 
 from dealwebpage.webpage import Page
+
 
 class UrlDict:
     """
@@ -277,3 +279,31 @@ class UrlDict:
         else:
             self.url_dict[page.url]['sshash'] = sshash
             return False
+
+
+    def emit_ssdeephash_data(self, page: Page)->Tuple[bool, Optional[Tuple[int, int, List[Difference]]]]:
+        """
+        HTMLの変化を調べるために作っている
+        2回回って差分データを返す
+
+        - Return
+          - bool: 成功したかしていないか
+          - int int: 前のHTMLの長さと今のHTMLの長さ
+          - List[Difference]: 変更情報リスト
+        """
+        file_length = len(str(page.html))
+        html = ""
+        if file_length:
+            html = page.html
+        else:
+            return (False, None)
+
+        pre_info = deepcopy(self.url_dict[page.url])
+        if page.url in self.url_dict and 'html' in pre_info:
+            pre_html = pre_info['html'] # 前回のHTML
+            self.url_dict[page.url]['html'] = html
+            return (True, (len(pre_html), len(html), differ(pre_html.splitlines(), html.splitlines())))
+
+        else:
+            self.url_dict[page.url]['html'] = html
+            return (False, None)
