@@ -51,6 +51,11 @@ headless_browser=False
 # TrueかFalseのみ
 mecab=True
 
+# html_diff
+# htmlを保存して前回のクローリングとの比較をとることができる
+# 比較結果はachivement/changed_html.csv にまとめられる
+html_diff=False
+
 # assignOrAchievement
 # MAX_pageで指定した数を達成したか、割り当てたかのどちらの判断基準を使うかどうか。
 # Trueは割り当て、Falseは達成。この2値のみ使用可能。

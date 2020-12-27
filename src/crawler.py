@@ -393,18 +393,14 @@ def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], da
         sendq.put(data)
 
 
-def parser(parse_args_dic: Dict[str, Any]):
+def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
     global word_df_dict
+
+    nth: int = parse_args_dic['nth']
     host: str = parse_args_dic['host']
     page: Page = parse_args_dic['page']
     q_send = parse_args_dic['q_send']
     file_type = parse_args_dic['file_type']
-    # machine_learning_q = parse_args_dic['machine_learning_q']
-    use_mecab = parse_args_dic['use_mecab']
-    # screenshots_svc_q = parse_args_dic['screenshots_svc_q']
-    # TODO: 画像の保存
-    # img_name = parse_args_dic['img_name']
-    nth = parse_args_dic['nth']
     filtering_dict = parse_args_dic["filtering_dict"]
     if "falsification.cysec" in host:
         logger.info("start parse : URL=%s", page.url)
@@ -475,20 +471,21 @@ def parser(parse_args_dic: Dict[str, Any]):
     else:
         sshash_diff = 'nan'
 
-    # HTMLの比較を行う
-    # 検査用に作成したので普段は使わない予定だが...
-    html_diff_res = url_dict.emit_ssdeephash_data(page)
-    if html_diff_res[0]:
-        diffs: List[Difference] = html_diff_res[1][2]
-        for diff in diffs:
-            update_write_file_dict('result', 'changed_html.csv',
-                content=[
-                    'URL, sshash_diff, pastlen, len, diff',
-                    page.url + ', ' + str(sshash_diff) + ', '
-                    + str(html_diff_res[1][0]) + ', ' + str(html_diff_res[1][1]) + str(diff.data())])
+    if setting_dict['html_diff']:
+        # HTMLの比較を行う
+        # 検査用に作成したので普段は使わない予定だが...
+        html_diff_res = url_dict.emit_ssdeephash_data(page)
+        if html_diff_res:
+            diffs: List[Difference] = html_diff_res[2]
+            for diff in diffs:
+                update_write_file_dict('result', 'changed_html.csv',
+                    content=[
+                        'URL, sshash_diff, pastlen, len, diff',
+                        page.url + ', ' + str(sshash_diff) + ', '
+                        + str(html_diff_res[0]) + ', ' + str(html_diff_res[1]) + str(diff.data())])
 
 
-    if use_mecab:
+    if setting_dict['mecab']:
         # このページの各単語のtf値を計算、df辞書を更新
         hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と"hacked by"検索
         if hack_level:    # hackの文字が入っていると0以外が返ってくる
@@ -746,7 +743,7 @@ def resource_observer_thread(args: Dict[str, Any]):
     src: str = args["src"]
     url: str = args["url"]
     pid: int = args["pid"]
-    while getattr(t, "run", True):
+    while getattr(t, "running", True):
         kill_flag = False
         family: List[psutil.Process] = get_family(pid)
         if "falsification" in url:
@@ -934,7 +931,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                 ))
 
 
-def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
+def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: Dict[str, Any]):
     """
     接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
     """
@@ -951,9 +948,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     q_recv: Queue[Any] = args_dic['parent_sendq']
     q_send: Queue[Any] = args_dic['child_sendq']
     clamd_q: Queue[Any] = args_dic['clamd_q']
-    screenshots: bool = args_dic['screenshots']
-    use_browser: bool = args_dic['headless_browser']
-    use_mecab: bool = args_dic['mecab']
     alert_process_q: Queue[Union[Alert, str]] = args_dic['alert_process_q']
     nth: int = args_dic['nth']
     org_path = args_dic['org_path']
@@ -965,8 +959,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         sys.stdout = f
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
-    if use_browser:
-        driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
+    if setting_dict['headless_browser']:
+        driver_info = get_fox_driver(queue_log, setting_dict['screenshots'], user_agent=user_agent, org_path=org_path)
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
@@ -982,7 +976,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         configure_logger_for_use_extentions(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
-    init(host, screenshots)
+    init(host, setting_dict['screenshots'])
 
     # 180秒以上パースに時間がかかるスレッドは削除する(ためのスレッド)...実際にそんなスレッドがあるかは不明
     t = threading.Thread(target=del_thread, args=(host,))
@@ -1118,7 +1112,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         if type(file_type) is str:   # ウェブページの場合
             # img_name = False
             logger.debug("%s is webpage", page.url)
-            if use_browser:
+            if setting_dict['headless_browser']:
                 # ヘッドレスブラウザでURLに再接続。関数内で接続後１秒待機
                 # robots.txtを参照
                 # watcher window以外を消す
@@ -1164,10 +1158,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
-                    driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
+                    driver_info = get_fox_driver(queue_log, setting_dict['screenshots'], user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
-                        r_t.run = False
+                        r_t.running = False
                         r_t.join()
                         break
                     else:
@@ -1176,7 +1170,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         watcher_window: Union[str, int] = driver_info["watcher_window"]
                         wait: WebDriverWait = driver_info["wait"]
                     # 次のURLへ
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
 
@@ -1185,7 +1179,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 if re is False:
                     logger.info("stop_watcher_and_get_data, break")
                     error_break = True
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     break
 
@@ -1212,7 +1206,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                             content   = page.url_initial + ', ' + page.src,
                             label     = 'InitialURL, src',
                         ))
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
 
@@ -1223,7 +1217,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     result_set = inspection_url_by_filter(url_list=page_url_set, filtering_dict=filtering_dict)
                     send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                             "url_src": page.src})
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
@@ -1231,12 +1225,12 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
                 # ブラウザでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
 
                 # スクショが欲しければ撮る
-                if screenshots:
+                if setting_dict['screenshots']:
                     if browser_result is True:
                         scsho_path = org_path + '/RAD/screenshots/' + dir_name
                         take_screenshots(scsho_path, driver)
@@ -1252,14 +1246,14 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)
                         send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "url_src": page.url})
 
-                r_t.run = False
+                r_t.running = False
                 r_t.join()
 
             logger.debug("%s: Parse start...", page.url)
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-                                      'use_mecab': use_mecab, 'nth': nth, "filtering_dict": filtering_dict}
-            t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
+                                      'filtering_dict': filtering_dict, 'nth': nth}
+            t = threading.Thread(target=parser, args=(parser_thread_args_dic, setting_dict))
             t.start()
             if type(t.ident) != None:
                 ident = cast(int, t.ident)

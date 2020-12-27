@@ -16,13 +16,13 @@ from urllib.parse import urlparse
 
 from checkers.clamd import clamd_main
 from crawler import crawler_main
+from crawler_utils.update_urldb import get_not_achieved_url
 from dealwebpage.summarize_alert import summarize_alert_main
 from utils.alert_data import Alert
 from utils.deal_url import create_only_dict
 from utils.file_rw import r_file, r_json, w_file, w_json
 from utils.logger import worker_configurer
 from webdrivers.resources_observer import MemoryObserverThread
-from crawler_utils.update_urldb import get_not_achieved_url
 
 logger = getLogger(__name__)
 
@@ -71,7 +71,21 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     """
 
     setting: dict[str, Union[str, int, bool, None]] = dict()
-    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab']
+    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab', 'html_diff']
+
+    # デフォルトの設定
+    setting['MAX_page'] = 200   # 200ページ
+    setting['MAX_time'] = 3600  # 1時間回ったら終了
+    setting['SAVE_time'] = 3600 * 6 # 6時間に1回セーブ
+    setting['run_count'] = 1
+    setting['MAX_process'] = -3
+    setting['assignOrAchievement'] = False
+    setting['screenshots'] = False
+    setting['clamd_scan'] = False
+    setting['headless_browser'] = False
+    setting['mecab'] = False
+    setting['html_diff'] = False
+
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
 
@@ -469,8 +483,9 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
     クローリングプロセスの生成
     すでに一度作ったことがあるならばプロセスを生成するのみ
     args:
-        host_name: 
-        setting_dict: 
+        host_name: 回るサーバの名前
+        queue_log: ログ送信用キュー
+        setting_dict: ROD/LIST/SETTING.txt で書かれた設定が格納された辞書
     """
 
     if host_name not in hostName_process:
@@ -492,9 +507,6 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             args_dic['clamd_q'] = False
 
         args_dic['nth'] = cast(int, nth)
-        args_dic['headless_browser'] = cast(bool, setting_dict['headless_browser'])
-        args_dic['mecab'] = cast(bool, setting_dict['mecab'])               # Mecabを利用するか否か
-        args_dic['screenshots'] = cast(bool, setting_dict['screenshots'])   # スクリーンショットを撮るか否か
         args_dic['org_path'] = org_path
         args_dic["filtering_dict"] = cast(Dict[str, Union[List[str], Pattern[str]]], filtering_dict)
 
@@ -503,7 +515,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         hostName_args[host_name] = args_dic
 
         # プロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], setting_dict))
         p.start()       # スタート
 
         # クローリングプロセスのpidを保存
@@ -526,7 +538,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         logger.debug("%s is not alive", host_name)
 
         # 新規のプロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name],))
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], setting_dict))
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する
         logger.debug("%s's process start(pid=%d)", host_name, p.pid)
@@ -751,7 +763,10 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     """
 
     global nth, org_path
-    # spawnで子プロセスを生成しているかチェック(windowsではデフォ、unixではforkがデフォ)
+    global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, fewest_host
+    global url_list, assignment_url_set
+    global remaining, send_num, recv_num, all_achievement
+
     worker_configurer(queue_log, logger)
     logger.debug('crawler_host process started')
 
@@ -761,9 +776,6 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     nth = org_arg['result_no'] # str型  result_historyの中のresultの数+1(何回目のクローリングか)
     org_path = cast(str, org_arg['org_path'])   # 組織ごとのディレクトリパス。設定ファイルや結果を保存するところ "/home/.../organization/組織名"
 
-    global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, fewest_host
-    global url_list, assignment_url_set
-    global remaining, send_num, recv_num, all_achievement
     start = int(time())
 
     # 設定データを読み込み
