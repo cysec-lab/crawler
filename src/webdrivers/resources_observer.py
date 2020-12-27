@@ -132,11 +132,9 @@ def get_relate_browser_proc(proc_name: Set[str])->list[psutil.Process]:
             if proc.name() in proc_name:
                 res.append(proc)
     except psutil.NoSuchProcess:
-        # TODO: rm
-        print('No process alive')
-        logger.info('TODO: No process alive')
+        logger.info('No process alive')
     except Exception as err:
-        logger.exception(f'TODO: {err}')
+        logger.exception(f'{err}')
         print(f'{err}')
 
     return res
@@ -150,9 +148,7 @@ def get_family(ppid: int) -> list[psutil.Process]:
         # 子プロセスを先にする(Killするときに親から殺さないために)
         family.reverse()
     except Exception as err:
-        # TODO: rm
-        logger.exception(f'TODO: Exception: {err}')
-        print(f'Exception: {err}')
+        logger.exception(f'Exception: {err}')
     return family
 
 
@@ -169,9 +165,7 @@ def main():
     reboot_flag = True
 
     start_time = datetime.now().strftime('%Y/%m/%d, %H:%M:%S')
-    # TODO: rm
     logger.info("Check RAM percent at %s", start_time)
-    print("TODO: Check RAM percent at {}".format(start_time))
 
     # 実行中のクローラがあるか
     organization_path = now_dir + "/../organization/"  # 絶対パス
@@ -179,22 +173,17 @@ def main():
     for org_dir in org_dirs:
         if os.path.isdir(organization_path + "/" + org_dir):
             if os.path.exists(organization_path + "/" + org_dir + "/running.tmp"):
-                # TODO: rm
                 logger.info("TODO: %s is running...")
-                print("TODO: {} is running.".format(org_dir))
                 reboot_flag = False
 
     # メモリ使用量確認
     mem_per: float = psutil.virtual_memory().percent
     logger.info("TODO: Used RAM percent is %f%", mem_per)
-    print("TODO: Used RAM percent is {}%.".format(mem_per))
 
     # クローラが実行されていないのに、メモリを50%使っているのはおかしいので再起動
     # compizなどのGUI関連のプロセスがずっと起動しているとメモリを食っていく。原因は不明。
     if reboot_flag and (mem_per > 50):
-        # TODO: rm
         logger.warning("Reboot")
-        print("TODO: reboot\n")
         from utils.sys_command import reboot
         reboot()
 
