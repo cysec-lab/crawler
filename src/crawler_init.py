@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 
 from checkers.clamd import clamd_main
 from crawler import crawler_main
+from crawler_utils.finish_threads import finish_thread
 from crawler_utils.update_urldb import get_not_achieved_url
 from dealwebpage.summarize_alert import summarize_alert_main
 from utils.alert_data import Alert
@@ -1010,39 +1011,16 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         copytree(org_path + '/RAD', 'TEMP')
         logger.info("Result Saving.... FIN!")
 
-        # if setting_dict['machine_learning']:
-        #     print('main : wait for machine learning process')
-        #     machine_learning_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
-        #     if not machine_learning_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
-        #         print("main : Terminate machine-learning proc.")
-        #         machine_learning_q['process'].terminate()
-        # if setting_dict['screenshots_svc']:
-        #     print('main : wait for screenshots learning process')
-        #     screenshots_svc_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
-        #     if not screenshots_svc_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
-        #         print("main : Terminate screenshots-svc proc.")
-        #         screenshots_svc_q['process'].terminate()
-
         if setting_dict['clamd_scan']:
-            # clamdプロセスを終了させる
+            # clamdを使っていたならばプロセスを終了させる
             logger.info("Wait for clamd process finish...")
-            clamd_q['recv'].put('end')
-            clamd_q['process'].join(timeout=60.0)
-            if clamd_q['process'].is_alive():
-                # 終わるまで待機
-                logger.info("Terminate Clamd proc")
-                clamd_q['process'].terminate()
-                sleep(1)
+            if not finish_thread(clamd_q):
+                logger.info('clamd_proc terminated')
 
         # summarize alertプロセス終了処理
         logger.info("Wait for summarize alert process")
-        summarize_alert_q['recv'].put('end')
-        summarize_alert_q['process'].join(timeout=60.0)
-        if summarize_alert_q['process'].is_alive():
-            # 終わるまで待機
-            logger.info("Terminate summarize-alert proc.")
-            summarize_alert_q['process'].terminate()
-            sleep(1)
+        if not finish_thread(summarize_alert_q):
+            logger.info("summarize alert process terminated")
 
         url_db.close()
         # メインループをもう一度回すかどうか
