@@ -1,5 +1,5 @@
 import difflib
-from typing import List, Tuple
+from typing import List, Tuple, Iterator
 
 class Difference:
     def __init__(self, differ, fromlines, tolines) -> None:
@@ -17,6 +17,15 @@ class Difference:
     def data(self) -> Tuple[str, List[str], List[str]]:
         return (self.differ, self.fromlines, self.tolines)
 
+    def datas(self) -> Iterator[Tuple[str, str, str]]:
+        for i in range(0, len(self.fromlines)):
+            to = ""
+            if i < len(self.tolines):
+                to = self.tolines[i]
+            yield (self.differ, self.fromlines[i], to)
+        # for from, to in zip(self.fromlines, self.tolines):
+        #     yield (self.differ, from, to)
+
 def differ(html1, html2) -> List[Difference]:
     """
     差分を取って変更があったところだけを変更点をリストで返す
@@ -24,9 +33,6 @@ def differ(html1, html2) -> List[Difference]:
     diff = difflib.Differ().compare(html1, html2)
     list_diff = list(diff)
     res = []
-
-    print(html1)
-    print(html2)
 
     i = 0
     while i < len(list_diff):

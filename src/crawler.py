@@ -478,11 +478,16 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         if html_diff_res:
             diffs: List[Difference] = html_diff_res[2]
             for diff in diffs:
-                update_write_file_dict('result', 'changed_html.csv',
-                    content=[
-                        'URL, sshash_diff, pastlen, len, diff',
-                        page.url + ', ' + str(sshash_diff) + ', '
-                        + str(html_diff_res[0]) + ', ' + str(html_diff_res[1]) + str(diff.data())])
+                for d in diff.datas():
+                    update_write_file_dict('result', 'changed_html.csv',
+                        content=[
+                            'URL, sshash_diff,past_len, new_len, type, from, to',
+                            page.url + ', ' + str(sshash_diff) + ', '
+                            + str(html_diff_res[0]) + ', ' + str(html_diff_res[1]) + ', ' + d[0] + ', \''
+                            + d[1].replace("\'", "\"").replace(",", "\\,") + '\', \''
+                            + d[2].replace("\'", "\"").replace(",", "\\,") + '\'']
+                    )
+                    # replace(",", "\\,") することで df = pd.read_csv('changed_html.csv', escapechar='\\') で読めるようになる
 
 
     if setting_dict['mecab']:
