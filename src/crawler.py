@@ -144,7 +144,11 @@ def init(host: str, screenshots: bool):
 
     # organization/<>/result/result_*/ にserverを作成
     if not os.path.exists('server'):
-        os.mkdir('server')
+        try:
+            os.mkdir('server')
+        except:
+            # 並列で作られたときにエラー発生しがちだが問題はないのでパス
+            pass
 
     # ディレクトリ名の作成
     dir_name = host.replace(':', '-')
@@ -1009,6 +1013,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
         # robots.txtがあれば、それに準拠する
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
+                logger.info(f'robot\'s say don\'t crawle {page.url}')
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
@@ -1283,6 +1288,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
 
     save_result(alert_process_q)
     logger.info("%s %s: saved", datetime.now().strftime('%Y/%m/%d, %H:%M:%S'), host)
-    if driver:
+    if setting_dict['headless_browser']:
         quit_driver(driver) # headless browser終了して
     os._exit(0) # type: ignore
