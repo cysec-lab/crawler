@@ -22,10 +22,13 @@ from check_allow_url import inspection_url_by_filter
 from checkers.html_diff import Difference
 from checkers.mecab import (add_word_dic, get_tf_dict_by_mecab,
                             get_top10_tfidf, make_tfidf_dict)
-from dealwebpage.inspection_page import (
-    form_inspection, get_meta_refresh_url, iframe_inspection,
-    meta_refresh_inspection, script_inspection)
+from crawler_utils.communicate_tools import send_to_parent
+from dealwebpage.page_analyze import check_redirect, page_or_file
 from dealwebpage.robotparser import RobotFileParser
+from dealwebpage.script_analyze import (form_inspection, get_meta_refresh_url,
+                                        iframe_inspection,
+                                        meta_refresh_inspection,
+                                        script_inspection)
 from dealwebpage.urldict import UrlDict
 from dealwebpage.webpage import Page
 from utils.alert_data import Alert
@@ -379,18 +382,6 @@ def update_write_file_dict(dic_type: str, key: str, content: Any):
                 dic[key] = [content]
             else:
                 dic[key].append(content)
-
-
-def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], data: Union[str, Dict[str, Any], Tuple[str, ...]]):
-    """
-    親プロセス(main.py)に自身が担当しているサイトのURLを要求する
-    親からのデータは q_recv に入れられる
-    """
-    if not sendq.full():
-        sendq.put(data)  # 親にdataを送信
-    else:
-        sleep(1)
-        sendq.put(data)
 
 
 def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
@@ -827,53 +818,6 @@ def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
     return temp_r
 
 
-def page_or_file(page: Page) -> Union[str, bool]:
-    """
-    ページの content_type を調査
-
-    args:
-        page: 調査中のPage情報
-    return:
-        文字列 or False
-    """
-    xml_types = ['plain/xml', 'text/xml', 'application/xml']
-    html_types = ['html']
-
-    if page.content_type:
-        for xml in xml_types:
-            if xml in page.content_type:
-                return 'xml'
-        for html_type in html_types:
-            if html_type in page.content_type:
-                return 'html'
-        # 空白のままを含む不明な content_type ならば False
-        logger.debug("Unkown content type: '%s'", page.content_type)
-        return False
-    else:
-        # Content_type が None ならば
-        return False
-
-
-def check_redirect(page: Page, host: str):
-    """
-    リダイレクト先の調査
-    - URLが変わっていなければFalse
-    - リダイレクトしていても同じサーバ内ならば'same'
-    - 違うサーバならTrue
-
-    args:
-        page:
-        host:
-    return:
-        文字列 or bool
-    """
-    if page.url_initial == page.url:
-        return False
-    if host == page.hostName:
-        return 'same'
-    return True
-
-
 def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, Any]):
     """
     拡張機能の専用ページから、拡張機能が集めたデータを取得し、検査
@@ -896,7 +840,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                                               special_filter=request_url_filter)
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
+            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
             with wfta_lock:
                 write_file_to_alertdir.append(Alert(
                     url       = page.url_initial,
@@ -1106,7 +1050,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             continue
 
         # content-typeからウェブページ(str)かその他ファイル(False)かを判断
-        file_type = page_or_file(page)
+        file_type = page_or_file(page, logger)
         if page.content_type:
             update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', page.content_type.replace(',', ':')
                                                             + ', ' + page.url + ', ' + page.src])  # 記録

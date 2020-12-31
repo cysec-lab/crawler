@@ -44,49 +44,10 @@ class Page:
         self.alert_txt: list[str] = list()   # alertがポップアップされると、そのテキストを追加していく
 
 
-    def extracting_extension_data(self, soup: bs4.element.Tag):
-        """
-        拡張機能により追記したDOM要素を除き、別の変数に格納する
-        専用HTMLに情報を載せることにした
-        """
-        # classがRequestとDownloadの要素を集める
-        request_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'Request'})
-        download_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'Download'})
-        history_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'History'})
-
-        # リクエストURLを集合に追加し、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-        self.request_url: set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
-
-        # downloadのURLを辞書のリストにし、soupの中身から削除する
-        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
-        download_info: dict[str, dict[str, str]] = dict()
-        for elm in download_elements: # type: ignore
-            under: int = elm["id"].find("_") # type: ignore
-            key: str = elm["id"][under+1:]
-            if key not in download_info:
-                download_info[key] = dict()
-            if elm["id"][0:under] == "JsonData":
-                try:
-                    json_data = loads(elm.get_text()) # type: ignore
-                except Exception as e:
-                    print(location() + str(e), flush=True)
-                    download_info[key].update({"FileSize": "None", "TotalBytes": "None", "StartTime": "None",
-                                               "Danger": "None"})  # 要素を追加しておかないと、参照時にKeyエラーが出る
-                else:
-                    download_info[key].update(json_data)
-            else:
-                download_info[key][elm["id"][0:under]] = elm.get_text() # type: ignore
-        self.download_info = deepcopy(download_info)
-
-        # URL遷移が起きた場合、記録する
-        url_history: list[str] = [history_element.get_text() for history_element in history_elements] # type: ignore
-        if len(url_history) < 2:
-            url_history = list()
-        self.among_url = url_history.copy()
-
     def set_html_and_content_type_urlopen(self, url: str, time_out: int)-> Union[list[str], bool, None]:
         """
         指定されたURLに向けてrequestを投げる
+        実質このWebpageクラスの中身を作るところ
         404をふくむすべてのエラーでエラー詳細をList型を返す
         取得できた場合にはPageの情報をこのオブジェクトに格納してTrueを返す
         """
@@ -145,6 +106,47 @@ class Page:
             self.scheme = urlparse(self.url).scheme # type: ignore
         return True
 
+    def extracting_extension_data(self, soup: bs4.element.Tag):
+        """
+        拡張機能により追記したDOM要素を除き、別の変数に格納する
+        専用HTMLに情報を載せることにした
+        """
+        # classがRequestとDownloadの要素を集める
+        request_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'Request'})
+        download_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'Download'})
+        history_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'History'})
+
+        # リクエストURLを集合に追加し、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
+        self.request_url: set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
+
+        # downloadのURLを辞書のリストにし、soupの中身から削除する
+        # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
+        download_info: dict[str, dict[str, str]] = dict()
+        for elm in download_elements: # type: ignore
+            under: int = elm["id"].find("_") # type: ignore
+            key: str = elm["id"][under+1:]
+            if key not in download_info:
+                download_info[key] = dict()
+            if elm["id"][0:under] == "JsonData":
+                try:
+                    json_data = loads(elm.get_text()) # type: ignore
+                except Exception as e:
+                    print(location() + str(e), flush=True)
+                    download_info[key].update({"FileSize": "None", "TotalBytes": "None", "StartTime": "None",
+                                               "Danger": "None"})  # 要素を追加しておかないと、参照時にKeyエラーが出る
+                else:
+                    download_info[key].update(json_data)
+            else:
+                download_info[key][elm["id"][0:under]] = elm.get_text() # type: ignore
+        self.download_info = deepcopy(download_info)
+
+        # URL遷移が起きた場合、記録する
+        url_history: list[str] = [history_element.get_text() for history_element in history_elements] # type: ignore
+        if len(url_history) < 2:
+            url_history = list()
+        self.among_url = url_history.copy()
+
+
     def make_links_html(self, soup: BeautifulSoup):
         for a_tag in soup.findAll('a'): # type: ignore # aタグを全部取ってくる
             link_url: str = a_tag.get('href')
@@ -153,6 +155,7 @@ class Page:
                 if 'styleswitch' in str(class_):
                     continue
                 self.links.add(link_url)
+
 
     def make_links_xml(self, soup: BeautifulSoup):
         link_1: Iterable[ResultSet] = soup.findAll('link')     # linkタグではさまれている部分をリストで返す
