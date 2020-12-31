@@ -152,15 +152,19 @@ class UrlDict:
                 else:
                     self.url_tags[page.url] = list([tags])    # tagリストのリスト
 
-    def update_request_url_in_url_dict(self, page: Page):
+    def update_request_url_in_url_dict(self, page: Page) -> bool:
+        """
+        拡張機能を用いて取得した requestURL が extracting_extension_data() にて page.request_url に保存されている
+        url_dictに取得したページがすでに存在するならば情報を追加して True を返す
+        まだ url_dict にページが存在しないなら False を返す
+        """
         if page.url in self.url_dict:
-            # self.url_dict[page.url]['request_url_same_host'] = list(deepcopy(page.request_url_same_host))
             self.url_dict[page.url]["request_url"] = list(deepcopy(page.request_url))
         else:
             return False
         return True
 
-    def compare_request_url(self, page: Page):
+    def compare_request_url(self, page: Page) -> bool:
         if page.url in self.url_dict:
             # if 'request_url_same_host' in self.url_dict[page.url]:
             #     diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
