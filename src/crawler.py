@@ -464,7 +464,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         update_write_file_dict('result', 'change_sshash.csv',
             content=['URL, sshash_diff', page.url + ', ' + str(sshash_diff)])
     else:
-        sshash_diff = 'nan'
+        sshash_diff = ''
 
     if setting_dict['html_diff']:
         # HTMLの比較を行う
@@ -476,11 +476,11 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                 for d in diff.datas():
                     update_write_file_dict('result', 'changed_html.csv',
                         content=[
-                            'URL, sshash_diff,past_len, new_len, type, from, to',
-                            page.url + ', ' + str(sshash_diff) + ', '
-                            + str(html_diff_res[0]) + ', ' + str(html_diff_res[1]) + ', ' + d[0] + ', \''
-                            + d[1].replace("\'", "\"").replace(",", "\\,") + '\', \''
-                            + d[2].replace("\'", "\"").replace(",", "\\,") + '\'']
+                            'URL,sshash_diff,past_len,new_len,type,from,to',
+                            page.url + ',' + str(sshash_diff) + ','
+                            + str(html_diff_res[0]) + ',' + str(html_diff_res[1]) + ',' + d[0] + ','
+                            + d[1].replace(",", "\\,") + ','
+                            + d[2].replace(",", "\\,")]
                     )
                     # replace(",", "\\,") することで df = pd.read_csv('changed_html.csv', escapechar='\\') で読めるようになる
 
