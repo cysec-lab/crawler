@@ -2,14 +2,16 @@ from copy import deepcopy
 from json import loads
 from logging import getLogger
 from time import sleep
-from typing import Any, Dict, Iterable, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, Optional, Tuple, Union, Set
 from urllib.parse import quote, urlparse
 from urllib.request import urlopen
 
 import bs4
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
+from typing import List, Tuple
 
+from dealwebpage.fix_urls import complete_js_url
 from dealwebpage.html_read_thread import UrlOpenReadThread
 from utils.location import location
 
@@ -19,20 +21,22 @@ logger = getLogger(__name__)
 # メソッドは自分のプロパティを設定するもの(PhantomJSを使わずに)
 # ブラウザを使うメソッドは別ファイルに関数としてまとめている
 class Page:
-    def __init__(self, url: str, src: str):
+    def __init__(self, url: str, src: str, html_special_char: List[Tuple[str, ...]]):
         self.url_initial = url         # 親プロセスから送られてきたURL
         self.src = src                 # このURLが貼られていたリンク元URL
         self.url_urlopen: Optional[str] = None        # urlopenで接続したURL
         self.content_type: str = ""       # このURLのcontent-type。urlopen時のヘッダから取得
         self.content_length = None     # ファイルサイズ。urlopen時にヘッダから取得
         self.encoding: str = 'utf-8'        # 文字コード。urlopen時のヘッダから取得(使っていない
-        self.html_urlopen: Optional[str] = None       # urlopenで取得したHTMLソースコードのバイト列(使っていない
+        self.html_urlopen: Optional[str] = None # urlopenで取得したHTMLソースコードのバイト列(使っていない
         self.url: str = url                 # current_url。urlopen、ブラウザで接続した後にそれぞれ更新
-        self.html: Optional[str] = None               # HTMLソースコード。urlopen、ブラウザで接続した後にそれぞれ更新
-        self.hostName: Optional[str] = None          # urlopen、ブラウザで接続した後にそれぞれ更新
-        self.scheme: Optional[str] = None             # 上と同じ
-        self.links = set()             # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
-        self.normalized_links: set[str] = set()  # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
+        self.html: Optional[str] = None     # HTMLソースコード。urlopen、ブラウザで接続した後にそれぞれ更新
+        self.hostName: Optional[str] = None # urlopen、ブラウザで接続した後にそれぞれ更新
+        self.scheme: Optional[str] = None   # 上と同じ
+        self.links = set()                      # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
+        self.normalized_links: Set[str] = set() # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
+        self.js_src: Set[str] = set()           # JSのsrc URLたちが入れられる
+        self.normalized_js_src: Set[str] = set()
         self.request_url = set()              # このページをロードするために行ったリクエストのURLの集合。
         # self.request_url_host = set()         # 上のURLからホスト名だけ抜き出したもの
         # self.request_url_same_host = set()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
@@ -42,7 +46,7 @@ class Page:
         self.among_url: list[str] = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。
         self.watcher_html: Optional[list[str]] = None  # watcher.htmlは拡張機能が集めた情報が載っている専用ページ。そのHTML文を保存する。
         self.alert_txt: list[str] = list()   # alertがポップアップされると、そのテキストを追加していく
-
+        self.html_special_char = html_special_char
 
     def set_html_and_content_type_urlopen(self, url: str, time_out: int)-> Union[list[str], bool, None]:
         """
@@ -117,7 +121,7 @@ class Page:
         history_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'History'})
 
         # リクエストURLを集合に追加し、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-        self.request_url: set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
+        self.request_url: Set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
         # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
@@ -155,6 +159,14 @@ class Page:
                 if 'styleswitch' in str(class_):
                     continue
                 self.links.add(link_url)
+
+
+    def make_js_src(self, soup: BeautifulSoup):
+        for a_tag in soup.findAll('script'): # type: ignore # aタグを全部取ってくる
+            link_url: Optional[str] = a_tag.get('src')
+            if link_url:
+                js_url = complete_js_url(link_url, self.url, self.html_special_char)
+                self.js_src.add(js_url)
 
 
     def make_links_xml(self, soup: BeautifulSoup):
@@ -212,7 +224,7 @@ class Page:
         return root_2 + '/' + url_1
 
 
-    def complete_links(self, html_special_char: list[Tuple[str, ...]]):
+    def complete_links(self):
         """
         リンク集にあるURLを補完し、正規化したリンク集を作成する
         URLにcaldate= で日付が設定されている場合、2016-2019年の間以外のものを排除する (apuのサイト)
@@ -221,6 +233,13 @@ class Page:
         TODO: 日付やカレンダーが無限に続く処理をどうにかする
         """
         temp_set = deepcopy(self.links)
+        checked_urls = self.fix_link(temp_set)
+        # 追加
+        self.normalized_links = checked_urls
+
+
+    def fix_link(self, temp_set: set[Any]) -> Set[str]:
+        checked_urls: Set[str] = set()
         while temp_set:
             # リンク集合からpop
             checked_url = temp_set.pop()
@@ -240,7 +259,7 @@ class Page:
                 if checked_url == '#':   # 'javascript:'から始まるものや'#'から始まるもの
                     continue
             # 特殊文字が使われているものは置き換える
-            included_spechar = [spechar for spechar in html_special_char if spechar[0] in checked_url]
+            included_spechar = [spechar for spechar in self.html_special_char if spechar[0] in checked_url]
             for spechar in included_spechar:
                 checked_url = checked_url.replace(spechar[0], spechar[1])
             # #が含まれていたら、#手前までのURLにする
@@ -323,6 +342,5 @@ class Page:
                     checked_url = checked_url[0:checked_url.find('?')]
             if urlparse(checked_url).path == '':  # http://www.ritsumei.ac.jp を
                 checked_url += '/'  # http://www.ritsumei.ac.jp/ にする
-
-            # 追加
-            self.normalized_links.add(checked_url)
+            checked_urls.add(checked_url)
+        return checked_urls

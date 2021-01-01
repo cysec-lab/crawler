@@ -8,11 +8,11 @@ last_slash = re.compile(r'.+\/')
 
 def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[str,...]]):
     """
-    与えられたJSファイルへのsrcURLを補完する
+    与えられたJSへのリンクsrcURLを補完する
 
-    - args:
-      - src_url: <script src=HOGEHOGE> のHOGEHOGE
-      - page_url: scriptURLを見つけたページのURL
+    args:
+    - src_url: <script src=HOGEHOGE> のHOGEHOGE
+    - page_url: scriptURLを見つけたページのURL
     """
     parsed = urlparse(page_url)
 

@@ -673,6 +673,8 @@ def receive_and_send(not_send: bool=False):
                 # (リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
                 w_file('after_redirect.csv', received_data["ini_url"] + ', ' + received_data["url_src"] + ',' +
                        url + ", " + str(check_result) + '\n', mode="a")
+            else:
+                logger.warning('unreachable')
 
             # リンクやnew_window_url, リダイレクト先をurlリストに追加
             # 既に割り当て済みの場合は追加しない

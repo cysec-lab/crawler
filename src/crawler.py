@@ -10,7 +10,7 @@ from datetime import datetime
 from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Set, Tuple, Union, cast
 
 import psutil
 from bs4 import BeautifulSoup
@@ -416,7 +416,8 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         page.make_links_xml(soup)   # xmlページのリンク抽出
     elif file_type == 'html':
         page.make_links_html(soup)  # htmlページのリンク抽出
-    page.complete_links(html_special_char)    # pageのリンク集のURLを補完する
+        page.make_js_src(soup)
+    page.complete_links()    # pageのリンク集のURLを補完する
 
     # 未知サーバのリンクが貼られていないかをチェック
     result_set = set()
@@ -438,6 +439,9 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                     content = content,
                     label = 'InitialURL, URL, LINK'
                 ))
+    if page.js_src:
+        js_set: Set[Tuple[str, Union[str, bool]]] = {(src, True) for src in page.js_src}
+        result_set = result_set | js_set
 
     # 組織内かどうかをチェックしたリンクURLをすべて親に送信
     send_data = {'type': 'links', 'url_set': result_set, "url_src": page.url}   # 親に送るデータ
@@ -663,17 +667,6 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         else:
             logger.error("There are no url_dict")
 
-    # # スレッド集合から削除して、検査終了
-    # try:
-    #     parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
-    #     del parser_threadId_time[threading.get_ident()]
-    # except KeyError:
-    #     logger.info(f"{host} thread was deleted by del_thread")
-    #     pass
-    # except Exception as err:
-    #     logger.exception(f"Failed to del thread: {err}")
-    #     pass
-
 
 def check_thread_time():
     """
@@ -850,7 +843,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                     url       = page.url_initial,
                     file_name = 'request_to_new_server.csv',
                     content   = page.url_initial + ", " + page.url + ", " + content,
-                    label     = 'InitialURL,URL,request_url'
+                    label     = 'InitialURL, URL, request_url'
                 ))
 
     # 自動downloadがあればアラート
@@ -1008,7 +1001,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             continue           # ここでキャッシュに当てはまるのは、NOT FOUNDページにリダイレクトされた後のURLとか？
 
         # Pageオブジェクトを作成(robots.txtの確認の前に作成しておかないと、次のループの最初に済URL集合(url_cache)に保存されない)
-        page = Page(url, url_src)
+        page = Page(url, url_src, html_special_char)
 
         # robots.txtがあれば、それに準拠する
         if robots is not None:
@@ -1094,9 +1087,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             else:
                 logger.error("there are no url_dict, unrechable Bug")
 
-            num_of_pages += 1
             # mainプロセスにこのURLのクローリング完了を知らせる
-            send_to_parent(q_send, {'type': 'file_done'})
+            send_data = {'type': 'links', 'url_set': set(), "url_src": page.url}   # 親に送るデータ
+            send_to_parent(q_send, send_data)    # 親にURLリストを送信
+            num_of_pages += 1
         elif type(file_type) is str:
             # HTML または XML のページを開いた場合
             logger.debug("%s is webpage", page.url)

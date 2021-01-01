@@ -3,8 +3,6 @@ from __future__ import annotations
 from logging import Logger
 from typing import Union
 
-from dealwebpage.webpage import Page
-
 
 def page_or_file(page: Page, logger: Logger) -> Union[str, bool]:
     """
