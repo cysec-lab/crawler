@@ -16,6 +16,8 @@ from urllib.parse import urlparse
 
 from checkers.clamd import clamd_main
 from crawler import crawler_main
+from crawler_utils.finish_threads import finish_thread
+from crawler_utils.update_urldb import get_not_achieved_url
 from dealwebpage.summarize_alert import summarize_alert_main
 from utils.alert_data import Alert
 from utils.deal_url import create_only_dict
@@ -70,7 +72,21 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     """
 
     setting: dict[str, Union[str, int, bool, None]] = dict()
-    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab']
+    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab', 'html_diff']
+
+    # デフォルトの設定
+    setting['MAX_page'] = 200   # 200ページ
+    setting['MAX_time'] = 3600  # 1時間回ったら終了
+    setting['SAVE_time'] = 3600 * 6 # 6時間に1回セーブ
+    setting['run_count'] = 1
+    setting['MAX_process'] = -3
+    setting['assignOrAchievement'] = False
+    setting['screenshots'] = False
+    setting['clamd_scan'] = False
+    setting['headless_browser'] = False
+    setting['mecab'] = False
+    setting['html_diff'] = False
+
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
 
@@ -468,8 +484,9 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
     クローリングプロセスの生成
     すでに一度作ったことがあるならばプロセスを生成するのみ
     args:
-        host_name: 
-        setting_dict: 
+        host_name: 回るサーバの名前
+        queue_log: ログ送信用キュー
+        setting_dict: ROD/LIST/SETTING.txt で書かれた設定が格納された辞書
     """
 
     if host_name not in hostName_process:
@@ -491,9 +508,6 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
             args_dic['clamd_q'] = False
 
         args_dic['nth'] = cast(int, nth)
-        args_dic['headless_browser'] = cast(bool, setting_dict['headless_browser'])
-        args_dic['mecab'] = cast(bool, setting_dict['mecab'])               # Mecabを利用するか否か
-        args_dic['screenshots'] = cast(bool, setting_dict['screenshots'])   # スクリーンショットを撮るか否か
         args_dic['org_path'] = org_path
         args_dic["filtering_dict"] = cast(Dict[str, Union[List[str], Pattern[str]]], filtering_dict)
 
@@ -502,7 +516,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         hostName_args[host_name] = args_dic
 
         # プロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], ))
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], setting_dict))
         p.start()       # スタート
 
         # クローリングプロセスのpidを保存
@@ -525,7 +539,7 @@ def make_process(host_name: str, queue_log: Queue[Any], setting_dict: dict[str, 
         logger.debug("%s is not alive", host_name)
 
         # 新規のプロセス作成
-        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name],))
+        p = Process(target=crawler_main, name=host_name, args=(queue_log, hostName_args[host_name], setting_dict))
         p.start()       # スタート
         hostName_process[host_name] = p # プロセスpidを指す辞書を更新する
         logger.debug("%s's process start(pid=%d)", host_name, p.pid)
@@ -659,6 +673,8 @@ def receive_and_send(not_send: bool=False):
                 # (リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
                 w_file('after_redirect.csv', received_data["ini_url"] + ', ' + received_data["url_src"] + ',' +
                        url + ", " + str(check_result) + '\n', mode="a")
+            else:
+                logger.warning('unreachable')
 
             # リンクやnew_window_url, リダイレクト先をurlリストに追加
             # 既に割り当て済みの場合は追加しない
@@ -750,7 +766,10 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     """
 
     global nth, org_path
-    # spawnで子プロセスを生成しているかチェック(windowsではデフォ、unixではforkがデフォ)
+    global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, fewest_host
+    global url_list, assignment_url_set
+    global remaining, send_num, recv_num, all_achievement
+
     worker_configurer(queue_log, logger)
     logger.debug('crawler_host process started')
 
@@ -760,9 +779,6 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
     nth = org_arg['result_no'] # str型  result_historyの中のresultの数+1(何回目のクローリングか)
     org_path = cast(str, org_arg['org_path'])   # 組織ごとのディレクトリパス。設定ファイルや結果を保存するところ "/home/.../organization/組織名"
 
-    global hostName_achievement, hostName_process, hostName_queue, hostName_remaining, fewest_host
-    global url_list, assignment_url_set
-    global remaining, send_num, recv_num, all_achievement
     start = int(time())
 
     # 設定データを読み込み
@@ -921,25 +937,10 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
 
             # 回り終わって終了するとき
             if end():
-                # url_dbから過去発見したURLを取ってきて、クローリングしていないのがあればurl_listに追加する
-                # TODO: うまく動いていない可能性あり
                 try:
-                    k = url_db.firstkey()
-                    url_db_set = set()
-                    while k is not None:
-                        # url_dbにデータがある間ループする
-                        content: str = url_db[k].decode("utf-8")
-                        if "True" in content:
-                            # url_dbからクローリングすべきurlたちをurl_db_setに追加する
-                            url: str = k.decode("utf-8")
-                            url_db_set.add(url)
-                        k = url_db.nextkey(k)
-                    # すでに探索したurlとurl_dbから取った探索すべきurlの差集合をとる
-                    not_achieved = url_db_set.difference(assignment_url_set)
+                    not_achieved = get_not_achieved_url(url_db, assignment_url_set, filtering_dict)
                     if not_achieved:
-                        # 探索していないurlをurl_listに追加する
-                        for url in not_achieved:
-                            url_list.append((url, "url_db"))
+                        url_list.extend(not_achieved)
                     else:
                         # すべてのURLが探索済みであれば回ったurlを更新して終了
                         all_achievement += current_achievement
@@ -1012,39 +1013,16 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
         copytree(org_path + '/RAD', 'TEMP')
         logger.info("Result Saving.... FIN!")
 
-        # if setting_dict['machine_learning']:
-        #     print('main : wait for machine learning process')
-        #     machine_learning_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
-        #     if not machine_learning_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
-        #         print("main : Terminate machine-learning proc.")
-        #         machine_learning_q['process'].terminate()
-        # if setting_dict['screenshots_svc']:
-        #     print('main : wait for screenshots learning process')
-        #     screenshots_svc_q['recv'].put('end')       # 機械学習プロセスに終わりを知らせる
-        #     if not screenshots_svc_q['process'].join(timeout=60):  # 機械学習プロセスが終わるのを待つ
-        #         print("main : Terminate screenshots-svc proc.")
-        #         screenshots_svc_q['process'].terminate()
-
         if setting_dict['clamd_scan']:
-            # clamdプロセスを終了させる
+            # clamdを使っていたならばプロセスを終了させる
             logger.info("Wait for clamd process finish...")
-            clamd_q['recv'].put('end')
-            clamd_q['process'].join(timeout=60.0)
-            if clamd_q['process'].is_alive():
-                # 終わるまで待機
-                logger.info("Terminate Clamd proc")
-                clamd_q['process'].terminate()
-                sleep(1)
+            if not finish_thread(clamd_q):
+                logger.info('clamd_proc terminated')
 
         # summarize alertプロセス終了処理
         logger.info("Wait for summarize alert process")
-        summarize_alert_q['recv'].put('end')
-        summarize_alert_q['process'].join(timeout=60.0)
-        if summarize_alert_q['process'].is_alive():
-            # 終わるまで待機
-            logger.info("Terminate summarize-alert proc.")
-            summarize_alert_q['process'].terminate()
-            sleep(1)
+        if not finish_thread(summarize_alert_q):
+            logger.info("summarize alert process terminated")
 
         url_db.close()
         # メインループをもう一度回すかどうか

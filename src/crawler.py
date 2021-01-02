@@ -10,7 +10,7 @@ from datetime import datetime
 from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
-from typing import Any, Dict, List, Tuple, Union, cast
+from typing import Any, Dict, List, Set, Tuple, Union, cast
 
 import psutil
 from bs4 import BeautifulSoup
@@ -19,12 +19,16 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support.wait import WebDriverWait
 
 from check_allow_url import inspection_url_by_filter
+from checkers.html_diff import Difference
 from checkers.mecab import (add_word_dic, get_tf_dict_by_mecab,
                             get_top10_tfidf, make_tfidf_dict)
-from dealwebpage.inspection_page import (
-    form_inspection, get_meta_refresh_url, iframe_inspection,
-    meta_refresh_inspection, script_inspection)
+from crawler_utils.communicate_tools import send_to_parent
+from dealwebpage.page_analyze import check_redirect, page_or_file
 from dealwebpage.robotparser import RobotFileParser
+from dealwebpage.script_analyze import (form_inspection, get_meta_refresh_url,
+                                        iframe_inspection,
+                                        meta_refresh_inspection,
+                                        script_inspection)
 from dealwebpage.urldict import UrlDict
 from dealwebpage.webpage import Page
 from utils.alert_data import Alert
@@ -55,7 +59,7 @@ parser_thread_lock = threading.Lock()           # スレッド集合更新用ロ
 num_of_pages: int = 0                           # 取得してパースした重複なしページ数. リダイレクト後が外部URL, エラーだったURLを含まない
 num_of_files: int = 0                           # 取得してパースした重複なしファイル数. リダイレクト後に外部になるURL, エラーだったURLは含まない
 url_cache = set()                               # 接続を試したURL集合. 他サーバへのリダイレクトURL含む. プロセスが終わっても消さずに保存
-url_dict: UrlDict = UrlDict('')                   # サーバ毎のurl_dictの辞書を扱うクラス
+url_dict: UrlDict = UrlDict('')                 # サーバ毎のurl_dictの辞書を扱うクラス
 robots = None                                   # robots.txtを解析するクラス
 user_agent = 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36'
 
@@ -140,7 +144,11 @@ def init(host: str, screenshots: bool):
 
     # organization/<>/result/result_*/ にserverを作成
     if not os.path.exists('server'):
-        os.mkdir('server')
+        try:
+            os.mkdir('server')
+        except:
+            # 並列で作られたときにエラー発生しがちだが問題はないのでパス
+            pass
 
     # ディレクトリ名の作成
     dir_name = host.replace(':', '-')
@@ -380,30 +388,14 @@ def update_write_file_dict(dic_type: str, key: str, content: Any):
                 dic[key].append(content)
 
 
-def send_to_parent(sendq: Queue[Union[str, Dict[str, Any], Tuple[str, ...]]], data: Union[str, Dict[str, Any], Tuple[str, ...]]):
-    """
-    親プロセス(main.py)に自身が担当しているサイトのURLを要求する
-    親からのデータは q_recv に入れられる
-    """
-    if not sendq.full():
-        sendq.put(data)  # 親にdataを送信
-    else:
-        sleep(1)
-        sendq.put(data)
-
-
-def parser(parse_args_dic: Dict[str, Any]):
+def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
     global word_df_dict
+
+    nth: int = parse_args_dic['nth']
     host: str = parse_args_dic['host']
     page: Page = parse_args_dic['page']
     q_send = parse_args_dic['q_send']
     file_type = parse_args_dic['file_type']
-    # machine_learning_q = parse_args_dic['machine_learning_q']
-    use_mecab = parse_args_dic['use_mecab']
-    # screenshots_svc_q = parse_args_dic['screenshots_svc_q']
-    # TODO: 画像の保存
-    # img_name = parse_args_dic['img_name']
-    nth = parse_args_dic['nth']
     filtering_dict = parse_args_dic["filtering_dict"]
     if "falsification.cysec" in host:
         logger.info("start parse : URL=%s", page.url)
@@ -424,7 +416,8 @@ def parser(parse_args_dic: Dict[str, Any]):
         page.make_links_xml(soup)   # xmlページのリンク抽出
     elif file_type == 'html':
         page.make_links_html(soup)  # htmlページのリンク抽出
-    page.complete_links(html_special_char)    # pageのリンク集のURLを補完する
+        page.make_js_src(soup)
+    page.complete_links()    # pageのリンク集のURLを補完する
 
     # 未知サーバのリンクが貼られていないかをチェック
     result_set = set()
@@ -438,7 +431,7 @@ def parser(parse_args_dic: Dict[str, Any]):
         # 検査結果がFalse(組織外)、もしくは"Unknown"(不明)だったURLを外部ファイルに出力
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
+            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ', ')
             with wfta_lock:
                 write_file_to_alertdir.append(Alert(
                     url = page.url_initial,
@@ -446,6 +439,9 @@ def parser(parse_args_dic: Dict[str, Any]):
                     content = content,
                     label = 'InitialURL, URL, LINK'
                 ))
+    if page.js_src:
+        js_set: Set[Tuple[str, Union[str, bool]]] = {(src, True) for src in page.js_src}
+        result_set = result_set | js_set
 
     # 組織内かどうかをチェックしたリンクURLをすべて親に送信
     send_data = {'type': 'links', 'url_set': result_set, "url_src": page.url}   # 親に送るデータ
@@ -467,7 +463,33 @@ def parser(parse_args_dic: Dict[str, Any]):
         update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ', ' + page.src])
         page.new_page = True
 
-    if use_mecab:
+    sshash_diff = url_dict.compere_ssdeephash(page)
+    if type(sshash_diff) == int:
+        update_write_file_dict('result', 'change_sshash.csv',
+            content=['URL, sshash_diff', page.url + ', ' + str(sshash_diff)])
+    else:
+        sshash_diff = ''
+
+    if setting_dict['html_diff']:
+        # HTMLの比較を行う
+        # 検査用に作成したので普段は使わない予定だが...
+        html_diff_res = url_dict.emit_ssdeephash_data(page)
+        if html_diff_res:
+            diffs: List[Difference] = html_diff_res[2]
+            for diff in diffs:
+                for d in diff.datas():
+                    update_write_file_dict('result', 'changed_html.csv',
+                        content=[
+                            'URL,sshash_diff,past_len,new_len,type,from,to',
+                            page.url + ',' + str(sshash_diff) + ','
+                            + str(html_diff_res[0]) + ',' + str(html_diff_res[1]) + ',' + d[0] + ','
+                            + d[1].replace(",", "\\,") + ','
+                            + d[2].replace(",", "\\,")]
+                    )
+                    # replace(",", "\\,") することで df = pd.read_csv('changed_html.csv', escapechar='\\') で読めるようになる
+
+
+    if setting_dict['mecab']:
         # このページの各単語のtf値を計算、df辞書を更新
         hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と"hacked by"検索
         if hack_level:    # hackの文字が入っていると0以外が返ってくる
@@ -645,17 +667,6 @@ def parser(parse_args_dic: Dict[str, Any]):
         else:
             logger.error("There are no url_dict")
 
-    # # スレッド集合から削除して、検査終了
-    # try:
-    #     parser_threadId_set.remove(threading.get_ident())   # del_thread()で消されていた場合、KeyErrorになる
-    #     del parser_threadId_time[threading.get_ident()]
-    # except KeyError:
-    #     logger.info(f"{host} thread was deleted by del_thread")
-    #     pass
-    # except Exception as err:
-    #     logger.exception(f"Failed to del thread: {err}")
-    #     pass
-
 
 def check_thread_time():
     """
@@ -725,7 +736,7 @@ def resource_observer_thread(args: Dict[str, Any]):
     src: str = args["src"]
     url: str = args["url"]
     pid: int = args["pid"]
-    while getattr(t, "run", True):
+    while getattr(t, "running", True):
         kill_flag = False
         family: List[psutil.Process] = get_family(pid)
         if "falsification" in url:
@@ -804,53 +815,6 @@ def receive(recv_r: Queue[Union[str, Dict[str, str]]]) -> Any:
     return temp_r
 
 
-def page_or_file(page: Page) -> Union[str, bool]:
-    """
-    ページの content_type を調査
-
-    args:
-        page: 調査中のPage情報
-    return:
-        文字列 or False
-    """
-    xml_types = ['plain/xml', 'text/xml', 'application/xml']
-    html_types = ['html']
-
-    if page.content_type:
-        for xml in xml_types:
-            if xml in page.content_type:
-                return 'xml'
-        for html_type in html_types:
-            if html_type in page.content_type:
-                return 'html'
-        # 空白のままを含む不明な content_type ならば False
-        logger.debug("Unkown content type: '%s'", page.content_type)
-        return False
-    else:
-        # Content_type が None ならば
-        return False
-
-
-def check_redirect(page: Page, host: str):
-    """
-    リダイレクト先の調査
-    - URLが変わっていなければFalse
-    - リダイレクトしていても同じサーバ内ならば'same'
-    - 違うサーバならTrue
-
-    args:
-        page:
-        host:
-    return:
-        文字列 or bool
-    """
-    if page.url_initial == page.url:
-        return False
-    if host == page.hostName:
-        return 'same'
-    return True
-
-
 def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, Any]):
     """
     拡張機能の専用ページから、拡張機能が集めたデータを取得し、検査
@@ -873,13 +837,13 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                                               special_filter=request_url_filter)
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
-            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "").replace(',', ' ')
+            content = str(strange_set)[1:-1].replace(" ", "").replace("'", "")
             with wfta_lock:
                 write_file_to_alertdir.append(Alert(
                     url       = page.url_initial,
                     file_name = 'request_to_new_server.csv',
                     content   = page.url_initial + ", " + page.url + ", " + content,
-                    label     = 'InitialURL,URL,request_url'
+                    label     = 'InitialURL, URL, request_url'
                 ))
 
     # 自動downloadがあればアラート
@@ -913,7 +877,7 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
                 ))
 
 
-def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
+def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: Dict[str, Any]):
     """
     接続間隔はurlopen接続後、ブラウザ接続後、それぞれ接続する関数内で１秒待機
     """
@@ -930,9 +894,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
     q_recv: Queue[Any] = args_dic['parent_sendq']
     q_send: Queue[Any] = args_dic['child_sendq']
     clamd_q: Queue[Any] = args_dic['clamd_q']
-    screenshots: bool = args_dic['screenshots']
-    use_browser: bool = args_dic['headless_browser']
-    use_mecab: bool = args_dic['mecab']
     alert_process_q: Queue[Union[Alert, str]] = args_dic['alert_process_q']
     nth: int = args_dic['nth']
     org_path = args_dic['org_path']
@@ -944,9 +905,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         sys.stdout = f
 
     # ヘッドレスブラウザを使うdriverを取得、一つのクローリングプロセスは一つのブラウザを使う
-    # TODO: ここが失敗している？Driverのエラーの原因はここらっぽい
-    if use_browser:
-        driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
+    if setting_dict['headless_browser']:
+        driver_info = get_fox_driver(queue_log, setting_dict['screenshots'], user_agent=user_agent, org_path=org_path)
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
@@ -962,7 +922,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
         configure_logger_for_use_extentions(queue_log)
 
     # 保存データのロードや初めての場合は必要なディレクトリの作成などを行う
-    init(host, screenshots)
+    init(host, setting_dict['screenshots'])
 
     # 180秒以上パースに時間がかかるスレッドは削除する(ためのスレッド)...実際にそんなスレッドがあるかは不明
     t = threading.Thread(target=del_thread, args=(host,))
@@ -1041,11 +1001,12 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             continue           # ここでキャッシュに当てはまるのは、NOT FOUNDページにリダイレクトされた後のURLとか？
 
         # Pageオブジェクトを作成(robots.txtの確認の前に作成しておかないと、次のループの最初に済URL集合(url_cache)に保存されない)
-        page = Page(url, url_src)
+        page = Page(url, url_src, html_special_char)
 
         # robots.txtがあれば、それに準拠する
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
+                logger.info(f'robot\'s say don\'t crawle {page.url}')
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
@@ -1087,7 +1048,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             continue
 
         # content-typeからウェブページ(str)かその他ファイル(False)かを判断
-        file_type = page_or_file(page)
+        file_type = page_or_file(page, logger)
         if page.content_type:
             update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', page.content_type.replace(',', ':')
                                                             + ', ' + page.url + ', ' + page.src])  # 記録
@@ -1095,10 +1056,45 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
             update_write_file_dict('host', 'content-type.csv', ['content-type,url,src', 'NoneType,' + page.url + ',' + page.src]) # 記録
             logger.warning("Content-type is None: %s", page.url)
 
-        if type(file_type) is str:   # ウェブページの場合
-            # img_name = False
+        if file_type == 'js':
+            # JSのページを開いた場合
+            logger.debug("%s is js", page.url)
+            # ハッシュ値の比較
+            if url_dict:
+                num_of_days, file_len = url_dict.compere_hash(page)
+                if type(num_of_days) == int:
+                    # ハッシュが変化したためアラートを出す
+                    with wfta_lock:
+                        write_file_to_alertdir.append(Alert(
+                            url       = page.url_initial,
+                            file_name = 'changed_js.csv',
+                            content   = page.url + ", " + str(num_of_days) + ", " + page.src,
+                            label     = 'URL, no-change days, call_from',
+                        ))
+                    update_write_file_dict('result', 'change_hash_js.csv',
+                                            content=[
+                                               'URL, no_change_days, page_src',
+                                               page.url + ', ' + str(num_of_days) + ', ' + page.src
+                                            ])
+                elif num_of_days is True:
+                    # ハッシュ値が同じ場合
+                    update_write_file_dict('result', 'same_hash_js.csv',
+                                           content=['URL', page.url])
+                elif num_of_days is False:
+                    # 新規JSの場合
+                    update_write_file_dict('result', 'new_js_file.csv',
+                                           content=['URL, src', page.url + ', ' + page.src])
+            else:
+                logger.error("there are no url_dict, unrechable Bug")
+
+            # mainプロセスにこのURLのクローリング完了を知らせる
+            send_data = {'type': 'links', 'url_set': set(), "url_src": page.url}   # 親に送るデータ
+            send_to_parent(q_send, send_data)    # 親にURLリストを送信
+            num_of_pages += 1
+        elif type(file_type) is str:
+            # HTML または XML のページを開いた場合
             logger.debug("%s is webpage", page.url)
-            if use_browser:
+            if setting_dict['headless_browser']:
                 # ヘッドレスブラウザでURLに再接続。関数内で接続後１秒待機
                 # robots.txtを参照
                 # watcher window以外を消す
@@ -1144,10 +1140,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     update_write_file_dict('host', browser_result[0] + '.txt', content=browser_result[1])
                     # headless browser終了して作りなおしておく。
                     quit_driver(driver)
-                    driver_info = get_fox_driver(queue_log, screenshots, user_agent=user_agent, org_path=org_path)
+                    driver_info = get_fox_driver(queue_log, setting_dict['screenshots'], user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
                         error_break = True
-                        r_t.run = False
+                        r_t.running = False
                         r_t.join()
                         break
                     else:
@@ -1156,7 +1152,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         watcher_window: Union[str, int] = driver_info["watcher_window"]
                         wait: WebDriverWait = driver_info["wait"]
                     # 次のURLへ
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
 
@@ -1165,7 +1161,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                 if re is False:
                     logger.info("stop_watcher_and_get_data, break")
                     error_break = True
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     break
 
@@ -1192,7 +1188,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                             content   = page.url_initial + ', ' + page.src,
                             label     = 'InitialURL, src',
                         ))
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
 
@@ -1203,7 +1199,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                     result_set = inspection_url_by_filter(url_list=page_url_set, filtering_dict=filtering_dict)
                     send_to_parent(q_send, {'type': 'redirect', 'url_set': result_set, "ini_url": page.url_initial,
                                             "url_src": page.src})
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
@@ -1211,12 +1207,12 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
                 # ブラウザでurlが変わっている可能性があるため再度チェック
                 if page.url in url_cache:
-                    r_t.run = False
+                    r_t.running = False
                     r_t.join()
                     continue
 
                 # スクショが欲しければ撮る
-                if screenshots:
+                if setting_dict['screenshots']:
                     if browser_result is True:
                         scsho_path = org_path + '/RAD/screenshots/' + dir_name
                         take_screenshots(scsho_path, driver)
@@ -1232,14 +1228,14 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)
                         send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "url_src": page.url})
 
-                r_t.run = False
+                r_t.running = False
                 r_t.join()
 
             logger.debug("%s: Parse start...", page.url)
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
             parser_thread_args_dic = {'host': host, 'page': page, 'q_send': q_send, 'file_type': file_type,
-                                      'use_mecab': use_mecab, 'nth': nth, "filtering_dict": filtering_dict}
-            t = threading.Thread(target=parser, args=(parser_thread_args_dic,))
+                                      'filtering_dict': filtering_dict, 'nth': nth}
+            t = threading.Thread(target=parser, args=(parser_thread_args_dic, setting_dict))
             t.start()
             if type(t.ident) != None:
                 ident = cast(int, t.ident)
@@ -1320,6 +1316,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any]):
 
     save_result(alert_process_q)
     logger.info("%s %s: saved", datetime.now().strftime('%Y/%m/%d, %H:%M:%S'), host)
-    if driver:
+    if setting_dict['headless_browser']:
         quit_driver(driver) # headless browser終了して
     os._exit(0) # type: ignore

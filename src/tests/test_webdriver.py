@@ -23,7 +23,7 @@ class TestStringMethods(unittest.TestCase):
         """
         Webdriverを用いて実際にHPが取得できているかを確認
         """
-        page: Page = Page("http://abehiroshi.la.coocan.jp/", "")
+        page: Page = Page("http://abehiroshi.la.coocan.jp/", "", [])
         queue_log: Queue[Any] = Queue()
         driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(queue_log, org_path='/dev/null')
         self.assertIsNot(driver_info, False)
@@ -51,7 +51,7 @@ class TestStringMethods(unittest.TestCase):
         """
         存在しないURLで失敗することの確認
         """
-        page: Page = Page("hogehoge", "")
+        page: Page = Page("hogehoge", "", [])
         queue_log: Queue[Any] = Queue()
         driver_info: Union[bool, Dict[str, Any]] = get_fox_driver(queue_log, org_path='/dev/null')
         self.assertIsNot(driver_info, False)

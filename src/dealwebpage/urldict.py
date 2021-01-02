@@ -4,7 +4,10 @@ from copy import deepcopy
 from datetime import date
 from hashlib import sha256
 from shutil import copyfile
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
+
+import ssdeep
+from checkers.html_diff import Difference, differ
 
 from dealwebpage.webpage import Page
 
@@ -149,15 +152,19 @@ class UrlDict:
                 else:
                     self.url_tags[page.url] = list([tags])    # tagリストのリスト
 
-    def update_request_url_in_url_dict(self, page: Page):
+    def update_request_url_in_url_dict(self, page: Page) -> bool:
+        """
+        拡張機能を用いて取得した requestURL が extracting_extension_data() にて page.request_url に保存されている
+        url_dictに取得したページがすでに存在するならば情報を追加して True を返す
+        まだ url_dict にページが存在しないなら False を返す
+        """
         if page.url in self.url_dict:
-            # self.url_dict[page.url]['request_url_same_host'] = list(deepcopy(page.request_url_same_host))
             self.url_dict[page.url]["request_url"] = list(deepcopy(page.request_url))
         else:
             return False
         return True
 
-    def compare_request_url(self, page: Page):
+    def compare_request_url(self, page: Page) -> bool:
         if page.url in self.url_dict:
             # if 'request_url_same_host' in self.url_dict[page.url]:
             #     diff = page.request_url_same_host.difference(set(self.url_dict[page.url]['request_url_same_host']))
@@ -238,3 +245,68 @@ class UrlDict:
             self.url_dict[page.url]['run_date'] = today
             self.url_dict[page.url]['source'] = page.src
             return False, False
+
+
+    def compere_ssdeephash(self, page: Page)->Union[bool, int, None]:
+        """
+        ファジーハッシュを比較する。
+        変わっていなければTrue, Falseは新規
+        intが返ってきた場合は変化量
+        None の場合はエラー
+        """
+        file_length = len(str(page.html))
+        if file_length:
+            if type(page.html) == str:
+                try:
+                    html = page.html.encode('utf-8') # type: ignore
+                except Exception:
+                    return None
+            else:
+                html = page.html
+            try:
+                sshash: Union[str, None] = ssdeep.hash(html)
+            except Exception:
+                return None
+        else:
+            sshash = None
+
+        pre_info = deepcopy(self.url_dict[page.url])
+        if page.url in self.url_dict and 'sshash' in pre_info:
+            pre_sshash = pre_info['sshash']            # 前回のハッシュ値
+            self.url_dict[page.url]['sshash'] = sshash # 今回のハッシュ値を保存
+
+            if pre_sshash == sshash:
+                return True
+            else:
+                comp: int = ssdeep.compare(pre_sshash, sshash)
+                return comp
+        else:
+            self.url_dict[page.url]['sshash'] = sshash
+            return False
+
+
+    def emit_ssdeephash_data(self, page: Page)->Optional[Tuple[int, int, List[Difference]]]:
+        """
+        HTMLの変化を調べるために作っている
+        2回回って差分データを返す
+
+        - Return
+          - bool: 成功したかしていないか
+          - int int: 前のHTMLの長さと今のHTMLの長さ
+          - List[Difference]: 変更情報リスト
+        """
+        html: str = ""
+        if page.html:
+            html = page.html
+        else:
+            return None
+
+        pre_info = deepcopy(self.url_dict[page.url])
+        if page.url in self.url_dict and 'html' in pre_info:
+            pre_html = pre_info['html'] # 前回のHTML
+            self.url_dict[page.url]['html'] = html
+            return (len(pre_html), len(html), differ(pre_html.splitlines(), html.splitlines()))
+
+        else:
+            self.url_dict[page.url]['html'] = html
+            return None
