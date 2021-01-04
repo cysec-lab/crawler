@@ -108,13 +108,21 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         except NoAlertPresentException:
             break
         except Exception as err:
-            logger.warning(f"get Alert from browser: {err}")
+            logger.warning(f'get Alert from browser: {err}')
             return ["getAlertError_browser", page.url + "\n" + str(err)]
 
     # ブラウザから、現在開いているURLとそのHTMLを取得
     try:
         page.url = cast(str, driver.current_url)    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = cast(str, driver.page_source)   # htmlソースを更新
+
+        # iframeの先のHTMLたちを結合する
+        # TODO: まじでそのまま後ろにつなげているだけなので許してほしい
+        iframe_list = driver.find_elements_by_tag_name("iframe")
+        for iframe in iframe_list:
+            driver.switch_to.frame(iframe)
+            page.html += driver.page_source
+        driver.switch_to.default_content()
     except Exception as err:
         logger.exception("Failed to get info from Browser: {err}")
         return ['infoGetError_browser', page.url + '\n' + str(err)] # type: ignore
