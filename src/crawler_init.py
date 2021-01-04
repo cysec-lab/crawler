@@ -627,6 +627,8 @@ def receive_and_send(not_send: bool=False):
                 # URLが貼ってあったページURL
                 url_src = received_data["url_src"]
 
+            alert_queue: Queue[Union[Alert, str]] = cast(Queue[Union[Alert, str]], summarize_alert_q['recv'])
+
             # Type(文字列)の処理
             if received_data['type'] == 'links':
                 # ページクローリング結果なので、検索済み数更新
@@ -638,7 +640,7 @@ def receive_and_send(not_send: bool=False):
             elif received_data['type'] == 'new_window_url':
                 # 新しい窓(orタブ)に出たURL(今のところ見つかってない)
                 for url_tuple in url_tuple_set:
-                    summarize_alert_q['recv'].put(Alert(
+                    alert_queue.put(Alert(
                         url       = url_tuple[0],
                         file_name = 'new_window_url.csv',
                         content   = url_tuple[0] + ', ' + url_src,
@@ -665,7 +667,7 @@ def receive_and_send(not_send: bool=False):
                                 break
 
                     if w_alert_flag:
-                        summarize_alert_q['recv'].put(Alert(
+                        alert_queue.put(Alert(
                             url       = url,
                             file_name = 'after_redirect_check.csv',
                             content   = received_data["ini_url"] + ', ' + url_src + ', ' + url,
@@ -987,7 +989,8 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                             break
                         if host_url_list_tuple[0] in hostName_process:
                             if hostName_process[host_url_list_tuple[0]].is_alive():
-                                continue   # プロセスが活動中なら、次に多いホストをtmp_listから探す
+                                # すでにクローリングしているなら次に多いホストを探す
+                                continue
                         processes.append(make_process(host_url_list_tuple[0], queue_log, setting_dict))
                         num_of_runnable_process -= 1
 

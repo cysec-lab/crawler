@@ -33,7 +33,6 @@ from dealwebpage.urldict import UrlDict
 from dealwebpage.webpage import Page
 from utils.alert_data import Alert
 from utils.file_rw import r_file, w_file
-from utils.location import location
 from utils.logger import worker_configurer
 from utils.sys_command import kill_chrome
 from webdrivers.resources_observer import (cpu_checker, get_family,
@@ -830,10 +829,9 @@ def extract_extension_data_and_inspection(page: Page, filtering_dict: Dict[str, 
     # # 別サーバにリダイレクトしていなければ、RequestURLにチェックをする
     # if check_redirect(page, host) is not True:
     # requestURLが取れていたら、フィルタを通して疑わしいリクエストがあればアラート
-    if page.request_url:
-        page_request_url = page.request_url
-        request_url_set = request_url_set.union(page.request_url)
-        result_set = inspection_url_by_filter(url_list=page_request_url, filtering_dict=filtering_dict,
+    if page.request_url_from_ex:
+        request_url_set = request_url_set.union(page.request_url_from_ex)
+        result_set = inspection_url_by_filter(url_list=page.request_url_from_ex, filtering_dict=filtering_dict,
                                               special_filter=request_url_filter)
         strange_set = set([result[0] for result in result_set if (result[1] is False) or (result[1] == "Unknown")])
         if strange_set:
@@ -912,7 +910,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             sleep(1)
             kill_chrome("geckodriver")
             kill_chrome("firefox-bin")
-            os._exit(0) # type: ignore
+            return
 
         driver_info = cast(Dict[str, Any], driver_info)
         driver: WebDriver = driver_info["driver"]
@@ -1222,7 +1220,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     window_url_list = get_window_url(driver, watcher_id=watcher_window, base_id=blank_window)
                 except Exception as e1:
                     update_write_file_dict('result', 'window_url_get_error.txt',
-                                           content=location() + '\n' + page.url + '\n' + str(e1))
+                                           content="crawler.py" + '\n' + page.url + '\n' + str(e1))
                 else:
                     if window_url_list:   # URLがあった場合、リンクURLを渡すときと同じ形にして親プロセスに送信
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)

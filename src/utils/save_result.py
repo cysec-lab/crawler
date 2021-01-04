@@ -7,8 +7,7 @@ from multiprocessing import Process, Queue
 from typing import Any, Dict
 
 from crawler_deinit import del_and_make_achievement
-from dealwebpage.falcification_dealing import (copy_ROD_from_cysec,
-                                               del_falsification_RAD)
+from dealwebpage.falcification_dealing import del_falsification_RAD
 from make_filter_from_past_data import (
     make_filter, make_idf_dict_frequent_word_dict,
     make_request_url_iframeSrc_link_host_set, merge_filter)

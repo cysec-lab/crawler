@@ -9,8 +9,7 @@ from urllib.parse import urlparse
 
 from dealwebpage.html_read_thread import WebDriverGetThread
 from dealwebpage.webpage import Page
-from selenium.common.exceptions import (NoAlertPresentException,
-                                        TimeoutException)
+from selenium.common.exceptions import NoAlertPresentException
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.webdriver import WebDriver
@@ -180,6 +179,7 @@ def quit_driver(driver: WebDriver) -> bool:
         logger.info(f"There are no window.... {err}")
         pass
 
+    logger.debug("Try to quit_driver")
     try:
         driver.quit()
     except Exception as err:
