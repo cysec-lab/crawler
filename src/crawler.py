@@ -1318,4 +1318,3 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
     logger.info("%s %s: saved", datetime.now().strftime('%Y/%m/%d, %H:%M:%S'), host)
     if setting_dict['headless_browser']:
         quit_driver(driver) # headless browser終了して
-    os._exit(0) # type: ignore

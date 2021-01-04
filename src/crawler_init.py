@@ -359,6 +359,9 @@ def init(queue_log: Queue[Any], process_run_count: int, setting_dict: dict[str, 
 def get_alive_child_num() -> int:
     """
     クローリング子プロセスの中で生きている数を返す
+    設計としてあまりよくない
+
+    TODO: len(processes) を用いる形に変更する
     return:
         count: 子プロセスの数
     """
@@ -466,9 +469,9 @@ def end():
     if url_list:
         return False
 
-    # 生きている子プロセスがいる
-    if get_alive_child_num():
-        return False
+    # # 生きている子プロセスがいる
+    # if get_alive_child_num():
+    #     return False
 
     # キューに要素があるか
     for _, remaining_temp in hostName_remaining.items():
@@ -919,7 +922,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                 if len(assignment_url_set) >= max_page:
                     # 指定数URLをアサインしたら
                     logger.info('Number of assignment reached MAX')
-                    while not (get_alive_child_num() == 0):
+                    while not (len(processes) == 0):
                         # 子プロセスがすべて終了するまで待つ
                         sleep(3)
                         for temp in hostName_process.values():
@@ -936,7 +939,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                     break
 
             # 回り終わって終了するとき
-            if end():
+            if len(processes) == 0 and end():
                 try:
                     not_achieved = get_not_achieved_url(url_db, assignment_url_set, filtering_dict)
                     if not_achieved:
@@ -954,7 +957,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                     break
 
             # 生成可能なプロセス数を計算しプロセスを作成する
-            num_of_runnable_process: int = max_process - get_alive_child_num()
+            num_of_runnable_process: int = max_process - len(processes)
             if num_of_runnable_process > 0:
                 # プロセス数にゆとりがあるならば
                 # hostName_remainingを待機URL数が多い順にソートする
