@@ -24,7 +24,7 @@ def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[s
         # / から始まる場合はホスト名を補完
         tmp = parsed.scheme + '://' + parsed.netloc + src_url
         src_url = tmp
-    elif src_url.startswith('..'):
+    elif not src_url.startswith('http'):
         # pageURL最後の/までのと与えられたURLをくっつける
         while_slash = last_slash.match(page_url)
         if while_slash:

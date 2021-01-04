@@ -58,5 +58,13 @@ class TestCompleteURL(unittest.TestCase):
         )
         self.assertEqual(js_url, "http://www.spc.ritsumei.ac.jp/eng/js/script.js")
 
+        js_url = complete_js_url(
+            'js/self-organization-and-learning-control.20190604135536.js',
+            'http://www.rc.is.ritsumei.ac.jp/self-organization-and-learning-control.html',
+            html_special_char
+        )
+        self.assertEqual(js_url, "http://www.rc.is.ritsumei.ac.jp/js/self-organization-and-learning-control.20190604135536.js")
+
+
 if __name__ == '__main__':
     unittest.main()
