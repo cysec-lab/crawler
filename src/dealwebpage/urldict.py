@@ -159,7 +159,7 @@ class UrlDict:
         まだ url_dict にページが存在しないなら False を返す
         """
         if page.url in self.url_dict:
-            self.url_dict[page.url]["request_url"] = list(deepcopy(page.request_url))
+            self.url_dict[page.url]["request_url"] = list(deepcopy(page.request_url_from_ex))
         else:
             return False
         return True
@@ -193,6 +193,12 @@ class UrlDict:
         ハッシュ値を比較する。
         変わっていなければTrueを、変わっていると前回までの不変日数を返す。Falseは新規、Noneはエラー
         二つ目はファイルサイズが同じだったかどうか、全て読み込まれているかどうか分からないため(途中切断はなさそうなため不要?)
+
+        Return:
+        - int型: ハッシュ値が違う。
+        - True : 変化なし
+        - False: 新規ページ
+        - None : どこかでエラー。
         """
         file_length = len(str(page.html))
         if file_length:

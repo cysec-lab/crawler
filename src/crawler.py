@@ -407,15 +407,12 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
     except Exception:
         soup = BeautifulSoup(page.html, 'html.parser')
 
-    # htmlソースからtagだけ取り出して機械学習に入れる(今はしていない)
-    # get_tags_from_html(soup, page, machine_learning_q)
-
-    # ページに貼られているリンク集を作り、親プロセスへ送信
+    # ページ内のリンク集を作成
     if file_type == 'xml':
         page.make_links_xml(soup)   # xmlページのリンク抽出
     elif file_type == 'html':
         page.make_links_html(soup)  # htmlページのリンク抽出
-        page.make_js_src(soup)
+        page.make_js_src(soup)      # JSのsrcを取得
     page.complete_links()    # pageのリンク集のURLを補完する
 
     # 未知サーバのリンクが貼られていないかをチェック
@@ -438,8 +435,8 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                     content = content,
                     label = 'InitialURL, URL, LINK'
                 ))
-    if page.js_src:
-        js_set: Set[Tuple[str, Union[str, bool]]] = {(src, True) for src in page.js_src}
+    if page.script_url:
+        js_set: Set[Tuple[str, Union[str, bool]]] = {(src, True) for src in page.script_url}
         result_set = result_set | js_set
 
     # 組織内かどうかをチェックしたリンクURLをすべて親に送信
@@ -449,10 +446,6 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
     # 検査
     # 前回とのハッシュ値を比較
     num_of_days, _ = url_dict.compere_hash(page)
-    # int型: ハッシュ値が違う。
-    # True : 変化なし
-    # False: 新規ページ
-    # None : どこかでエラー。
     if type(num_of_days) == int:
         update_write_file_dict('result', 'change_hash_page.csv',
                                content=['URL,num of no-change days', page.url + ', ' + str(num_of_days)])
@@ -660,11 +653,24 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                     ))
 
     # requestURL を url_dictに追加(ページをレンダリングする際のリクエストURLを、各ページごとに保存。しかし、何かに使っているわけではない。)
-    if page.request_url:
+    if page.request_url_from_ex:
         if url_dict:
             _ = url_dict.update_request_url_in_url_dict(page)
         else:
             logger.error("There are no url_dict")
+
+    if page.script_url_from_ex:
+        # リクエストにはあるのにHTML上に存在しないJSリクエスト
+        only_ex_req = page.script_url_from_ex - page.script_url
+        for js_req in only_ex_req:
+            update_write_file_dict('result', 'js_url_only_exist_in_request.csv',
+                        ['URL,script_url', page.url + ', ' + js_req])
+
+        # HTMLにはあるのにリクエストに存在しないJSリクエスト
+        only_html_req = page.script_url - page.script_url_from_ex
+        for js_req in only_html_req:
+            update_write_file_dict('result', 'js_url_only_exist_in_html.csv',
+                        ['URL,script_url', page.url + ', ' + js_req])
 
 
 def check_thread_time():

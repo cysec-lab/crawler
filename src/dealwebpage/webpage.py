@@ -13,7 +13,6 @@ from typing import List, Tuple
 
 from dealwebpage.fix_urls import complete_js_url
 from dealwebpage.html_read_thread import UrlOpenReadThread
-from utils.location import location
 
 logger = getLogger(__name__)
 
@@ -22,30 +21,29 @@ logger = getLogger(__name__)
 # ブラウザを使うメソッドは別ファイルに関数としてまとめている
 class Page:
     def __init__(self, url: str, src: str, html_special_char: List[Tuple[str, ...]]):
-        self.url_initial = url         # 親プロセスから送られてきたURL
-        self.src = src                 # このURLが貼られていたリンク元URL
-        self.url_urlopen: Optional[str] = None        # urlopenで接続したURL
-        self.content_type: str = ""       # このURLのcontent-type。urlopen時のヘッダから取得
-        self.content_length = None     # ファイルサイズ。urlopen時にヘッダから取得
-        self.encoding: str = 'utf-8'        # 文字コード。urlopen時のヘッダから取得(使っていない
+        self.url_initial = url                  # 親プロセスから送られてきたURL
+        self.src = src                          # このURLが貼られていたリンク元URL
+        self.url_urlopen: Optional[str] = None  # urlopenで接続したURL
+        self.content_type: str = ""             # このURLのcontent-type。urlopen時のヘッダから取得
+        self.content_length = None              # ファイルサイズ。urlopen時にヘッダから取得
+        self.encoding: str = 'utf-8'            # 文字コード。urlopen時のヘッダから取得(使っていない
         self.html_urlopen: Optional[str] = None # urlopenで取得したHTMLソースコードのバイト列(使っていない
-        self.url: str = url                 # current_url。urlopen、ブラウザで接続した後にそれぞれ更新
-        self.html: Optional[str] = None     # HTMLソースコード。urlopen、ブラウザで接続した後にそれぞれ更新
-        self.hostName: Optional[str] = None # urlopen、ブラウザで接続した後にそれぞれ更新
-        self.scheme: Optional[str] = None   # 上と同じ
+        self.url: str = url                     # current_url。urlopen、ブラウザで接続した後にそれぞれ更新
+        self.html: Optional[str] = None         # HTMLソースコード。urlopen、ブラウザで接続した後にそれぞれ更新
+        self.hostName: Optional[str] = None     # urlopen、ブラウザで接続した後にそれぞれ更新
+        self.scheme: Optional[str] = None       # 上と同じ
         self.links = set()                      # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
         self.normalized_links: Set[str] = set() # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
-        self.js_src: Set[str] = set()           # JSのsrc URLたちが入れられる
+        self.script_url: Set[str] = set()       # HTMLから取得したJSのsrc URLたちが入れられる
         self.normalized_js_src: Set[str] = set()
-        self.request_url = set()              # このページをロードするために行ったリクエストのURLの集合。
-        # self.request_url_host = set()         # 上のURLからホスト名だけ抜き出したもの
-        # self.request_url_same_host = set()  # ２個上のURLから、同じサーバ内のURLを抜き出したもの
+        self.request_url_from_ex = set()        # 拡張機能で取得したリクエストのURLの集合。
+        self.script_url_from_ex = set()         # 拡張機能で取得したScriptURLの集合
         self.download_info: Dict[str, Dict[str, str]] = dict()  # 自動ダウンロードがされた場合、ここに情報を保存する
-        self.loop_escape = False    # 自身に再帰する関数があるのでそこから抜け出す用
+        self.loop_escape = False                # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
-        self.among_url: list[str] = list()   # リダイレクトを1秒以内に複数回されると、ここに記録する。
+        self.among_url: list[str] = list()      # リダイレクトを1秒以内に複数回されると、ここに記録する。
         self.watcher_html: Optional[list[str]] = None  # watcher.htmlは拡張機能が集めた情報が載っている専用ページ。そのHTML文を保存する。
-        self.alert_txt: list[str] = list()   # alertがポップアップされると、そのテキストを追加していく
+        self.alert_txt: list[str] = list()      # alertがポップアップされると、そのテキストを追加していく
         self.html_special_char = html_special_char
 
     def set_html_and_content_type_urlopen(self, url: str, time_out: int)-> Union[list[str], bool, None]:
@@ -117,11 +115,15 @@ class Page:
         """
         # classがRequestとDownloadの要素を集める
         request_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'Request'})
+        script_elements: Iterable[ResultSet] = soup.find_all('p', attrs={'class': 'Script'})
         download_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'Download'})
         history_elements: list[ResultSet] = soup.find_all('p', attrs={'class': 'History'})
 
         # リクエストURLを集合に追加し、同じサーバ内のURLはまるまる保存、それ以外はホスト名だけ保存
-        self.request_url: Set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
+        self.request_url_from_ex: Set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
+
+        # 拡張機能から Script のリクエストURLを取得する
+        self.script_url_from_ex: Set[str] = set([elm.get_text() for elm in script_elements]) # type: ignore
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
         # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
@@ -135,7 +137,7 @@ class Page:
                 try:
                     json_data = loads(elm.get_text()) # type: ignore
                 except Exception as e:
-                    print(location() + str(e), flush=True)
+                    print("webpage.py" + str(e), flush=True)
                     download_info[key].update({"FileSize": "None", "TotalBytes": "None", "StartTime": "None",
                                                "Danger": "None"})  # 要素を追加しておかないと、参照時にKeyエラーが出る
                 else:
@@ -166,7 +168,7 @@ class Page:
             link_url: Optional[str] = a_tag.get('src')
             if link_url:
                 js_url = complete_js_url(link_url, self.url, self.html_special_char)
-                self.js_src.add(js_url)
+                self.script_url.add(js_url)
 
 
     def make_links_xml(self, soup: BeautifulSoup):
