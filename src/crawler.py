@@ -669,8 +669,10 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         # HTMLにはあるのにリクエストに存在しないJSリクエスト
         only_html_req = page.script_url - page.script_url_from_ex
         for js_req in only_html_req:
-            update_write_file_dict('result', 'js_url_only_exist_in_html.csv',
-                        ['URL,script_url', page.url + ', ' + js_req])
+            if not js_req.startswith('chrome'):
+                # Firefox内に組み込みで入っているJSを使っている場合は記録しない
+                update_write_file_dict('result', 'js_url_only_exist_in_html.csv',
+                            ['URL,script_url', page.url + ', ' + js_req])
 
 
 def check_thread_time():

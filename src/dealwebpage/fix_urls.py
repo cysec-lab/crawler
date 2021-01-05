@@ -24,8 +24,11 @@ def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[s
         # / から始まる場合はホスト名を補完
         tmp = parsed.scheme + '://' + parsed.netloc + src_url
         src_url = tmp
-    elif not src_url.startswith('http'):
+    elif not src_url.startswith(('http', 'chrome')):
         # pageURL最後の/までのと与えられたURLをくっつける
+        # すでにhttp:// から始まるURLまたは chrome://から始まるURLの場合は飛ばす
+        # ex. chrome://browser/content/aboutNetError.js
+        # Firefox の組み込みJS
         while_slash = last_slash.match(page_url)
         if while_slash:
             tmp = while_slash[0] + src_url
