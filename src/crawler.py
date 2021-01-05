@@ -1063,40 +1063,41 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             logger.warning("Content-type is None: %s", page.url)
 
         if file_type == 'js':
-            # JSのページを開いた場合
-            logger.debug("%s is js", page.url)
-            # ハッシュ値の比較
-            if url_dict:
-                num_of_days, file_len = url_dict.compere_hash(page)
-                if type(num_of_days) == int:
-                    # ハッシュが変化したためアラートを出す
-                    with wfta_lock:
-                        write_file_to_alertdir.append(Alert(
-                            url       = page.url_initial,
-                            file_name = 'changed_js.csv',
-                            content   = page.url + ", " + str(num_of_days) + ", " + page.src,
-                            label     = 'URL, no-change days, call_from',
-                        ))
-                    update_write_file_dict('result', 'change_hash_js.csv',
-                                            content=[
-                                               'URL, no_change_days, page_src',
-                                               page.url + ', ' + str(num_of_days) + ', ' + page.src
-                                            ])
-                elif num_of_days is True:
-                    # ハッシュ値が同じ場合
-                    update_write_file_dict('result', 'same_hash_js.csv',
-                                           content=['URL', page.url])
-                elif num_of_days is False:
-                    # 新規JSの場合
-                    update_write_file_dict('result', 'new_js_file.csv',
-                                           content=['URL, src', page.url + ', ' + page.src])
-            else:
-                logger.error("there are no url_dict, unrechable Bug")
-
+            if page.src != 'url_db':
+                # URLDBから取ってきたものの場合そもそもアクセスするURL自体が
+                # 動的に変化させられている可能性が高いため検査しない
+                logger.debug("%s is js", page.url)
+                # ハッシュ値の比較
+                if url_dict:
+                    num_of_days, file_len = url_dict.compere_hash(page)
+                    if type(num_of_days) == int:
+                        # ハッシュが変化したためアラートを出す
+                        with wfta_lock:
+                            write_file_to_alertdir.append(Alert(
+                                url       = page.url_initial,
+                                file_name = 'changed_js.csv',
+                                content   = page.url + ", " + str(num_of_days) + ", " + page.src,
+                                label     = 'URL, no-change days, call_from',
+                            ))
+                        update_write_file_dict('result', 'change_hash_js.csv',
+                                                content=[
+                                                   'URL, no_change_days, page_src',
+                                                   page.url + ', ' + str(num_of_days) + ', ' + page.src
+                                                ])
+                    elif num_of_days is True:
+                        # ハッシュ値が同じ場合
+                        update_write_file_dict('result', 'same_hash_js.csv',
+                                               content=['URL, src', page.url + ', ' + page.src])
+                    elif num_of_days is False:
+                        # 新規JSの場合
+                        update_write_file_dict('result', 'new_js_file.csv',
+                                               content=['URL, src', page.url + ', ' + page.src])
+                else:
+                    logger.error("there are no url_dict, unrechable Bug")
+                num_of_pages += 1
             # mainプロセスにこのURLのクローリング完了を知らせる
             send_data = {'type': 'links', 'url_set': set(), "url_src": page.url}   # 親に送るデータ
             send_to_parent(q_send, send_data)    # 親にURLリストを送信
-            num_of_pages += 1
         elif type(file_type) is str:
             # HTML または XML のページを開いた場合
             logger.debug("%s is webpage", page.url)
