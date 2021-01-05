@@ -1015,6 +1015,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 logger.info(f'robot\'s say don\'t crawle {page.url}')
                 update_write_file_dict('result', 'url_access_denied_by_robots.csv',
                                     content=['URL, src', page.url + ', ' + page.src])
+                send_to_parent(q_send, {'type': 'link', 'url_set': set(), "ini_url": page.url_initial, "url_src": page.src})
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
@@ -1140,7 +1141,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 r_t.start()
 
                 # ブラウザからHTML文などの情報取得
+                logger.info('setting html...')
                 browser_result = set_html(page=page, driver=driver)
+                logger.info('setting html... FIN!')
                 if "falsification.cysec.cs" in host:
                     logger.info("result of getting html by browser: %s, %s", page.url, browser_result)
                 if type(browser_result) == list:     # 接続エラーの場合はlistが返る
@@ -1151,9 +1154,11 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     quit_driver(driver)
                     driver_info = get_fox_driver(queue_log, setting_dict['screenshots'], user_agent=user_agent, org_path=org_path)
                     if driver_info is False:
+                        logger.info("driver_info is false")
                         error_break = True
                         r_t.running = False
                         r_t.join()
+                        logger.info("resource observer_thread joined")
                         break
                     else:
                         driver_info = cast(Dict[str, Any], driver_info)
@@ -1163,6 +1168,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     # 次のURLへ
                     r_t.running = False
                     r_t.join()
+                    logger.info("resource observer_thread joined")
                     continue
 
                 # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
@@ -1172,6 +1178,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     error_break = True
                     r_t.running = False
                     r_t.join()
+                    logger.info("resource observer_thread joined")
                     break
 
                 # watcher.htmlのHLTML文から、拡張機能によって取得した情報を抽出する
@@ -1190,6 +1197,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
 
                 # about:blankなら以降の処理はしない
                 if page.url == "about:blank":
+                    logger.info("page is about:blank")
                     with wfta_lock:
                         write_file_to_alertdir.append(Alert(
                             url       = page.url_initial,
@@ -1199,6 +1207,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                         ))
                     r_t.running = False
                     r_t.join()
+                    logger.info("resource observer_thread joined")
                     continue
 
                 # リダイレクトのチェック
@@ -1210,6 +1219,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                                             "url_src": page.src})
                     r_t.running = False
                     r_t.join()
+                    logger.info("resource observer_thread joined")
                     continue
                 if redirect == "same":   # URLは変わったがサーバは変わらなかった場合は、処理の続行を親プロセスに通知
                     send_to_parent(sendq=q_send, data=(page.url, "redirect"))
@@ -1218,6 +1228,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 if page.url in url_cache:
                     r_t.running = False
                     r_t.join()
+                    logger.info("resource observer_thread joined")
                     continue
 
                 # スクショが欲しければ撮る
@@ -1237,8 +1248,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                         result_set = inspection_url_by_filter(url_list=window_url_list, filtering_dict=filtering_dict)
                         send_to_parent(q_send, {'type': 'new_window_url', 'url_set': result_set, "url_src": page.url})
 
-                r_t.running = False
-                r_t.join()
+                if r_t.is_alive:
+                    r_t.running = False
+                    r_t.join()
+                    logger.info("resource observer_thread joined")
 
             logger.debug("%s: Parse start...", page.url)
             # スレッドを作成してパース開始(ブラウザで開いたページのHTMLソースをスクレイピングする)
