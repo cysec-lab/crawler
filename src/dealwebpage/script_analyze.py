@@ -1,3 +1,4 @@
+from time import sleep
 from typing import Any, Dict, Iterable, Tuple, Union, cast
 from urllib.parse import urlparse
 
@@ -5,6 +6,7 @@ from bs4 import BeautifulSoup
 from bs4.element import ResultSet
 
 from dealwebpage.webpage import Page
+from dealwebpage.fix_urls import remove_query
 
 
 def ston(string: str):
@@ -186,17 +188,20 @@ def script_name_inspection(script_tags: Iterable[ResultSet]) -> Union[bool, list
     suspicious_names = {'ngg', 'script', 'js', 'ri'}   # 特定スクリプト名は関連研究の論文より参考
     script_names: list[Tuple[str, str]] = list()
     for script_tag in script_tags:
-        script_src: ResultSet = script_tag.get('src')
+        script_src = script_tag.get('src')
         if script_src:
+            script_src: str = remove_query(script_src)
+            # 最後にそれぞれの文字が現れるインデックスを取得
             slash: int = script_src.rfind('/')
             period: int = script_src.rfind('.')
-            if period:
-                script_name: str = script_src[slash + 1:period] # type: ignore
-            else:
-                script_name: str = script_src[slash + 1:] # type: ignore
+
+            script_name: str = script_src[slash + 1:]
+            if period and period > slash:
+                script_name = script_src[slash + 1:period]
+
             if len(script_name) < 2:
                 script_names.append((script_name, str(script_tag)))   # スクリプト名が一文字
-            if script_name in suspicious_names:
+            elif script_name in suspicious_names:
                 script_names.append((script_name, str(script_tag)))   # スクリプト名が怪しい
     if script_names:
         return script_names
