@@ -447,17 +447,17 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
     # 前回とのハッシュ値を比較
     num_of_days, _ = url_dict.compere_hash(page)
     if type(num_of_days) == int:
-        update_write_file_dict('result', 'change_hash_page.csv',
+        update_write_file_dict('result', 'page_hash_change.csv',
                                content=['URL,num of no-change days', page.url + ', ' + str(num_of_days)])
     elif num_of_days is True:
-        update_write_file_dict('result', 'same_hash_page.csv', content=['URL', page.url])
+        update_write_file_dict('result', 'page_hash_same.csv', content=['URL', page.url])
     elif num_of_days is False:
-        update_write_file_dict('result', 'new_page.csv', content=['URL,src', page.url + ', ' + page.src])
+        update_write_file_dict('result', 'page_new.csv', content=['URL,src', page.url + ', ' + page.src])
         page.new_page = True
 
     sshash_diff = url_dict.compere_ssdeephash(page)
     if type(sshash_diff) == int:
-        update_write_file_dict('result', 'change_sshash.csv',
+        update_write_file_dict('result', 'page_sshash_change.csv',
             content=['URL, sshash_diff', page.url + ', ' + str(sshash_diff)])
     else:
         sshash_diff = ''
@@ -470,7 +470,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
             diffs: List[Difference] = html_diff_res[2]
             for diff in diffs:
                 for d in diff.datas():
-                    update_write_file_dict('result', 'changed_html.csv',
+                    update_write_file_dict('result', 'page_changed_html.csv',
                         content=[
                             'URL,sshash_diff,past_len,new_len,type,from,to',
                             page.url + ',' + str(sshash_diff) + ','
@@ -486,7 +486,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         hack_level, word_tf_dict = get_tf_dict_by_mecab(soup)  # tf値の計算と"hacked by"検索
         if hack_level:    # hackの文字が入っていると0以外が返ってくる
             if hack_level == 1:
-                update_write_file_dict('result', 'hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
+                update_write_file_dict('result', 'page_hack_word_Lv' + str(hack_level) + '.txt', content=page.url)
             else:
                 # "hacked"が文章に含まれていると外部ファイルに保存
                 with wfta_lock:
@@ -520,7 +520,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                                                   + str(top10)[1:-1] + ', ,' + str(pre_top10)[1:-1],
                                     label     = 'InitialURL, URL, TOP10, N/A, PRE'
                                 ))
-                        update_write_file_dict('result', 'symmetric_diff_of_word.csv',
+                        update_write_file_dict('result', 'page_diff_of_important_word.csv',
                                                content=['URL,length,top10,pre top10', page.url + ', ' +
                                                         str(len(symmetric_difference)) + ', ' + str(top10)[1:-1] + ', ,'
                                                         + str(pre_top10)[1:-1] + ', ' + str(num_of_days)])
@@ -536,7 +536,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
 
                 # このページにある単語から頻出単語リストの単語を引き、その数を調べる
                 diff_set = set(word_tf_dict.keys()).difference(set(frequent_word_list[0:max_num]))
-                update_write_file_dict('result', 'and_diff_of_word_in_new_page.csv',
+                update_write_file_dict('result', 'page_diff_of_frequent_words.csv',
                                        ['URL,and,diff,per', page.url + ', ' + str(len(and_set)) + ', ' +
                                         str(len(diff_set)) + ', ' + str(len(diff_set)/len(word_tf_dict.keys()))])
 
@@ -569,7 +569,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                         ))
         # 目に見えないiframeがあるか。javascriptを動かすためのiframeが結構見つかる。
         if iframe_result['invisible_iframe_list']:
-            update_write_file_dict('result', 'invisible_iframe.csv', content=['URL', page.url])
+            update_write_file_dict('result', 'page_invisible_iframe.csv', content=['URL', page.url])
 
     # meta Refreshの検査
     # http-equivがrefreshのタグのリスト取ってくる(なければFalse)
@@ -579,7 +579,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         meta_refresh = ''
         for i in meta_refresh_result:
             meta_refresh += str(i) + ','
-        update_write_file_dict('result', 'meta_refresh.csv', content=['URL, meta-ref', page.url + ', ' + meta_refresh])
+        update_write_file_dict('result', 'page_meta_refresh.csv', content=['URL, meta-ref', page.url + ', ' + meta_refresh])
         meta_refresh_list = get_meta_refresh_url(meta_refresh_result, page)   # refreshタグからURLを抽出
         # 親にURLを送信する。リダイレクトと同じ扱いをするため、複数あっても(そんなページ怪しすぎるが)１つずつ送る
         result_set = inspection_url_by_filter(url_list=meta_refresh_list, filtering_dict=filtering_dict)
@@ -595,12 +595,12 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         # 怪しいscript名があるか
         if script_result['suspicious_script_name']:
             for suspicious_name, suspicious_script in script_result['suspicious_script_name']:
-                update_write_file_dict('result', 'script_name.csv',
+                update_write_file_dict('result', 'page_strange_script_name.csv',
                                        content=['script name,URL,script', suspicious_name + ',' + page.url + ',' +
                                                 suspicious_script])
         # タイトルにscriptが含まれているかどうか
         if script_result['script_in_title']:
-            update_write_file_dict('result', 'script_in_title.csv',
+            update_write_file_dict('result', 'page_script_in_title.csv',
                                    content=['URL', page.url, str(script_result['script_in_title'])])
         # 前回のクローリングで見つかっていないscriptのsrcがあるか
         if script_result['script_src_list']:    # scriptのsrcURLのリストがあれば
@@ -663,7 +663,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         # リクエストにはあるのにHTML上に存在しないJSリクエスト
         only_ex_req = page.script_url_from_ex - page.script_url_without_query
         for js_req in only_ex_req:
-            update_write_file_dict('result', 'js_url_only_exist_in_request.csv',
+            update_write_file_dict('result', 'js_only_exist_in_request.csv',
                         ['URL,script_url', page.url + ', ' + js_req])
 
         # HTMLにはあるのにリクエストに存在しないJSリクエスト
@@ -671,7 +671,7 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         for js_req in only_html_req:
             if not js_req.startswith('chrome'):
                 # Firefox内に組み込みで入っているJSを使っている場合は記録しない
-                update_write_file_dict('result', 'js_url_only_exist_in_html.csv',
+                update_write_file_dict('result', 'js_only_exist_in_html.csv',
                             ['URL,script_url', page.url + ', ' + js_req])
 
 
@@ -1013,7 +1013,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                 logger.info(f'robot\'s say don\'t crawle {page.url}')
-                update_write_file_dict('result', 'access_denied_by_robots.csv',
+                update_write_file_dict('result', 'url_access_denied_by_robots.csv',
                                     content=['URL, src', page.url + ', ' + page.src])
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
@@ -1081,18 +1081,18 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                                 content   = page.url + ", " + str(num_of_days) + ", " + page.src,
                                 label     = 'URL, no-change days, call_from',
                             ))
-                        update_write_file_dict('result', 'change_hash_js.csv',
+                        update_write_file_dict('result', 'js_hash_change.csv',
                                                 content=[
                                                    'URL, no_change_days, page_src',
                                                    page.url + ', ' + str(num_of_days) + ', ' + page.src
                                                 ])
                     elif num_of_days is True:
                         # ハッシュ値が同じ場合
-                        update_write_file_dict('result', 'same_hash_js.csv',
+                        update_write_file_dict('result', 'js_hash_same.csv',
                                                content=['URL, src', page.url + ', ' + page.src])
                     elif num_of_days is False:
                         # 新規JSの場合
-                        update_write_file_dict('result', 'new_js_file.csv',
+                        update_write_file_dict('result', 'js_new.csv',
                                                content=['URL, src', page.url + ', ' + page.src])
                 else:
                     logger.error("there are no url_dict, unrechable Bug")
@@ -1230,7 +1230,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 try:
                     window_url_list = get_window_url(driver, watcher_id=watcher_window, base_id=blank_window)
                 except Exception as e1:
-                    update_write_file_dict('result', 'window_url_get_error.txt',
+                    update_write_file_dict('result', 'error_failed_to_get_window_url.txt',
                                            content="crawler.py" + '\n' + page.url + '\n' + str(e1))
                 else:
                     if window_url_list:   # URLがあった場合、リンクURLを渡すときと同じ形にして親プロセスに送信
@@ -1264,21 +1264,21 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             if url_dict:
                 num_of_days, file_len = url_dict.compere_hash(page)
                 if type(num_of_days) == int:
-                    update_write_file_dict('result', 'change_hash_file.csv',
+                    update_write_file_dict('result', 'file_hash_change.csv',
                                            content=['URL, content-type, no-change days', page.url + ', ' + page.content_type +
                                                     ', ' + str(num_of_days)])
                     if file_len is None:  # Noneは前回のファイルサイズが登録されていなかった場合
                         pass
                     else:  # ファイルサイズが変わっていたものを記録
-                        update_write_file_dict('result', 'different_size_file.csv',
+                        update_write_file_dict('result', 'file_different_size.csv',
                                                content=['URL, src, content-type, difference, content-length',
                                                         page.url + ', ' + page.src + ', ' + page.content_type + ',' +
                                                         str(file_len) + ', ' + str(page.content_length)])
                 elif num_of_days is True:     # ハッシュ値が同じ場合
-                    update_write_file_dict('result', 'same_hash_file.csv',
+                    update_write_file_dict('result', 'file_hash_same.csv',
                                            content=['URL, content-type', page.url + ', ' + page.content_type])
                 elif num_of_days is False:  # 新規保存
-                    update_write_file_dict('result', 'new_file.csv',
+                    update_write_file_dict('result', 'file_new.csv',
                                            content=['URL, content-type, src',
                                                     page.url + ', ' + page.content_type + ', ' + page.src])
             else:

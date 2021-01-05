@@ -672,9 +672,9 @@ def receive_and_send(not_send: bool=False):
                             label     = 'URL,SOURCE,REDIRECT_URL'
                         ))
 
-                # リダイレクト状況を保存(after_redirect.csv)する
+                # リダイレクト状況を保存する
                 # (リダイレクト前URL, リダイレクト前URLのsrcURL, リダイレクト後URL, リダイレクト後URLの判定結果)
-                w_file('after_redirect.csv', received_data["ini_url"] + ', ' + received_data["url_src"] + ',' +
+                w_file('page_after_redirect.csv', received_data["ini_url"] + ', ' + received_data["url_src"] + ',' +
                        url + ", " + str(check_result) + '\n', mode="a")
             else:
                 logger.warning('unreachable')

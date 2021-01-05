@@ -141,7 +141,8 @@ def str_mix_upper_lower(value: str) -> list[str]:
 
 def meta_refresh_inspection(soup: BeautifulSoup) -> Union[list[ResultSet], bool]:
     """
-    metaセットの中で refresh を抽出してリストで返す
+    `<meta http-equiv="refresh` に類似する(`Refresh`, `rEfresh`)コードすべてを調べ
+    metaを用いたリダイレクト先を抽出してリストで返す
     """
     meta_refresh_list: list[ResultSet] = list()
     refresh_str_list: list[str] = str_mix_upper_lower('refresh') # HTML文は小文字大文字の区別がないため
