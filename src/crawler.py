@@ -1013,6 +1013,8 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
         if robots is not None:
             if robots.can_fetch(useragent=user_agent, url=page.url) is False:
                 logger.info(f'robot\'s say don\'t crawle {page.url}')
+                update_write_file_dict('result', 'access_denied_by_robots.csv',
+                                    content=['URL, src', page.url + ', ' + page.src])
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
