@@ -4,7 +4,15 @@ import re
 from typing import List, Tuple
 from urllib.parse import urlparse
 
+rm_query = re.compile(r'(.+)\?')
 last_slash = re.compile(r'.+\/')
+
+def remove_query(url: str) -> str:
+    reg = rm_query.match(url)
+    if reg:
+        return reg.groups()[0]
+    else:
+        return url
 
 def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[str,...]]):
     """

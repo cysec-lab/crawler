@@ -4,10 +4,19 @@ import os
 import unittest
 from typing import List
 
-from dealwebpage.fix_urls import complete_js_url
+from dealwebpage.fix_urls import complete_js_url, remove_query
 
 
 class TestCompleteURL(unittest.TestCase):
+    def test_remove_query(self):
+        url = 'http://www.google.com/url?sa=p&q=http://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tnKBSr1bu9G1k-rJA-tpVdLJlF8KdmpnsArhCkRSO2J51SG_q0py2igYpeYSFp-yNEhv8nf2JBtjg1oYp2Hh0KXr9eny/api/js?anon%3Dtrue%26pref%3D2'
+        exp = 'http://www.google.com/url?sa=p&q=http://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tnKBSr1bu9G1k-rJA-tpVdLJlF8KdmpnsArhCkRSO2J51SG_q0py2igYpeYSFp-yNEhv8nf2JBtjg1oYp2Hh0KXr9eny/api/js'
+        self.assertEqual(remove_query(url), exp)
+
+        url = 'http://www.google.com/url'
+        exp = 'http://www.google.com/url'
+        self.assertEqual(remove_query(url), exp)
+
     def test_complete_js_url(self):
         """
         jsのURLを正しく保管できているか

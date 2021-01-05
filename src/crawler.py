@@ -661,13 +661,13 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
 
     if page.script_url_from_ex:
         # リクエストにはあるのにHTML上に存在しないJSリクエスト
-        only_ex_req = page.script_url_from_ex - page.script_url
+        only_ex_req = page.script_url_from_ex - page.script_url_without_query
         for js_req in only_ex_req:
             update_write_file_dict('result', 'js_url_only_exist_in_request.csv',
                         ['URL,script_url', page.url + ', ' + js_req])
 
         # HTMLにはあるのにリクエストに存在しないJSリクエスト
-        only_html_req = page.script_url - page.script_url_from_ex
+        only_html_req = page.script_url_without_query - page.script_url_from_ex
         for js_req in only_html_req:
             if not js_req.startswith('chrome'):
                 # Firefox内に組み込みで入っているJSを使っている場合は記録しない

@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from bs4.element import ResultSet
 from typing import List, Tuple
 
-from dealwebpage.fix_urls import complete_js_url
+from dealwebpage.fix_urls import complete_js_url, remove_query
 from dealwebpage.html_read_thread import UrlOpenReadThread
 
 logger = getLogger(__name__)
@@ -34,10 +34,11 @@ class Page:
         self.scheme: Optional[str] = None       # 上と同じ
         self.links = set()                      # このページに貼られていたリンクURLの集合。HTMLソースコードから抽出。
         self.normalized_links: Set[str] = set() # 上のリンク集合のURLを正規化したもの(http://をつけたりなんやらしたり)
-        self.script_url: Set[str] = set()       # HTMLから取得したJSのsrc URLたちが入れられる
+        self.script_url: Set[str] = set()       # HTMLから取得したJSのクエリを含むsrc URLたちが入れられる
+        self.script_url_without_query = set()   # クエリを取り除いたscript url set
         self.normalized_js_src: Set[str] = set()
         self.request_url_from_ex = set()        # 拡張機能で取得したリクエストのURLの集合。
-        self.script_url_from_ex = set()         # 拡張機能で取得したScriptURLの集合
+        self.script_url_from_ex = set()         # 拡張機能で取得したScriptURLの集合, クエリは切って入れられる
         self.download_info: Dict[str, Dict[str, str]] = dict()  # 自動ダウンロードがされた場合、ここに情報を保存する
         self.loop_escape = False                # 自身に再帰する関数があるのでそこから抜け出す用
         self.new_page = False
@@ -123,7 +124,7 @@ class Page:
         self.request_url_from_ex: Set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
 
         # 拡張機能から Script のリクエストURLを取得する
-        self.script_url_from_ex: Set[str] = set([elm.get_text() for elm in script_elements]) # type: ignore
+        self.script_url_from_ex: Set[str] = set([remove_query(elm.get_text()) for elm in script_elements]) # type: ignore
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
         # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
@@ -169,6 +170,7 @@ class Page:
             if link_url:
                 js_url = complete_js_url(link_url, self.url, self.html_special_char)
                 self.script_url.add(js_url)
+                self.script_url_without_query.add(remove_query(js_url))
 
 
     def make_links_xml(self, soup: BeautifulSoup):
