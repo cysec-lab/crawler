@@ -6,6 +6,7 @@ from multiprocessing import Queue
 from time import sleep
 from typing import Any, Union, cast
 from urllib.parse import urlparse
+from dealwebpage.fix_urls import complete_url_by_html
 
 from dealwebpage.html_read_thread import WebDriverGetThread
 from dealwebpage.webpage import Page
@@ -65,6 +66,7 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
     """
     ブラウザでURLにアクセス、HTMLを取得する
     """
+    logger.info("call set_html")
     for i in range(0, GET_WEBDRIVER_RETRY):
         try:
             # URLに接続する(フリーズすることがあるので、スレッドで行う)
@@ -120,11 +122,14 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         # TODO: まじでそのまま後ろにつなげているだけなので許してほしい
         iframe_list = driver.find_elements_by_tag_name("iframe")
         for iframe in iframe_list:
+            iframe_url = iframe.get_property("src")
             driver.switch_to.frame(iframe)
-            page.html += driver.page_source
+            iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
+            # iframe内のURLを修正する
+            page.html += iframe_html
         driver.switch_to.default_content()
     except Exception as err:
-        logger.exception("Failed to get info from Browser: {err}")
+        logger.exception(f"Failed to get info from Browser: {err}")
         return ['infoGetError_browser', page.url + '\n' + str(err)] # type: ignore
     else:
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新

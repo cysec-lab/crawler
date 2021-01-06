@@ -3,9 +3,24 @@ from __future__ import annotations
 import re
 from typing import List, Tuple
 from urllib.parse import urlparse
+from bs4 import BeautifulSoup
+from typing import Optional
 
 rm_query = re.compile(r'(.+)\?')
 last_slash = re.compile(r'.+\/')
+
+def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str, ...]]) -> str:
+    """
+    与えられたHTMLのscript>srcを修正して返す
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+    for sc in soup.findAll('script'): # type: ignore # aタグを全部取ってくる
+            link_url: Optional[str] = sc.get('src')
+            if link_url:
+                js_url = complete_js_url(link_url, url, html_special_char)
+                html.replace(link_url, js_url)
+    return html
+
 
 def remove_query(url: str) -> str:
     reg = rm_query.match(url)
