@@ -92,6 +92,7 @@ def del_dir(path: str, j: int, k: int):
 def make_achievement(dire: str):
     """
     result_history/*/下にachieventディレクトリを作る
+    result直下のファイルから読み出したデータをachievementにまとめる
 
     args:
         dire: organization/result_history/*/ へのパス
@@ -118,7 +119,7 @@ def make_achievement(dire: str):
                 data = r_file(result_list[j], mode="r")
                 if data is None:
                     data = ""
-                # ファイルから読み出したデータをfile_dict[ファイル名]に追加する
+                # result直下にあるファイルから読み出したデータをfile_dict[ファイル名]に追加する
                 if result_list[j] in file_dic:
                     file_dic[result_list[j]] += data
                 else:
@@ -189,6 +190,9 @@ def merge_server_dir(path: str):
                     # ファイルの中身を追記
                     with open("{}/{}/server/{}/{}".format(path, result_dir, server, file), mode="r") as f:
                         content = f.read()
+                        if file.endswith('.csv'):
+                            # CSVファイルの時はヘッダを取り除く
+                            content = content[content.find('\n'):]
                     with open("{}/achievement/server/{}/{}".format(path, server, file), mode="a") as f:
                         f.write("\n" + content)
             else:
