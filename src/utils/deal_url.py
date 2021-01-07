@@ -18,7 +18,6 @@ def create_only_dict(regex_list: Any) -> Optional[re.Pattern[str]]:
 
     if "Regex" in regex_list and len(regex_list["Regex"]) > 0:
       regex = '(' + '|'.join(regex_list["Regex"]) + ')'
-      print('regex: ' + regex)
       return re.compile(regex)
     else:
       return None

@@ -128,9 +128,7 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
             try:
                 iframe_url = iframe.get_property("src")
                 driver.switch_to.frame(iframe)
-                print(iframe_url)
                 iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
-                print(iframe_html)
                 # iframe内のURLを修正する
                 page.html += iframe_html
                 # 高速に入れ替えすぎると要素の取得が追い付かないため
