@@ -17,6 +17,11 @@ class TestCompleteURL(unittest.TestCase):
         exp = 'http://www.google.com/url'
         self.assertEqual(remove_query(url), exp)
 
+        url = 'http://www.apu.ac.jp/home/js/lib/modernizr.min.js/?&version='
+        exp = 'http://www.apu.ac.jp/home/js/lib/modernizr.min.js'
+        self.assertEqual(remove_query(url), exp)
+
+
     def test_remove_scheme(self):
         url = 'http://www.google.com/url1'
         exp = 'www.google.com/url1'

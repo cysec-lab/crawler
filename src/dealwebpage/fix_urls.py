@@ -31,7 +31,11 @@ def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str,
 def remove_query(url: str) -> str:
     reg = rm_query.match(url)
     if reg:
-        return reg.groups()[0]
+        req = reg.groups()[0]
+        if req.endswith('/'):
+            return req[:-1]
+        else:
+            return req
     else:
         return url
 
