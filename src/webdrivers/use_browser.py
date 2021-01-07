@@ -117,21 +117,28 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
     try:
         page.url = cast(str, driver.current_url)    # リダイレクトで違うURLの情報を取っている可能性があるため
         page.html = cast(str, driver.page_source)   # htmlソースを更新
-
-        # iframeの先のHTMLたちを結合する
-        # TODO: まじでそのまま後ろにつなげているだけなので許してほしい
-        iframe_list = driver.find_elements_by_tag_name("iframe")
-        for iframe in iframe_list:
-            iframe_url = iframe.get_property("src")
-            driver.switch_to.frame(iframe)
-            iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
-            # iframe内のURLを修正する
-            page.html += iframe_html
-        driver.switch_to.default_content()
     except Exception as err:
         logger.exception(f"Failed to get info from Browser: {err}")
         return ['infoGetError_browser', page.url + '\n' + str(err)] # type: ignore
     else:
+        # iframeの先のHTMLたちを結合する
+        # TODO: まじでそのまま後ろにつなげているだけなので許してほしい
+        iframe_list = driver.find_elements_by_tag_name("iframe")
+        for iframe in iframe_list:
+            try:
+                iframe_url = iframe.get_property("src")
+                driver.switch_to.frame(iframe)
+                print(iframe_url)
+                iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
+                print(iframe_html)
+                # iframe内のURLを修正する
+                page.html += iframe_html
+                # 高速に入れ替えすぎると要素の取得が追い付かないため
+            except:
+                logger.info("Failed to switch iframe")
+                pass
+            sleep(0.1)
+        driver.switch_to.default_content()
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
         if page.html:
