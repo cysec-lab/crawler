@@ -4,7 +4,7 @@ import os
 import unittest
 from typing import List
 
-from dealwebpage.fix_urls import complete_js_url, remove_query
+from dealwebpage.fix_urls import complete_js_url, remove_query, remove_scheme
 
 
 class TestCompleteURL(unittest.TestCase):
@@ -16,6 +16,20 @@ class TestCompleteURL(unittest.TestCase):
         url = 'http://www.google.com/url'
         exp = 'http://www.google.com/url'
         self.assertEqual(remove_query(url), exp)
+
+    def test_remove_scheme(self):
+        url = 'http://www.google.com/url1'
+        exp = 'www.google.com/url1'
+        self.assertEqual(remove_scheme(url), exp)
+
+        url = 'https://www.google.com/url2'
+        exp = 'www.google.com/url2'
+        self.assertEqual(remove_scheme(url), exp)
+
+        url = 'www.google.com/url3'
+        exp = 'www.google.com/url3'
+        self.assertEqual(remove_scheme(url), exp)
+
 
     def test_complete_js_url(self):
         """

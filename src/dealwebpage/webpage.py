@@ -124,7 +124,9 @@ class Page:
         self.request_url_from_ex: Set[str] = set([elm.get_text() for elm in request_elements]) # type: ignore
 
         # 拡張機能から Script のリクエストURLを取得する
-        self.script_url_from_ex: Set[str] = set([remove_query(elm.get_text()) for elm in script_elements]) # type: ignore
+        self.script_url_from_ex: Set[str] = set(
+            [remove_scheme(remove_query(elm.get_text())) for elm in script_elements] # type: ignore
+        )
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する
         # download_info["数字"] = { URL, FileName, Mime, FileSize, TotalBytes, Danger, StartTime, Referrer } それぞれ辞書型
@@ -170,7 +172,7 @@ class Page:
             if link_url:
                 js_url = complete_js_url(link_url, self.url, self.html_special_char)
                 self.script_url.add(js_url)
-                self.script_url_without_query.add(remove_query(js_url))
+                self.script_url_without_query.add(remove_scheme(remove_query(js_url)))
 
 
     def make_links_xml(self, soup: BeautifulSoup):

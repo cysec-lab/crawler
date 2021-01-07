@@ -14,11 +14,17 @@ def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str,
     与えられたHTMLのscript>srcを修正して返す
     """
     soup = BeautifulSoup(html, 'html.parser')
-    for sc in soup.findAll('script'): # type: ignore # aタグを全部取ってくる
+
+    # 同じScriptが存在した場合に複数回replaceしないようにメモ
+    memo = set()
+
+    for sc in soup.findAll('script'): # type: ignore
             link_url: Optional[str] = sc.get('src')
             if link_url:
                 js_url = complete_js_url(link_url, url, html_special_char)
-                html.replace(link_url, js_url)
+                if not js_url in memo:
+                    html = html.replace(link_url, js_url)
+                memo.add(js_url)
     return html
 
 
@@ -28,6 +34,20 @@ def remove_query(url: str) -> str:
         return reg.groups()[0]
     else:
         return url
+
+
+def remove_scheme(url: str) -> str:
+    """
+    http:// とか https:// を削除する
+    頭についているもののみを対象とする
+    """
+    if url.startswith('https://'):
+        return url[8:]
+    elif url.startswith('http://'):
+        return url[7:]
+    else:
+        return url
+
 
 def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[str,...]]):
     """
