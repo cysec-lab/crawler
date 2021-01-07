@@ -192,21 +192,14 @@ def quit_driver(driver: WebDriver) -> bool:
     """
     WebDriverを終了させる
     """
-    logger.debug("Call quit_driver func")
-    try:
-        driver.close()
-    except Exception as err:
-        logger.info(f"There are no window.... {err}")
-        pass
-
-    logger.debug("Try to quit_driver")
+    logger.debug("Try to quit_driver...")
     try:
         driver.quit()
     except Exception as err:
         logger.exception(f'Failed to quit driver: {err}')
         return False
     else:
-        logger.debug("Quit WebDriver")
+        logger.debug("Try to quit_driver... FIN!")
         return True
 
 
