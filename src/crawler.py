@@ -986,6 +986,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 # 実行中のパーススレッドが処理を終えるまで待つ
                 logger.debug('%s : wait 3sec for finishing parse thread', host)
                 sleep(3)
+            logger.debug('%s: thread joined!', host)
             # 3秒待機後、親プロセスにURLをもう一度要求する
             sleep(3)
             send_to_parent(sendq=q_send, data='plz')   # plz要求

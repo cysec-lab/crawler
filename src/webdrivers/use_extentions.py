@@ -123,7 +123,7 @@ def rm_other_than_watcher(driver: WebDriver, wait: WebDriverWait, watcher_window
     except Exception as err:
         logger.exception(f"{err}")
         return watcher_window
-    
+
     windows = cast(List[Union[int, str]], windows)
     for window in windows:
         driver.switch_to.window(window)

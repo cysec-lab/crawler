@@ -2,16 +2,15 @@ from copy import deepcopy
 from json import loads
 from logging import getLogger
 from time import sleep
-from typing import Any, Dict, Iterable, Optional, Tuple, Union, Set
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import quote, urlparse
 from urllib.request import urlopen
 
 import bs4
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
-from typing import List, Tuple
 
-from dealwebpage.fix_urls import complete_js_url, remove_query
+from dealwebpage.fix_urls import complete_js_url, remove_query, remove_scheme
 from dealwebpage.html_read_thread import UrlOpenReadThread
 
 logger = getLogger(__name__)
