@@ -10,7 +10,7 @@ import bs4
 from bs4 import BeautifulSoup
 from bs4.element import ResultSet
 
-from dealwebpage.fix_urls import complete_js_url, remove_query, remove_scheme
+from dealwebpage.fix_urls import complete_js_url, remove_query, remove_scheme, fix_request_url
 from dealwebpage.html_read_thread import UrlOpenReadThread
 
 logger = getLogger(__name__)
@@ -124,7 +124,7 @@ class Page:
 
         # 拡張機能から Script のリクエストURLを取得する
         self.script_url_from_ex: Set[str] = set(
-            [remove_scheme(remove_query(elm.get_text())) for elm in script_elements] # type: ignore
+            [fix_request_url(elm.get_text()) for elm in script_elements] # type: ignore
         )
 
         # downloadのURLを辞書のリストにし、soupの中身から削除する

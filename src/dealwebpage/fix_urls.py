@@ -29,15 +29,15 @@ def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str,
 
 
 def remove_query(url: str) -> str:
+    """
+    クエリを取り除く
+    """
     reg = rm_query.match(url)
     if reg:
-        req = reg.groups()[0]
-        if req.endswith('/'):
-            return req[:-1]
-        else:
-            return req
-    else:
-        return url
+        url = reg.groups()[0]
+    if url.endswith('/'):
+        url = url[:-1]
+    return url
 
 
 def remove_scheme(url: str) -> str:
@@ -51,6 +51,16 @@ def remove_scheme(url: str) -> str:
         return url[7:]
     else:
         return url
+
+def fix_request_url(url: str) -> str:
+    """
+    拡張機能からとったURLの修正を行う
+    """
+    fixed_url = remove_scheme(remove_query(url))
+    # www.google.com/url?sa=p&q= から始まる場合は以降のURLのみについて考える
+    if fixed_url.startswith('www.google.com/url?sa=p&q='):
+        fixed_url = remove_scheme(fixed_url[26:])
+    return fixed_url
 
 
 def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[str,...]]):
