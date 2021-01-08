@@ -1016,7 +1016,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 logger.info(f'robot\'s say don\'t crawle {page.url}')
                 update_write_file_dict('result', 'url_access_denied_by_robots.csv',
                                     content=['URL, src', page.url + ', ' + page.src])
-                send_to_parent(q_send, {'type': 'link', 'url_set': set(), "ini_url": page.url_initial, "url_src": page.src})
+                send_to_parent(q_send, {'type': 'links', 'url_set': set(), "ini_url": page.url_initial, "url_src": page.src})
                 continue
         if ("falsification" in host) or ("www.img.is.ritsumei.ac.jp" in host):
             logger.debug("get by urlopen: %s", page.url)
@@ -1098,7 +1098,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                                                content=['URL, src', page.url + ', ' + page.src])
                 else:
                     logger.error("there are no url_dict, unrechable Bug")
-                num_of_pages += 1
+            num_of_pages += 1
             # mainプロセスにこのURLのクローリング完了を知らせる
             send_data = {'type': 'links', 'url_set': set(), "url_src": page.url}   # 親に送るデータ
             send_to_parent(q_send, send_data)    # 親にURLリストを送信
