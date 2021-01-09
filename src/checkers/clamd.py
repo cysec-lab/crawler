@@ -102,7 +102,7 @@ def clamd_main(queue_log: Queue[Any], recvq: Queue[str], sendq: Queue[Union[str,
             text = ''
             for i in clamd_error:
                 text += i + '\n'
-            w_file('clamd_error.txt', text, mode="a")
+            w_file('error_clamd.txt', text, mode="a")
             clamd_error.clear()
 
     text = ''
