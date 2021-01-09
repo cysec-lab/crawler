@@ -126,7 +126,9 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
         iframe_list = driver.find_elements_by_tag_name("iframe")
         for iframe in iframe_list:
             try:
-                iframe_url = iframe.get_property("src")
+                iframe_url = iframe.get_attribute("src")
+                if iframe_url == "":
+                    iframe_url = iframe.get_attribute("data-src")
                 driver.switch_to.frame(iframe)
                 iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
                 # iframe内のURLを修正する
