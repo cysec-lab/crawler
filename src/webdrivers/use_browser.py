@@ -198,9 +198,8 @@ def quit_driver(driver: WebDriver) -> bool:
     except Exception as err:
         logger.exception(f'Failed to quit driver: {err}')
         return False
-    else:
-        logger.debug("Try to quit_driver... FIN!")
-        return True
+    logger.debug("Try to quit_driver... FIN!")
+    return True
 
 
 """

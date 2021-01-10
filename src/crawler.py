@@ -918,15 +918,9 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
     if setting_dict['headless_browser']:
         driver_info = get_fox_driver(queue_log, setting_dict['screenshots'], user_agent=user_agent, org_path=org_path)
         if driver_info is False:
-            logger.warning("%s : cannnot make browser process", host)
-            sleep(1)
-            logger.info("kill_geckdriver called")
-            kill_chrome("geckodriver")
-            logger.info("kill_firefox called")
-            kill_chrome("firefox-bin")
-            logger.info("Save_result...")
+            logger.warning("cannnot make browser process, save result...")
             save_result(alert_process_q)
-            logger.info("Save_result... FIN")
+            logger.info("save_result... FIN")
             return
 
         driver_info = cast(Dict[str, Any], driver_info)
