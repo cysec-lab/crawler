@@ -130,14 +130,15 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
                 if iframe_url == "":
                     iframe_url = iframe.get_attribute("data-src")
                 driver.switch_to.frame(iframe)
+                sleep(0.2)
                 iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
+                driver.switch_to.default_content()
                 # iframe内のURLを修正する
                 page.html += iframe_html
-                # 高速に入れ替えすぎると要素の取得が追い付かないため
-            except:
-                logger.info("Failed to switch iframe")
+                sleep(0.2)
+            except Exception as err:
+                logger.info(f"Failed to switch iframe, {err}")
                 pass
-            sleep(0.1)
         driver.switch_to.default_content()
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新
