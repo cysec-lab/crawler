@@ -924,7 +924,6 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                     logger.info('Number of assignment reached MAX')
                     while not (len(processes) == 0):
                         # 子プロセスがすべて終了するまで待つ
-                        sleep(3)
                         for temp in hostName_process.values():
                             if temp.is_alive():
                                 logger.debug("alived process [%s]", str(temp))

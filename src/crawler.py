@@ -4,7 +4,6 @@ import json
 import os
 import pickle
 import threading
-import urllib.error
 from copy import deepcopy
 from datetime import datetime
 from logging import getLogger
@@ -24,7 +23,6 @@ from checkers.mecab import (add_word_dic, get_tf_dict_by_mecab,
                             get_top10_tfidf, make_tfidf_dict)
 from crawler_utils.communicate_tools import send_to_parent
 from dealwebpage.page_analyze import check_redirect, page_or_file
-from dealwebpage.robotparser import RobotFileParser
 from dealwebpage.script_analyze import (form_inspection, get_meta_refresh_url,
                                         iframe_inspection,
                                         meta_refresh_inspection,
@@ -45,6 +43,7 @@ from webdrivers.use_extentions import (configure_logger_for_use_extentions,
                                        start_watcher_and_move_blank,
                                        stop_watcher_and_get_data)
 from webdrivers.webdriver_init import get_fox_driver
+from dealwebpage.robot_parse_th import RobotParserThread
 
 html_special_char: List[Tuple[str, ...]] = list()  # URLの特殊文字を置換するためのリスト
 
@@ -129,6 +128,7 @@ def init(host: str, screenshots: bool):
     global dir_name, f_name, word_idf_dict, word_df_dict, url_cache, url_dict, num_of_files, num_of_pages
     global request_url_set, request_url_filter, iframe_src_set, iframe_src_set_pre, link_set, link_url_filter
 
+    logger.debug('making settings...')
     # このファイル位置の絶対パスで取得 「*/src」
     src_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -143,6 +143,7 @@ def init(host: str, screenshots: bool):
 
     # organization/<>/result/result_*/ にserverを作成
     if not os.path.exists('server'):
+        logger.debug('creating result server dir')
         try:
             os.mkdir('server')
         except:
@@ -155,14 +156,22 @@ def init(host: str, screenshots: bool):
     # ファイル名を作成
     f_name = dir_name.replace('.', '-')
     if not os.path.exists('server/' + dir_name):
-        os.mkdir('server/' + dir_name)
+        try:
+            logger.debug('creatign server dir')
+            os.mkdir('server/' + dir_name)
+        except:
+            pass
 
     if screenshots:
         if not os.path.exists(org_path + '/RAD/screenshots/' + dir_name):
-            os.mkdir(org_path + '/RAD/screenshots/' + dir_name)
+            try:
+                os.mkdir(org_path + '/RAD/screenshots/' + dir_name)
+            except:
+                pass
     os.chdir('server/' + dir_name)
 
     # 途中保存をロード
+    logger.debug("Loading past data... FIN!")
     if os.path.exists(org_path + '/RAD/temp/progress_' + f_name + '.pickle'):
         logger.debug("Loading past data... /RAD/temp/progress_%s.pickle", f_name)
         with open(org_path + '/RAD/temp/progress_' + f_name + '.pickle', 'rb') as f:
@@ -179,16 +188,11 @@ def init(host: str, screenshots: bool):
 
     # robots.txtがNoneのままだった場合
     if robots is None:
-        robots = RobotFileParser(url='http://' + host + '/robots.txt')
-        try:
-            robots.read()
-        except urllib.error.URLError:   # サーバに接続できなければエラーが出る。
-            robots = None               # robots.txtがなかったら、全てTrueを出すようになる。
-        except Exception as err:
-            # エラーとして, http.client.RemoteDisconnected などのエラーが出る
-            # 'utf-8' codec can't decode byte (http://ritsapu-kr.com/)
-            logger.exception(f'Exception occur: {err}')
-            robots = None
+        rt = RobotParserThread(host, logger)
+        rt.start()
+        rt.join(timeout=5)
+        if rt.is_alive():
+            logger.info('failed to get robots.txt, set None')
 
     # request url のホワイトリストのフィルタをロード
     path = org_path + '/ROD/request_url/filter.json'
@@ -916,8 +920,13 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
         if driver_info is False:
             logger.warning("%s : cannnot make browser process", host)
             sleep(1)
+            logger.info("kill_geckdriver called")
             kill_chrome("geckodriver")
+            logger.info("kill_firefox called")
             kill_chrome("firefox-bin")
+            logger.info("Save_result...")
+            save_result(alert_process_q)
+            logger.info("Save_result... FIN")
             return
 
         driver_info = cast(Dict[str, Any], driver_info)
@@ -940,7 +949,6 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
 
     # クローラプロセスメインループ
     while True:
-
         # 動いていることを確認
         if "falsification" in host:
             pid = os.getpid()
@@ -986,7 +994,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                 # 実行中のパーススレッドが処理を終えるまで待つ
                 logger.debug('%s : wait 3sec for finishing parse thread', host)
                 sleep(3)
-            logger.debug('%s: thread joined!', host)
+            logger.debug('there are noting to crawle')
             # 3秒待機後、親プロセスにURLをもう一度要求する
             sleep(3)
             send_to_parent(sendq=q_send, data='plz')   # plz要求

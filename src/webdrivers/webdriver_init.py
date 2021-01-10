@@ -63,11 +63,11 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
         if type(t.driver) == WebDriver:
             driver = cast(WebDriver, t.driver)
             quit_driver(driver) # 一応終了させて
-        logger.info("Fail to getting driver: Freeze, return fail")
+        logger.info("Failed to getting driver: thread freezed")
         return False
     if t.driver is False:
         # 単にエラーで取得できなかった場合
-        logger.info("Fail to getting driver: Error, return fail")
+        logger.info("Failed to getting driver: thread couse error")
         return False
 
     if type(t.driver) == WebDriver:
