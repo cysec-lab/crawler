@@ -17,6 +17,7 @@ from selenium.webdriver.firefox.webdriver import WebDriver
 from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.support.ui import WebDriverWait
 from utils.logger import worker_configurer
+from utils.alert_data import Alert as CrawlerAlert
 
 logger = getLogger(__name__)
 
@@ -62,7 +63,7 @@ def create_blank_window(driver: WebDriver, wait: WebDriverWait, watcher_window: 
 
 GET_WEBDRIVER_RETRY = 2
 
-def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
+def set_html(page: Page, driver: WebDriver, alert_process_q: Queue[Union[CrawlerAlert, str]]) -> Union[bool, str, list[str]]:
     """
     ブラウザでURLにアクセス、HTMLを取得する
     """
@@ -138,7 +139,12 @@ def set_html(page: Page, driver: WebDriver) -> Union[bool, str, list[str]]:
                 sleep(0.2)
             except Exception as err:
                 logger.info(f"Failed to switch iframe, {err}")
-                pass
+                alert_process_q.put(CrawlerAlert(
+                    url       = page.url_initial,
+                    file_name = 'iframe_switch_failed.csv',
+                    content   = page.url_initial + ", " + page.url + ", " + str(err),
+                    label     = 'InitialURL,URL,AlertText'
+                ))
         driver.switch_to.default_content()
         page.hostName = urlparse(page.url).netloc   # ホスト名を更新
         page.scheme = urlparse(page.url).scheme     # スキームも更新

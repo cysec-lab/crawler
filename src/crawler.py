@@ -1145,7 +1145,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
 
                 # ブラウザからHTML文などの情報取得
                 logger.info('setting html...')
-                browser_result = set_html(page=page, driver=driver)
+                browser_result = set_html(page=page, driver=driver, alert_process_q=alert_process_q)
                 logger.info('setting html... FIN!')
                 if "falsification.cysec.cs" in host:
                     logger.info("result of getting html by browser: %s, %s", page.url, browser_result)
