@@ -48,6 +48,11 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
 
     if t.re == False:
         # 1度だけドライバ取得をリトライする
+        logger.info('retry to get webdriver')
+        if type(t.driver) == WebDriver:
+            logger.info('quit past driver')
+            driver = cast(WebDriver, t.driver)
+            quit_driver(driver) # 一応終了
         try:
             t = GetFirefoxDriverThread(queue_log=queue_log, options=options, ffprofile=profile, capabilities=caps)
             t.start()
@@ -60,10 +65,10 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
 
     if t.re == False:
         # ドライバ取得でフリーズする等のエラー処理
+        logger.info("Failed to getting driver: thread freezed")
         if type(t.driver) == WebDriver:
             driver = cast(WebDriver, t.driver)
             quit_driver(driver) # 一応終了させて
-        logger.info("Failed to getting driver: thread freezed")
         return False
     if t.driver is False:
         # 単にエラーで取得できなかった場合
@@ -83,6 +88,7 @@ def get_fox_driver(queue_log: Queue[Any], screenshots: bool=False, user_agent: s
     watcher_window = get_watcher_window(driver, wait)
     if watcher_window is False:
         logger.warning("Fail to get watcher window, return fail")
+        quit_driver(driver)
         return False
     watcher_window = cast(Union[str, int], watcher_window)
 
