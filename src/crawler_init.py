@@ -572,7 +572,7 @@ def receive_and_send(not_send: bool=False):
         not_send: Trueならば子プロセスにURLを送信しない
                   子プロセスからのデータを受け取りたいだけの時に利用
     """
-    global recv_num, send_num
+    global recv_num, send_num, hostName_remaining
 
     # 通信用キューをループで回る
     for host_name, queue in hostName_queue.items():
@@ -588,6 +588,7 @@ def receive_and_send(not_send: bool=False):
                 # 子プロセスからのメッセージがURLの送信要求の場合
                 hostName_remaining[host_name]['update_time'] = int(time())
                 if not_send is True:
+                    logger.debug('%s, not_send flag is True', host_name)
                     queue['parent_send'].put('nothing')
                 else:
                     if hostName_remaining[host_name]['URL_list']:
@@ -595,6 +596,7 @@ def receive_and_send(not_send: bool=False):
                         while True:
                             if not hostName_remaining[host_name]['URL_list']:
                                 # 待機リストが空ならば子プロセスにもうURLがないことを伝えてbreak
+                                logger.debug('%s: hostName remaingin is null', host_name)
                                 queue['parent_send'].put('nothing')
                                 break
                             url_tuple: str = hostName_remaining[host_name]['URL_list'].popleft()
@@ -606,6 +608,7 @@ def receive_and_send(not_send: bool=False):
                                 break
                     else:
                         # クローリング対象URLがもうないのならば終了を伝える
+                        logger.debug('%s: there are no crawling list', host_name)
                         queue['parent_send'].put('nothing')
 
         elif type(received_data) is tuple:
@@ -685,7 +688,7 @@ def receive_and_send(not_send: bool=False):
                 recv_num += len(url_tuple_set)
                 # 接続診断結果がTrueのURLをurl_listに追加
                 for url_tuple in url_tuple_set:
-                    if url_tuple[1] is True:
+                    if url_tuple[1] is True and not url_tuple[0] in assignment_url_set:
                         # 分類待ちリストに入れる
                         url_list.append((url_tuple[0], url_src))
                     # url_dbの更新
@@ -961,7 +964,7 @@ def crawler_host(queue_log: Queue[Any], org_arg: Dict[str, Union[str, int]] = {}
                 # プロセス数にゆとりがあるならば
                 # hostName_remainingを待機URL数が多い順にソートする
                 tmp_list = sorted(hostName_remaining.items(), reverse=True, key=lambda kv: len(kv[1]['URL_list']))
-                # 待機(URL_list)が0のサーバーを削除
+                # 待機(URL_list)が0のサーバーのみをtmp_listに残す
                 tmp_list = [tmp for tmp in tmp_list if tmp[1]['URL_list']]
                 if tmp_list:
                     # 一番待機URLが少ないホスト名のクローロングプロセスを1つ作る
