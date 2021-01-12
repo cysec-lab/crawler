@@ -921,7 +921,10 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
             logger.warning("cannnot make browser process, save result...")
             save_result(alert_process_q)
             logger.info("save_result... FIN")
-            return
+            logger.info("try to kill geckodriver... ")
+            kill_chrome("geckodriver")
+            logger.info("try to kill geckodriver... FIN")
+            os._exit(0)
 
         driver_info = cast(Dict[str, Any], driver_info)
         driver: WebDriver = driver_info["driver"]
