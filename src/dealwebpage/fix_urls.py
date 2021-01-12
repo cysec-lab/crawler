@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from typing import Optional
 
-rm_query = re.compile(r'(.+)\?')
+rm_query = re.compile(r'(.+?)\?')
 last_slash = re.compile(r'.+\/')
 
 def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str, ...]]) -> str:
@@ -56,11 +56,11 @@ def fix_request_url(url: str) -> str:
     """
     拡張機能からとったURLの修正を行う
     """
-    fixed_url = remove_scheme(remove_query(url))
+    fixed_url = remove_scheme(url)
     # www.google.com/url?sa=p&q= から始まる場合は以降のURLのみについて考える
     if fixed_url.startswith('www.google.com/url?sa=p&q='):
         fixed_url = remove_scheme(fixed_url[26:])
-    return fixed_url
+    return remove_query(fixed_url)
 
 
 def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[str,...]]):

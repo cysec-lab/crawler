@@ -4,13 +4,13 @@ import os
 import unittest
 from typing import List
 
-from dealwebpage.fix_urls import complete_js_url, remove_query, remove_scheme
+from dealwebpage.fix_urls import complete_js_url, fix_request_url, remove_query, remove_scheme
 
 
 class TestCompleteURL(unittest.TestCase):
     def test_remove_query(self):
         url = 'http://www.google.com/url?sa=p&q=http://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tnKBSr1bu9G1k-rJA-tpVdLJlF8KdmpnsArhCkRSO2J51SG_q0py2igYpeYSFp-yNEhv8nf2JBtjg1oYp2Hh0KXr9eny/api/js?anon%3Dtrue%26pref%3D2'
-        exp = 'http://www.google.com/url?sa=p&q=http://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tnKBSr1bu9G1k-rJA-tpVdLJlF8KdmpnsArhCkRSO2J51SG_q0py2igYpeYSFp-yNEhv8nf2JBtjg1oYp2Hh0KXr9eny/api/js'
+        exp = 'http://www.google.com/url'
         self.assertEqual(remove_query(url), exp)
 
         url = 'http://www.google.com/url'
@@ -21,6 +21,10 @@ class TestCompleteURL(unittest.TestCase):
         exp = 'http://www.apu.ac.jp/home/js/lib/modernizr.min.js'
         self.assertEqual(remove_query(url), exp)
 
+    def test_fix_request_url(self):
+        url = 'http://www.google.com/url?sa=p&q=http://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tnKBSr1bu9G1k-rJA-tpVdLJlF8KdmpnsArhCkRSO2J51SG_q0py2igYpeYSFp-yNEhv8nf2JBtjg1oYp2Hh0KXr9eny/api/js?anon%3Dtrue%26pref%3D2'
+        exp = 'docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tnKBSr1bu9G1k-rJA-tpVdLJlF8KdmpnsArhCkRSO2J51SG_q0py2igYpeYSFp-yNEhv8nf2JBtjg1oYp2Hh0KXr9eny/api/js'
+        self.assertEqual(fix_request_url(url), exp)
 
     def test_remove_scheme(self):
         url = 'http://www.google.com/url1'
