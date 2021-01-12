@@ -667,6 +667,9 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         # リクエストにはあるのにHTML上に存在しないJSリクエスト
         only_ex_req = page.script_url_from_ex - page.script_url_without_query
         for js_req in only_ex_req:
+            if setting_dict['debug']:
+                update_write_file_dict('result', 'js_only_exist_in_request_debug.csv',
+                        ['URL,script_url,html_url,req_url', page.url + ', ' + js_req + ', ' + str(page.script_url_without_query) + ', ' + str(page.script_url_from_ex)])
             update_write_file_dict('result', 'js_only_exist_in_request.csv',
                         ['URL,script_url', page.url + ', ' + js_req])
 
@@ -675,6 +678,9 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
         for js_req in only_html_req:
             if not js_req.startswith('chrome'):
                 # Firefox内に組み込みで入っているJSを使っている場合は記録しない
+                if setting_dict['debug']:
+                    update_write_file_dict('result', 'js_only_exist_in_html_debug.csv',
+                            ['URL,script_url,html_url,req_url', page.url + ', ' + js_req + ', ' + str(page.script_url_without_query) + ', ' + str(page.script_url_from_ex)])
                 update_write_file_dict('result', 'js_only_exist_in_html.csv',
                             ['URL,script_url', page.url + ', ' + js_req])
 

@@ -72,7 +72,7 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     """
 
     setting: dict[str, Union[str, int, bool, None]] = dict()
-    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab', 'html_diff']
+    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab', 'html_diff', 'debug']
 
     # デフォルトの設定
     setting['MAX_page'] = 200   # 200ページ
@@ -86,6 +86,7 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     setting['headless_browser'] = False
     setting['mecab'] = False
     setting['html_diff'] = False
+    setting['debug'] = False
 
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
