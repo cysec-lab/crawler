@@ -6,8 +6,6 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from typing import Optional
 
-rm_query = re.compile(r'(.+?)\?')
-last_slash = re.compile(r'.+\/')
 
 def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str, ...]]) -> str:
     """
@@ -27,6 +25,7 @@ def complete_url_by_html(html: str, url: str, html_special_char: List[Tuple[str,
                 memo.add(js_url)
     return html
 
+rm_query = re.compile(r'(.+?)\?')
 
 def remove_query(url: str) -> str:
     """
@@ -38,6 +37,13 @@ def remove_query(url: str) -> str:
     if url.endswith('/'):
         url = url[:-1]
     return url
+
+
+def remove_port(url: str) -> str:
+    """
+    ポートを取り除く
+    """
+    return re.sub(r':\d+', '', url)
 
 
 def remove_scheme(url: str) -> str:
@@ -62,6 +68,8 @@ def fix_request_url(url: str) -> str:
         fixed_url = remove_scheme(fixed_url[26:])
     return remove_query(fixed_url)
 
+
+last_slash = re.compile(r'.+\/')
 
 def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[str,...]]):
     """
@@ -109,4 +117,4 @@ def complete_js_url(src_url: str, page_url: str, html_special_char: List[Tuple[s
     for spechar in spechars:
         src_url = src_url.replace(spechar[0], spechar[1])
 
-    return src_url
+    return remove_port(src_url)

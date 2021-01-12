@@ -4,7 +4,8 @@ import os
 import unittest
 from typing import List
 
-from dealwebpage.fix_urls import complete_js_url, fix_request_url, remove_query, remove_scheme
+from dealwebpage.fix_urls import (complete_js_url, fix_request_url,
+                                  remove_port, remove_query, remove_scheme)
 
 
 class TestCompleteURL(unittest.TestCase):
@@ -38,6 +39,18 @@ class TestCompleteURL(unittest.TestCase):
         url = 'www.google.com/url3'
         exp = 'www.google.com/url3'
         self.assertEqual(remove_scheme(url), exp)
+
+    def test_remove_port(self):
+        """
+        ポート番号を削除する
+        """
+        url = 'http://localhost:8000'
+        exp = 'http://localhost'
+        self.assertEqual(remove_port(url), exp)
+
+        url = 'c1-officeapps-15.cdn.office.net:443/p/s/App_Scripts/MicrosoftAjax.js'
+        exp = 'c1-officeapps-15.cdn.office.net/p/s/App_Scripts/MicrosoftAjax.js'
+        self.assertEqual(remove_port(url), exp)
 
 
     def test_complete_js_url(self):
