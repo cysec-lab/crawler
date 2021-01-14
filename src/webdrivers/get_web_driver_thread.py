@@ -44,4 +44,5 @@ class GetFirefoxDriverThread(Thread):
             logger.exception(f'{err}')
             self.driver = False
         finally:
+            self.driver.implicitly_wait(1)
             self.re = True

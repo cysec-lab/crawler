@@ -125,13 +125,15 @@ def set_html(page: Page, driver: WebDriver, alert_process_q: Queue[Union[Crawler
         # iframeの先のHTMLたちを結合する
         # TODO: まじでそのまま後ろにつなげているだけなので許してほしい
         iframe_list = driver.find_elements_by_tag_name("iframe")
+        if iframe_list:
+            sleep(1)
         for iframe in iframe_list:
             try:
                 iframe_url = iframe.get_attribute("src")
                 if iframe_url == "":
                     iframe_url = iframe.get_attribute("data-src")
                 driver.switch_to.frame(iframe)
-                sleep(0.2)
+                sleep(0.1)
                 logger.debug('switch to %s', str(iframe))
                 # iframe内のURLを修正して追記
                 iframe_html = complete_url_by_html(driver.page_source, iframe_url, page.html_special_char)
@@ -139,23 +141,25 @@ def set_html(page: Page, driver: WebDriver, alert_process_q: Queue[Union[Crawler
 
                 # iframe は2重までは調査
                 iframe_list2 = driver.find_elements_by_tag_name("iframe")
+                if iframe_list2:
+                    sleep(0.5)
                 for if2 in iframe_list2:
                     iframe_url2 = if2.get_attribute("src")
                     if iframe_url2 == "":
                         iframe_url2 = if2.get_attribute("data-src")
                     logger.debug('add %s', str(if2))
                     driver.switch_to.frame(if2)
-                    sleep(0.2)
+                    sleep(0.1)
                     iframe_html = complete_url_by_html(driver.page_source, iframe_url2, page.html_special_char)
                     page.html += iframe_html
                     # もとのフレームまで戻る, トップから順に戻らないとエラーになる
                     driver.switch_to.default_content()
-                    sleep(0.2)
+                    sleep(0.1)
                     driver.switch_to.frame(iframe)
-                    sleep(0.2)
+                    sleep(0.1)
 
                 driver.switch_to.default_content()
-                sleep(0.2)
+                sleep(0.3)
             except Exception as err:
                 logger.info(f"Failed to switch iframe: {iframe}, {err}")
                 alert_process_q.put(CrawlerAlert(
