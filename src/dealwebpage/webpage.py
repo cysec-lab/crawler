@@ -5,6 +5,8 @@ from time import sleep
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
 from urllib.parse import quote, urlparse
 from urllib.request import urlopen
+import time
+import re
 
 import bs4
 from bs4 import BeautifulSoup
@@ -299,6 +301,14 @@ class Page:
             # ?&は?に置き換える(いくつかのサイト(apu)で「http://www.ac.jp/?&変数=値」のような書き方がある)
             if '?&' in checked_url:
                 checked_url = checked_url.replace('?&', '?')
+
+            # https://www2.spc.ritsumei.ac.jp/calendar のカレンダーに対応させる
+            if "exact_date~" in checked_url:
+                now = int(time.time())
+                url_time = int(re.findall(r'exact_date~(\d{10})', checked_url)[0])
+                # 約2ヶ月以上離れるならパス
+                if abs(now - url_time) > 7000000:
+                    continue
 
             # ?と&、=の数が等しいかチェック、等しければ変数に値が入っているかをチェック
             question = checked_url.count('?')
