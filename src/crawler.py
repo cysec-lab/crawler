@@ -1091,22 +1091,22 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                             write_file_to_alertdir.append(Alert(
                                 url       = page.url_initial,
                                 file_name = 'changed_js.csv',
-                                content   = page.url + ", " + str(num_of_days) + ", " + page.src,
-                                label     = 'URL, no-change days, call_from',
+                                content   = page.src + ", " + str(num_of_days) + ", " + page.url,
+                                label     = 'URL, no-change days, js_url',
                             ))
                         update_write_file_dict('result', 'js_hash_change.csv',
                                                 content=[
-                                                   'URL, no_change_days, page_src',
-                                                   page.url + ', ' + str(num_of_days) + ', ' + page.src
+                                                   'URL, no_change_days, js_src',
+                                                   page.src + ', ' + str(num_of_days) + ', ' + page.url
                                                 ])
                     elif num_of_days is True:
                         # ハッシュ値が同じ場合
                         update_write_file_dict('result', 'js_hash_same.csv',
-                                               content=['URL, src', page.url + ', ' + page.src])
+                                               content=['URL, js_src', page.src + ', ' + page.url])
                     elif num_of_days is False:
                         # 新規JSの場合
                         update_write_file_dict('result', 'js_new.csv',
-                                               content=['URL, src', page.url + ', ' + page.src])
+                                               content=['URL, sjs_rc', page.src + ', ' + page.url])
                 else:
                     logger.error("there are no url_dict, unrechable Bug")
             num_of_pages += 1
@@ -1183,6 +1183,7 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     logger.info("resource observer_thread joined")
                     continue
 
+                logger.debug('stop watcher...')
                 # watchingを停止して、page.watcher_htmlにwatcher.htmlのデータを保存
                 re = stop_watcher_and_get_data(driver=driver, wait=wait, watcher_window=watcher_window, page=page)
                 if re is False:
@@ -1192,10 +1193,13 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     r_t.join()
                     logger.info("resource observer_thread joined")
                     break
+                logger.debug('stop watcher... FIN!')
 
                 # watcher.htmlのHLTML文から、拡張機能によって取得した情報を抽出する
                 # parserスレッドでしない理由は、リダイレクトが行われていると、parserスレッドを起動しないから
+                logger.debug('get data from watcher...')
                 extract_extension_data_and_inspection(page=page, filtering_dict=filtering_dict)
+                logger.debug('get data from watcher... FIN!')
 
                 # alertが出されていると、そのテキストを記録
                 if page.alert_txt:
