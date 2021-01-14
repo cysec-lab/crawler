@@ -19,7 +19,7 @@ function jumpMe(){
 function autoDownLoad_js(){
 	var link3 = document.createElement("a");
 	document.body.appendChild(link3);
-	link3.href = "data/fromAtag.txt";
+	link3.href = "mal_site/data/fromAtag.txt";
 	link3.download = "fromAtag.txt";
 	link3.click();
 	document.body.removeChild(link3);
