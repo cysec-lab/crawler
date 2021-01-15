@@ -180,15 +180,25 @@ cloud.send(d);
 <!-- Time: 1.08054 Sec. -->
 """
         check_obf2 = CheckObf(lucky)
+        print(lucky.strip())
         self.assertEqual(check_obf2.check(), CheckObfResult.RANDOM)
 
     
     def test_regex(self):
+        """
+        正規表現いい感じかの調査
+        """
         src = "aAzZgG12:;"
         check_obf = CheckObf(src)
         self.assertEqual(check_obf.numbers, 2)
         self.assertEqual(check_obf.alphabets, 6)
         self.assertEqual(check_obf.symbols, 2)
+
+        src = "<!-- Time: 1.08054 Sec. -->"
+        check_obf = CheckObf(src)
+        self.assertEqual(check_obf.numbers, 6)
+        self.assertEqual(check_obf.alphabets, 7)
+        self.assertEqual(check_obf.symbols, 14)
 
 
 if __name__ == '__main__':

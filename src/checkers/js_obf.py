@@ -22,6 +22,7 @@ class CheckObf:
         self.code_len  = self.check_chars_of_line()
         self.unique_chars = self.check_total_unique_chars()
         self.unique_words = self.check_total_unique_words()
+        self.reson = 0
         super().__init__()
 
 
@@ -35,24 +36,30 @@ class CheckObf:
         elif self.code_len < 2000:
             # 真ん中ルート
             if self.code_len / self.unique_chars < 200:
+                self.reson = 1
                 return CheckObfResult.RANDOM
             elif self.unique_chars < self.unique_words:
+                self.reson = 2
                 return CheckObfResult.RANDOM
             else:
+                self.reson = 5
                 return CheckObfResult.ENCODE
         else:
             # 右ルート
             a_b = self.code_len / self.unique_chars
             if a_b < 10:
+                self.reson = 6
                 return CheckObfResult.ENCODE
             elif a_b < 95:
+                self.reson = 3
                 return CheckObfResult.RANDOM
             else:
                 if self.unique_chars > self.unique_words:
+                    self.reson = 7
                     return CheckObfResult.ENCODE
                 else:
+                    self.reson = 4
                     return CheckObfResult.RANDOM
-                # return CheckObfResult.ENCODE
 
 
     def check_chars_of_line(self) -> int:

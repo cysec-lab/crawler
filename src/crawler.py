@@ -10,6 +10,7 @@ from logging import getLogger
 from multiprocessing import Queue, cpu_count
 from time import sleep, time
 from typing import Any, Dict, List, Set, Tuple, Union, cast
+from checkers.js_obf import CheckObf, CheckObfResult
 
 import psutil
 from bs4 import BeautifulSoup
@@ -1109,6 +1110,40 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                                                content=['URL, sjs_rc', page.src + ', ' + page.url])
                 else:
                     logger.error("there are no url_dict, unrechable Bug")
+
+            # 難読化検知
+            logger.debug('obf check...')
+            obf = CheckObf(page.html.decode(encoding='utf-8'))
+            obf_res = obf.check()
+            length = obf.alphabets + obf.numbers + obf.symbols
+            if obf_res == CheckObfResult.ENCODE:
+                logger.info('%s is encoded js!!!', page.url)
+                update_write_file_dict('result', 'js_obf_encode.csv',
+                    content=[
+                        'URL,REASON,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
+                        page.url + ', ' + str(obf.reson) + ', ' + str(length) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                        + ', ' + str(obf.alphabets / length * 100) + ', ' + str(obf.numbers / length * 100) + ', ' + str(obf.symbols / length * 100)
+                        + ', '+ page.src
+                    ])
+            elif obf_res == CheckObfResult.RANDOM:
+                update_write_file_dict('result', 'js_obf_random.csv',
+                    content=[
+                        'URL,REASON,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
+                        page.url + ', ' + str(obf.reson) + ', ' + str(length) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                        + ', ' + str(obf.alphabets / length * 100) + ', ' + str(obf.numbers / length * 100) + ', ' + str(obf.symbols / length * 100)
+                        + ', '+ page.src
+                    ])
+            else:
+                update_write_file_dict('result', 'js_obf_normal.csv',
+                    content=[
+                        'URL,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
+                        page.url + ', ' + str(length) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                        + ', ' + str(obf.alphabets / length * 100) + ', ' + str(obf.numbers / length * 100) + ', ' + str(obf.symbols / length * 100)
+                        + ', '+ page.src
+                    ])
+            logger.debug('obf check...FIN!')
+
+
             num_of_pages += 1
             # mainプロセスにこのURLのクローリング完了を知らせる
             send_data = {'type': 'links', 'url_set': set(), "url_src": page.url}   # 親に送るデータ
