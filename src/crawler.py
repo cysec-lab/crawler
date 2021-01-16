@@ -176,7 +176,11 @@ def init(host: str, screenshots: bool):
     if os.path.exists(org_path + '/RAD/temp/progress_' + f_name + '.pickle'):
         logger.debug("Loading past data... /RAD/temp/progress_%s.pickle", f_name)
         with open(org_path + '/RAD/temp/progress_' + f_name + '.pickle', 'rb') as f:
-            data_temp: Dict[str, Any] = pickle.load(f)
+            try:
+                data_temp: Dict[str, Any] = pickle.load(f)
+            except Exception as err:
+                logger.warning(f'failed to load past data at {f_name}, {err}')
+                os._exit(0) # type: ignore
             num_of_pages = data_temp['num_pages']
             num_of_files = data_temp['num_files']
             url_cache = deepcopy(data_temp['cache'])
@@ -288,14 +292,20 @@ def save_result(alert_process_q: Queue[Union[Alert, str]]):
         path = org_path + '/RAD/df_dict/' + f_name + '.pickle'
         with open(path, 'wb') as f:
             logger.debug('%s: load word_df_dict', f_name)
-            pickle.dump(word_df_dict, f)
+            try:
+                pickle.dump(word_df_dict, f)
+            except Exception as err:
+                logger.exception(f'Failed to save word_df_dict {err}')
     else:
         logger.debug('%s: word_df_dict not exist', f_name)
     if num_of_pages + num_of_files:
         with open(org_path + '/RAD/temp/progress_' + f_name + '.pickle', 'wb') as f:
-            pickle.dump({'num_pages': num_of_pages, 'cache': url_cache, 'request': request_url_set, 'robots': robots,
+            try:
+                pickle.dump({'num_pages': num_of_pages, 'cache': url_cache, 'request': request_url_set, 'robots': robots,
                          "num_files": num_of_files, 'iframe': iframe_src_set, 'link': link_set,
                          'script': script_src_set}, f)
+            except Exception as err:
+                logger.exception(f'Failed to save progress {err}')
     w_file('achievement.txt', "{},{}".format(num_of_pages, num_of_files), mode="w")
     logger.debug("save %s's achievement.txt", f_name)
 
@@ -340,7 +350,10 @@ def save_result(alert_process_q: Queue[Union[Alert, str]]):
         if not os.path.exists(org_path + "/result/" + key):
             os.mkdir(org_path + "/result/" + key)
         with open("{}/result/{}/{}.pickle".format(org_path, key, f_name), "wb") as f:
-            pickle.dump(resource_dict[key], f)
+            try:
+                pickle.dump(resource_dict[key], f)
+            except Exception as err:
+                logger.exception(f'Failed to save result.pickle {err}')
         logger.debug('%s: save %s', f_name, key)
 
 
