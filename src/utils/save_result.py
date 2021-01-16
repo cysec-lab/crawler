@@ -86,7 +86,7 @@ def dealing_after_fact(queue_log: Queue[Any], org_arg: Dict[str,str]):
     logger.info('mv result to check_result : DONE')
 
     # crawler_deinit.pyの実行
-    del_and_make_achievement(result_history_path)
+    del_and_make_achievement(result_history_path, queue_log)
 
     # # 偽サイトの情報をwww.cysec.cs.ritsumei.ac.jpからコピー
     # if '/organization/ritsumeikan' in org_path:

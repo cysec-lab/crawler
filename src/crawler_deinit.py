@@ -1,7 +1,16 @@
+from __future__ import annotations
+
 import os
 import shutil
+from logging import getLogger
+from multiprocessing import Queue
+from time import sleep
+from typing import Any
 
 from utils.file_rw import r_file, w_file
+from utils.logger import worker_configurer
+
+logger = getLogger(__name__)
 
 # クローリング完了後、複数のresult_*に分かれて保存されているデータをまとめる
 
@@ -229,8 +238,9 @@ def cal_num_of_achievement(path: str):
         except FileNotFoundError:
             # 子プロセスが検査を終了する前に結果まとめ処理が始まってしまうのでえらる
             # そのうち子プロセス側から検査したURLを消すように変更する
-            with open(path + "errors.txt", "a") as f:
-                f.write("Error : cal_num_of_achievement failed to open " + server_dir + "achievement.txt / FileNotFoundError")
+            logger.warning(f'cal_num_of_achievement failed to open {server_dir}')
+            sleep(3)
+            lis.append(server_dir)
 
     total = int(total_page) + int(total_file)
     server_dic["total"] = ("{}(p: {}, f: {})".format(total, total_page, total_file), total)
@@ -240,8 +250,7 @@ def cal_num_of_achievement(path: str):
     with open("num_of_achievement.txt", "w") as f:
         f.write(content)
 
-
-def del_and_make_achievement(path: str):
+def del_and_make_achievement(path: str, queue_log: Queue[Any]):
     """
     クローリング完了後に実行
     result/result_*に分けて保存されているデータをまとめて、result/achievement/に保存
@@ -250,13 +259,17 @@ def del_and_make_achievement(path: str):
     args:
         path: org_path /result_history/*/
     """
-
+    worker_configurer(queue_log, logger)
     # ファイル位置を絶対パスで取得
     now_dir = os.path.dirname(os.path.abspath(__file__))
     del_temp_file(path, 0, 0)
     del_dir(path, 0, 0)
+    logger.debug('making achievement...')
     make_achievement(path)
+    logger.debug('making achievement...FIN!')
+    logger.debug('merging server dir...')
     merge_server_dir(path)
+    logger.debug('merging server dir...FIN!')
     cal_num_of_achievement(path)
 
     # 実行ディレクトリに戻る
