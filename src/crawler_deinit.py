@@ -239,8 +239,8 @@ def cal_num_of_achievement(path: str):
             # 子プロセスが検査を終了する前に結果まとめ処理が始まってしまうのでえらる
             # そのうち子プロセス側から検査したURLを消すように変更する
             logger.warning(f'cal_num_of_achievement failed to open {server_dir}')
-            sleep(3)
-            lis.append(server_dir)
+            # sleep(3)
+            # lis.append(server_dir)
 
     total = int(total_page) + int(total_file)
     server_dic["total"] = ("{}(p: {}, f: {})".format(total, total_page, total_file), total)
