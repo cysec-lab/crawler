@@ -4,8 +4,15 @@ import subprocess
 from logging import getLogger
 from multiprocessing import Queue
 from typing import Any, Iterable, List
+from utils.logger import worker_configurer
 
 logger = getLogger(__name__)
+
+def worker_configurer_sys_command(queue_log: Queue[Any]):
+    """
+    Loggerをセット
+    """
+    worker_configurer(queue_log, logger)
 
 def return_children(my_pid: str) -> List[str]:
     """
