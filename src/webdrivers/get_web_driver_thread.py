@@ -34,6 +34,7 @@ class GetFirefoxDriverThread(Thread):
             logger.debug("get webdriver")
             self.driver = webdriver.Firefox(firefox_binary=ff_binary, executable_path=geck_path, firefox_profile=self.fpro,
                                             options=self.options, log_path=path.devnull)
+            self.driver.implicitly_wait(1)
         except selenium.common.exceptions.WebDriverException as e:
             logger.error(f'Web Driver exception: {e}')
             self.driver = False
@@ -44,5 +45,4 @@ class GetFirefoxDriverThread(Thread):
             logger.exception(f'{err}')
             self.driver = False
         finally:
-            self.driver.implicitly_wait(1)
             self.re = True
