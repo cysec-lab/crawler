@@ -4,7 +4,6 @@ import os
 import shutil
 from logging import getLogger
 from multiprocessing import Queue
-from time import sleep
 from typing import Any
 
 from utils.file_rw import r_file, w_file

@@ -198,7 +198,19 @@ cloud.send(d);
         check_obf = CheckObf(src)
         self.assertEqual(check_obf.numbers, 6)
         self.assertEqual(check_obf.alphabets, 7)
-        self.assertEqual(check_obf.symbols, 14)
+        self.assertEqual(check_obf.symbols, 10)
+
+        src = """<!--Thoear
+			    
+          era
+        -->"""
+        check_obf = CheckObf(src)
+        self.assertEqual(check_obf.numbers, 0)
+        self.assertEqual(check_obf.alphabets, 9)
+        self.assertEqual(check_obf.symbols, 7)
+        self.assertEqual(check_obf.blank, 28)
+        self.assertEqual(check_obf.src_len, 44)
+        self.assertEqual(check_obf.len_outwh, 16)
 
 
 if __name__ == '__main__':

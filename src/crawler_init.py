@@ -68,11 +68,19 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     args:
         path: 設定ファイルまでのパス(.../crawler/organization/<hoge>/ROD/LIST)
     return:
-        setting dict: 設定が書かれた辞書型
+        setting_dict: 設定が書かれた辞書型
     """
 
     setting: dict[str, Union[str, int, bool, None]] = dict()
-    bool_variable_list = ['assignOrAchievement', 'screenshots', 'clamd_scan', 'headless_browser', 'mecab', 'html_diff', 'debug']
+    bool_variable_list = [
+        'assignOrAchievement',
+        'screenshots',
+        'clamd_scan',
+        'headless_browser',
+        'mecab',
+        'html_diff',
+        'debug'
+    ]
 
     # デフォルトの設定
     setting['MAX_page'] = 200   # 200ページ
@@ -87,6 +95,7 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
     setting['mecab'] = False
     setting['html_diff'] = False
     setting['debug'] = False
+    setting['clf'] = False
 
     setting_file = r_file(path + '/SETTING.txt')
     setting_line = setting_file.split('\n')
@@ -160,6 +169,15 @@ def get_setting_dict(path: str) -> dict[str, Union[str, bool, int, None]]:
                         setting['MAX_process'] = cpu_count() + value if cpu_count() + value > 0 else 1
                     else:
                         setting['MAX_process'] = value
+
+            elif variable == 'obf_check':
+                # obfチェックを行う決定木へのフルパスが入っている
+                if os.path.exists(right_side):
+                    with open(right_side, 'rb') as f:
+                        setting['clf'] = pickle.load(f)
+                else:
+                    logger.warning('failed to open obf_check path: %s', right_side)
+                    setting['clf'] = None
 
             elif variable in bool_variable_list:
                 # True or Falseの2値しか取らない設定をまとめて調べる

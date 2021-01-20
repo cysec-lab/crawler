@@ -1,6 +1,7 @@
 from __future__ import annotations, unicode_literals
 import re
 from enum import Enum, auto
+from typing import Any
 
 class CheckObfResult(Enum):
     NORMAL = auto()
@@ -16,10 +17,13 @@ class CheckObf:
     """
     def __init__(self, src: str) -> None:
         self.src = src
+        self.src_len   = len(src)
+        self.len_outwh = self.cul_char_by_re(r'[\t\n\r ]')
         self.alphabets = self.cul_char_by_re(r'[^a-zA-Z]')
         self.numbers   = self.cul_char_by_re(r'[^0-9]')
-        self.symbols   = self.cul_char_by_re(r'[a-zA-Z0-9]')
-        self.code_len  = self.check_chars_of_line()
+        self.symbols   = self.cul_char_by_re(r'[a-zA-Z0-9\t\n\r ]')
+        self.blank     = self.cul_char_by_re(r'[^\t\n\r ]')
+        self.max_line  = self.check_chars_of_line()
         self.unique_chars = self.check_total_unique_chars()
         self.unique_words = self.check_total_unique_words()
         self.reson = 0
@@ -30,12 +34,12 @@ class CheckObf:
         """
         暗号化チェックを行う
         """
-        if self.code_len < 400:
+        if self.max_line < 400:
             # 400文字以下の文字列ならば暗号化されていない
             return CheckObfResult.NORMAL
-        elif self.code_len < 2000:
+        elif self.max_line < 2000:
             # 真ん中ルート
-            if self.code_len / self.unique_chars < 200:
+            if self.max_line / self.unique_chars < 200:
                 self.reson = 1
                 return CheckObfResult.RANDOM
             elif self.unique_chars < self.unique_words:
@@ -46,7 +50,7 @@ class CheckObf:
                 return CheckObfResult.ENCODE
         else:
             # 右ルート
-            a_b = self.code_len / self.unique_chars
+            a_b = self.max_line / self.unique_chars
             if a_b < 10:
                 self.reson = 6
                 return CheckObfResult.ENCODE
@@ -60,6 +64,58 @@ class CheckObf:
                 else:
                     self.reson = 4
                     return CheckObfResult.RANDOM
+
+
+    def decision_tree_check(self, clf: Any) -> CheckObfResult:
+        """
+        決定木を用いた検査を行う
+
+        Args
+        - clf: 学習済み決定木
+        """
+
+        if self.src_len == 0:
+            return CheckObfResult.NORMAL
+
+        if self.len_outwh == 0:
+            alpha_pew = 0
+            num_pew = 0
+            sym_pew = 0
+            blank_pew = 1
+        else:
+            alpha_pew = self.alphabets / self.len_outwh
+            num_pew = self.numbers / self.len_outwh
+            sym_pew = self.symbols / self.len_outwh
+            blank_pew =  self.blank / self.len_outwh
+
+
+        data = {
+            'max_len': self.max_line,
+            'alphabets': self.alphabets,
+            'numbers': self.numbers,
+            'symbols': self.symbols,
+            'blank': self.blank,
+            'unique_chars': self.unique_chars,
+            'unique_words': self.unique_words,
+            'alpha_per': self.alphabets / self.src_len,
+            'num_per': self.numbers / self.src_len,
+            'sym_per': self.symbols / self.src_len,
+            'blank_per': self.blank / self.src_len,
+            'alpha_pew': alpha_pew,
+            'num_pew': num_pew,
+            'sym_pew': sym_pew,
+            'blank_pew': blank_pew,
+            'u_chars_per': self.unique_chars / self.src_len,
+            'u_words_per': self.unique_words / self.src_len,
+            'u_char>u_word': self.unique_chars > self.unique_words,
+        }
+        result = clf.predict([list(data.values())])[0]
+        if result == 0:
+            return CheckObfResult.NORMAL
+        elif result == 1:
+            return CheckObfResult.RANDOM
+        else:
+            return CheckObfResult.ENCODE
 
 
     def check_chars_of_line(self) -> int:

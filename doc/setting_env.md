@@ -10,12 +10,19 @@
 - ubuntuでpip3時にエラーが出るとき(python.hが見つからないよ的な)
 - `sudo apt install python3-pip python3-dev`
 - pip install
-  - `pip install selenium mecab-python3 pyclamd psutil beautifulsoup4`
+  - `pip install selenium mecab-python3 pyclamd psutil beautifulsoup4 scikit-learn`
+  - beautifulsoup4
+    - HTMLを解析するためのライブラリ
   - selenium
+    - ヘッドレスブラウザを操作するためのライブラリ
   - mecab-python3
+    - 文字列の形態素解析を行うためのライブラリ
   - pyclamd
+    - ファイルの安全性を確かめるためのClamdAVを利用するためのライブラリ
   - psutil
-  - (matplotlib)
+    - クローラのプロセス状態を確認するために用るライブラリ
+  - scikit-learn
+    - 決定木で難読化JSをみつけるために使っているライブラリ
 
 ## ssdeep
 

@@ -1116,45 +1116,77 @@ def crawler_main(queue_log: Queue[Any], args_dic: dict[str, Any], setting_dict: 
                     elif num_of_days is True:
                         # ハッシュ値が同じ場合
                         update_write_file_dict('result', 'js_hash_same.csv',
-                                               content=['URL, js_src', page.src + ', ' + page.url])
+                                               content=['URL, from_url', page.url + ', ' + page.src])
                     elif num_of_days is False:
                         # 新規JSの場合
                         update_write_file_dict('result', 'js_new.csv',
-                                               content=['URL, sjs_rc', page.src + ', ' + page.url])
+                                               content=['URL, from_url', page.url + ', ' + page.src])
                 else:
                     logger.error("there are no url_dict, unrechable Bug")
 
             # 難読化検知
             logger.debug('obf check...')
             obf = CheckObf(page.html.decode(encoding='utf-8'))
+
+            ## 旧論文をもとに実装したもの
             obf_res = obf.check()
-            length = obf.alphabets + obf.numbers + obf.symbols
             if obf_res == CheckObfResult.ENCODE:
                 logger.info('%s is encoded js!!!', page.url)
                 update_write_file_dict('result', 'js_obf_encode.csv',
                     content=[
                         'URL,REASON,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
-                        page.url + ', ' + str(obf.reson) + ', ' + str(length) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
-                        + ', ' + str(obf.alphabets / length * 100) + ', ' + str(obf.numbers / length * 100) + ', ' + str(obf.symbols / length * 100)
+                        page.url + ', ' + str(obf.reson) + ', ' + str(obf.src_len) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                        + ', ' + str(obf.alphabets / obf.src_len) + ', ' + str(obf.numbers / obf.src_len) + ', ' + str(obf.symbols / obf.src_len)
                         + ', '+ page.src
                     ])
             elif obf_res == CheckObfResult.RANDOM:
                 update_write_file_dict('result', 'js_obf_random.csv',
                     content=[
                         'URL,REASON,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
-                        page.url + ', ' + str(obf.reson) + ', ' + str(length) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
-                        + ', ' + str(obf.alphabets / length * 100) + ', ' + str(obf.numbers / length * 100) + ', ' + str(obf.symbols / length * 100)
+                        page.url + ', ' + str(obf.reson) + ', ' + str(obf.src_len) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                        + ', ' + str(obf.alphabets / obf.src_len) + ', ' + str(obf.numbers / obf.src_len) + ', ' + str(obf.symbols / obf.src_len)
                         + ', '+ page.src
                     ])
             else:
                 update_write_file_dict('result', 'js_obf_normal.csv',
                     content=[
                         'URL,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
-                        page.url + ', ' + str(length) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
-                        + ', ' + str(obf.alphabets / length * 100) + ', ' + str(obf.numbers / length * 100) + ', ' + str(obf.symbols / length * 100)
+                        page.url + ', ' + str(obf.src_len) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                        + ', ' + str(obf.alphabets / obf.src_len) + ', ' + str(obf.numbers / obf.src_len) + ', ' + str(obf.symbols / obf.src_len)
                         + ', '+ page.src
                     ])
             logger.debug('obf check...FIN!')
+
+
+            ## 作成した決定木を用いた難読化検知
+            if setting_dict['clf'] != False:
+                obf_res = obf.decision_tree_check(setting_dict['clf'])
+                if obf_res == CheckObfResult.ENCODE:
+                    logger.info('%s is encoded js!!!', page.url)
+                    update_write_file_dict('result', 'js_obftree_encode.csv',
+                        content=[
+                            'URL,REASON,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
+                            page.url + ', ' + str(obf.reson) + ', ' + str(obf.src_len) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                            + ', ' + str(obf.alphabets / obf.src_len) + ', ' + str(obf.numbers / obf.src_len) + ', ' + str(obf.symbols / obf.src_len)
+                            + ', '+ page.src
+                        ])
+                elif obf_res == CheckObfResult.RANDOM:
+                    update_write_file_dict('result', 'js_obftree_random.csv',
+                        content=[
+                            'URL,REASON,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
+                            page.url + ', ' + str(obf.reson) + ', ' + str(obf.src_len) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                            + ', ' + str(obf.alphabets / obf.src_len) + ', ' + str(obf.numbers / obf.src_len) + ', ' + str(obf.symbols / obf.src_len)
+                            + ', '+ page.src
+                        ])
+                else:
+                    update_write_file_dict('result', 'js_obftree_normal.csv',
+                        content=[
+                            'URL,len,alpabets,number,symboles,alp_per,num_perr,sym_per,src,',
+                            page.url + ', ' + str(obf.src_len) + ', ' + str(obf.alphabets) + ', ' + str(obf.numbers) + ', ' + str(obf.symbols)
+                            + ', ' + str(obf.alphabets / obf.src_len) + ', ' + str(obf.numbers / obf.src_len) + ', ' + str(obf.symbols / obf.src_len)
+                            + ', '+ page.src
+                        ])
+                logger.debug('tree check...FIN!')
 
 
             num_of_pages += 1
