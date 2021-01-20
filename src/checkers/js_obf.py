@@ -26,6 +26,29 @@ class CheckObf:
         self.max_line  = self.check_chars_of_line()
         self.unique_chars = self.check_total_unique_chars()
         self.unique_words = self.check_total_unique_words()
+
+        if self.len_outwh == 0:
+            self.alpha_pew = 0
+            self.num_pew = 0
+            self.sym_pew = 0
+            self.blank_pew = 1
+        else:
+            self.alpha_pew = self.alphabets / self.len_outwh
+            self.num_pew = self.numbers / self.len_outwh
+            self.sym_pew = self.symbols / self.len_outwh
+            self.blank_pew =  self.blank / self.len_outwh
+
+        if self.src_len == 0:
+            self.alpha_per = 0
+            self.num_per = 0
+            self.sym_per = 0
+            self.blank_per = 1
+        else:
+            self.alpha_per = self.alphabets / self.src_len
+            self.num_per = self.numbers / self.src_len
+            self.sym_per = self.symbols / self.src_len
+            self.blank_per =  self.blank / self.src_len
+
         self.reson = 0
         super().__init__()
 
@@ -77,18 +100,6 @@ class CheckObf:
         if self.src_len == 0:
             return CheckObfResult.NORMAL
 
-        if self.len_outwh == 0:
-            alpha_pew = 0
-            num_pew = 0
-            sym_pew = 0
-            blank_pew = 1
-        else:
-            alpha_pew = self.alphabets / self.len_outwh
-            num_pew = self.numbers / self.len_outwh
-            sym_pew = self.symbols / self.len_outwh
-            blank_pew =  self.blank / self.len_outwh
-
-
         data = {
             'max_len': self.max_line,
             'alphabets': self.alphabets,
@@ -97,14 +108,14 @@ class CheckObf:
             'blank': self.blank,
             'unique_chars': self.unique_chars,
             'unique_words': self.unique_words,
-            'alpha_per': self.alphabets / self.src_len,
-            'num_per': self.numbers / self.src_len,
-            'sym_per': self.symbols / self.src_len,
-            'blank_per': self.blank / self.src_len,
-            'alpha_pew': alpha_pew,
-            'num_pew': num_pew,
-            'sym_pew': sym_pew,
-            'blank_pew': blank_pew,
+            'alpha_per': self.alpha_per,
+            'num_per': self.num_per,
+            'sym_per': self.sym_per,
+            'blank_per': self.blank_per,
+            'alpha_pew': self.alpha_pew,
+            'num_pew': self.num_pew,
+            'sym_pew': self.sym_pew,
+            'blank_pew': self.blank_pew,
             'u_chars_per': self.unique_chars / self.src_len,
             'u_words_per': self.unique_words / self.src_len,
             'u_char>u_word': self.unique_chars > self.unique_words,
