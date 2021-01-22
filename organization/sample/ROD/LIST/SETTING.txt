@@ -72,3 +72,13 @@ screenshots_svc=False
 # 機械学習でtagによる分類を使うか。
 # TrueかFalseのみ
 machine_learning=False
+
+# obf_check
+# JSの難読化分析を行う
+# scikit-learn を用いた決定木を作成し、パスを入れることで動作する
+obf_check=/home/cysec/Documents/crawler/src/files/experimental-tree.pkl
+
+# debug
+# デバッグモードのオンオフ
+# デフォルトではオフになる、HTMLがすべて記録されたりするので基本的にはオフにしておく
+debug=False

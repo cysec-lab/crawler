@@ -7,6 +7,8 @@
     - [js_new.csv](#js_newcsv)
     - [js_hash_same.csv](#js_hash_samecsv)
     - [js_hash_change.csv](#js_hash_changecsv)
+    - [js_obf_<normal, random. encode>.csv](#js_obf_normal-random-encodecsv)
+    - [js_obftree_<normal, random. encode>.csv](#js_obftree_normal-random-encodecsv)
   - [page関連の結果](#page関連の結果)
     - [page_script_in_title.csv](#page_script_in_titlecsv)
     - [page_strange_script_name.csv](#page_strange_script_namecsv)
@@ -59,6 +61,29 @@ JSのhashが変化しなかった場合に記録される
 ### js_hash_change.csv
 
 JSのハッシュ値が変化した場合に記録される
+
+### js_obf_<normal, random. encode>.csv
+
+既存研究(難読化の特徴を利用したドライブバイダウンロード攻撃検知についての検討)で実装されたJSの難読化検証決定木を用いた難読化判定を行う。
+
+- normal
+  - 通常のコード
+- random
+  - ランダム難読化が施されたコード
+- encode
+  - エンコード難読化が施されている
+
+### js_obftree_<normal, random. encode>.csv
+
+独自に作成した決定木を用いてJSの難読化検知を行った結果が格納される
+
+- normal
+  - 通常のコード
+- random
+  - ランダム難読化が施されたコード
+- encode
+  - エンコード難読化が施されている
+
 
 ## page関連の結果
 
