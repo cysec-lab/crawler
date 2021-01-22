@@ -454,7 +454,8 @@ def parser(parse_args_dic: Dict[str, Any], setting_dict: Dict[str, Any]):
                     label = 'InitialURL, URL, LINK'
                 ))
     if page.script_url:
-        js_set: Set[Tuple[str, Union[str, bool]]] = {(src, True) for src in page.script_url}
+        js_script_url_all = page.script_url | page.request_url_from_ex
+        js_set: Set[Tuple[str, Union[str, bool]]] = {(src, True) for src in js_script_url_all}
         result_set = result_set | js_set
 
     # 組織内かどうかをチェックしたリンクURLをすべて親に送信
