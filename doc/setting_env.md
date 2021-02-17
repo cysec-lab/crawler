@@ -2,13 +2,12 @@
 
 ## install
 
-### python module
+### python
 
-- ubuntuでpython3.5にpip
-  - `apt-get install python3-setuptools`
-  - `easy_install3 pip`
-- ubuntuでpip3時にエラーが出るとき(python.hが見つからないよ的な)
-- `sudo apt install python3-pip python3-dev`
+- Python3.9 で動かしていた
+  - 開発時点ではソースコードからビルドして環境を開発していた
+  - 理由としては型付の自由度の高さ
+  - venvで仮想のPip環境を作ることで依存関係等を処理していた
 - pip install
   - `pip install selenium mecab-python3 pyclamd psutil beautifulsoup4 scikit-learn`
   - beautifulsoup4
@@ -23,6 +22,26 @@
     - クローラのプロセス状態を確認するために用るライブラリ
   - scikit-learn
     - 決定木で難読化JSをみつけるために使っているライブラリ
+
+```
+(env) $ pip freeze
+beautifulsoup4==4.9.3
+cffi==1.14.4
+joblib==1.0.0
+mecab-python3==1.0.1
+numpy==1.19.5
+psutil==5.7.2
+pyClamd==0.4.0
+pycparser==2.20
+scikit-learn==0.24.1
+scipy==1.6.0
+selenium==3.141.0
+six==1.15.0
+soupsieve==2.0.1
+ssdeep==3.4
+threadpoolctl==2.1.0
+urllib3==1.25.10
+```
 
 ## ssdeep
 
