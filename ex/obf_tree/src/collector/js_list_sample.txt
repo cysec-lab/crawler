@@ -1,0 +1,5 @@
+URL,REASON,len
+http://www.gstatic.com/sites/p/4d35ca/system/js/jot_min_view__ja.js, 6, 32
+https://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8thKUO79Qbrha0Yj85_aQnFPDM9MRz9M08WpUUoXYzUxeLkGhfXfA4CozX2E3ITgsBiPHRvomzYv6W92DXlhvTuysLVpc/api/js?anon=true&pref=2
+https://docs.google.com/comments/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8tgsMM9i_ZjZ8F-hsTEZ1SqA1LwyMqfC8ur2d6HaeEwmbBMzkaeC1V5aVPgAZuC_Uwi-cB8vgmUG1v8RuTDvAP8pW5-Ys/api/js?anon=true&pref=2
+https://48.docs.google.com/comments/u/0/d/AAHRpnXvZUGQNsfbGbCOd3qowRdD5b9mvCRlxKsK-2BFkDQ-8th_bSTftpwYDQ0CGUgPJ4XsRoERBu1pC_LhStxnHOesxhekgNN-zKE-KwmjicAyYdPKz_K4olkAyI8gnb2bLxA-ESit2/js/host?token

@@ -26,6 +26,7 @@ crawler/
   |  |  └- ユニットテストたち
   |  ├- files/
   |  |  └- クローリングプロセスで使用するファイル
+  |  |      └- .pkl 難読化検知を行うための決定木データ
   |  └- extensions/
   |      ├- CrawlerExtension.xpi
   |      └- CrowlerExtension/
@@ -40,7 +41,9 @@ crawler/
   |  └- mal_site/
   |      └- 研究室内自作悪性サーバ(192.168.0.233)のHTML
   └ ex/
-       └今は使用していないファイル
+       ├- obf_tree
+       |  └- 難読化検知を行う決定木(.pkl)の作成を行うコード
+       └- 今は使用していないファイル
 ```
 
 organization/ritsumeikan/の中にクローリング結果が保存されていく。  
