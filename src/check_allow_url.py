@@ -1,23 +1,35 @@
-﻿from threading import Thread, Lock
 import socket
-from urllib.parse import urlparse
+from logging import getLogger
+from threading import Lock, Thread
 from time import sleep
+from typing import Any, Dict, List, Optional, Tuple, Union, cast
+import re
+from re import Pattern
+from urllib.parse import urlparse
 
+logger = getLogger(__name__)
 
-# IPアドレスのチェックだけスレッドで行う(時間がかかる可能性があるため)
 class CheckSearchedIPAddressThread(Thread):
-    def __init__(self, url_tuple, run_time, ip_address_dict):
+    """
+    クローリングするURLかどうかを判定するスレッド
+    もともとは全フィルタのチェックをスレッドでしていたが、今はIPアドレスのチェックだけ。
+    """
+    def __init__(self, url_tuple: Tuple[str, str], run_time: int, ip_address_dict: dict[str, str]):
+        """
+        親クラスを継承した子クラスの作成
+        """
         super(CheckSearchedIPAddressThread, self).__init__()
         self.url_tuple = url_tuple
         self.url_host = urlparse(url_tuple[0]).netloc
         if "allow" in ip_address_dict:
-            self.IPAddress_allow = ip_address_dict["allow"]
+            self.IPAddress_allow: Union[str, list[str]] = ip_address_dict["allow"]
         else:
-            self.IPAddress_allow = list()
+            self.IPAddress_allow: Union[str, list[str]] = list()
         self.result = run_time
         self.lock = Lock()
 
     def run(self):
+        logger.info("Checking searched ip address...")
         self.lock.acquire()   # 最後にacquireするときに自身でデッドロックをかけるため
         crawling_flag = False
 
@@ -25,7 +37,8 @@ class CheckSearchedIPAddressThread(Thread):
         if self.IPAddress_allow:
             try:
                 o = socket.getaddrinfo(self.url_host, 80, 0, 0, proto=socket.IPPROTO_TCP)
-            except Exception as e:
+            except Exception as err:
+                logger.exception(f'{self.url_host} is Unkown url? Exception occur: {err}')
                 # wa_file('get_addinfo_e.csv', check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n')
                 # crawling_flag = check_url + ',' + self.url_tuple[1] + ',' + str(e) + '\n'
                 crawling_flag = "Unknown"
@@ -41,9 +54,11 @@ class CheckSearchedIPAddressThread(Thread):
         self.lock.acquire(timeout=120)   # runの一行目でacquireしているので、メインスレッドでreleaseされるまでデッドロックがかかる
 
 
-# filtering_dictで調べて、接続許可が出ればTrue、拒否されればFalseかstr
-# IPアドレスのチェックまでするなら、thread Object が返る。
-def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
+def check_searched_url(url_tuple: Tuple[str, str], run_time: int, filtering_dict: Any, special_white: Any=None)->Union[CheckSearchedIPAddressThread, bool, str]:
+    """
+    filtering_dictで調べて、接続許可が出ればTrue、拒否されればFalseかstr
+    IPアドレスのチェックまでするなら、thread Object が返る。
+    """
     domain_allow = filtering_dict["DOMAIN"]["allow"]
     domain_deny = filtering_dict["DOMAIN"]["deny"]
     white = filtering_dict["WHITE"]
@@ -57,6 +72,17 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
         return False
     else:
         # 組織外URLはFalse. 組織内だがブラリスの場合は'black'、 不明の場合は'unknown'
+
+        if "ONLY" in filtering_dict and filtering_dict["ONLY"]:
+            # RODで ONLY.json が設定されている場合
+            # 設定に書かれているURL正規表現に合わないものはすべてアクセスしない Black として処理
+            only_access_regex_pattern: Pattern[str] = filtering_dict["ONLY"]
+            result = only_access_regex_pattern.match(check_url)
+            if result:
+                # 当てはまる場合はクローリングする
+                return True
+            else:
+                return 'Black'
 
         # リンクやリクエストの特別なホワイトリストがあれば
         if special_white:
@@ -85,7 +111,10 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
 
     # IPアドレスのチェックをする (そもそもホスト名だけを指定してくれていれば、このスレッドは作らなくていい)
     if filtering_dict["IPAddress"]:
-        t = CheckSearchedIPAddressThread(url_host, run_time, filtering_dict["IPAddress"], )
+        # TODO: rm いま設定的に使っていないから割と雑ここ呼び出されてたの？型違うけど
+        # t = CheckSearchedIPAddressThread(url_host, run_time, filtering_dict["IPAddress"], )
+        logger.info('Todo ここの処理呼び出されないんじゃない？？')
+        t = CheckSearchedIPAddressThread(url_tuple, run_time, filtering_dict["IPAddress"], )
         t.setDaemon(True)  # daemonにすることで、メインスレッドはこのスレッドが生きていても死ぬことができる
         try:
             t.start()
@@ -97,27 +126,36 @@ def check_searched_url(url_tuple, run_time, filtering_dict, special_white=None):
     return False
 
 
-# url_listのURLが安全かどうかをフィルタを使って確かめる
-# 診断が終わったURLの集合。 要素はタプル(url, "診断結果")
-# "診断結果"にはそれぞれ、　クローリング対象URL： True、　組織内だがブラックリストでクローリングしないURL： "Black"、　組織外URL：　False、　
-# IPアドレス検査をしようとして失敗したURL： "Unknown"、　リンクやリクエストなどの特別ホワイトリストによってフィルタされたURL： "Special"　が入る
-def inspection_url_by_filter(url_list, filtering_dict, special_filter=None):
-    result_set = set()
-    thread_set = set()
+def inspection_url_by_filter(url_list: set[str], filtering_dict: Any, special_filter: Optional[Dict[str, List[str]]]=None) -> set[Tuple[str, Union[str,bool]]]:
+    """
+    url_listのURLが安全かどうかをフィルタを使って確かめる
+    診断が終わったURLの集合。 要素はタプル(url, "診断結果")
+    "診断結果"にはそれぞれ
+    - クローリング対象URL: True
+    - 組織内だがブラックリストでクローリングしないURL: "Black"
+    - 組織外URL: False
+    - IPアドレス検査をしようとして失敗したURL: "Unknown"
+    - リンクやリクエストなどの特別ホワイトリストによってフィルタされたURL: "Special"
+    """
+    result_set: set[Tuple[str, Union[str,bool]]] = set()
+    thread_set: set[CheckSearchedIPAddressThread] = set()
     for url in url_list:
         res = check_searched_url(url_tuple=(url, ""), run_time=0, filtering_dict=filtering_dict,
                                  special_white=special_filter)
         # 返り値のタイプがスレッド型の場合、IPアドレスのチェックを行っている
         if type(res) == CheckSearchedIPAddressThread:
+            res = cast(CheckSearchedIPAddressThread, res)
             thread_set.add(res)
         else:
             res = (url, res)
+            res = cast(Tuple[str, Union[str, bool]], res)
             result_set.add(res)
 
-    # IPアドレスのチェックが行われているスレッドが終わるまで最大10秒待つ  (立命クローリングではIPアドレスを設定していないので実行されない)
+    # IPアドレスのチェックが行われているスレッドが終わるまで最大10秒待つ
+    # (立命クローリングではIPアドレスを設定していないので実行されない)
     if thread_set:
-        for i in range(10):
-            rm_list = list()
+        for _ in range(10):
+            rm_list: list[CheckSearchedIPAddressThread] = list()
             for thread in thread_set:
                 if type(thread.result) is not int:
                     res = (thread.url_tuple[0], thread.result)

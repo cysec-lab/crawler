@@ -1,29 +1,37 @@
-import os
+from __future__ import annotations
+
 import json
-from math import log
+import os
 import pickle
 from collections import Counter
+from logging import getLogger
+from math import log
+from multiprocessing import Queue
+from typing import Any, Dict
 from urllib.parse import urlparse
 
-from file_rw import r_file
-
-"""
-クローリング後にサーバごとの
-tf-idf値
-ページのロードに行ったリクエストのURL集合
-iframeのsrc先URLの集合
-をまとめて保存する
-また、リンク、リクエストURLの既知サーバを示すホワイトリストのフィルタを作成する
-"""
+from utils.file_rw import r_file
+from utils.logger import worker_configurer
 
 request_url = set()  # matome.jsonに保存する内容
 iframe_url = set()   # グローバル変数にしておかないと、exec()関数内で更新できない
 link_url = set()
 script_url = set()
 
+logger = getLogger(__name__)
 
-def make_idf_dict_frequent_word_dict(org_path):
-    df_dict = dict()   # {file名(server.json) : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
+
+def make_idf_dict_frequent_word_dict(queue_log: Queue[Any],org_path: str):
+    """
+    クローリング後にサーバごとの
+    tf-idf値
+    ページのロードに行ったリクエストのURL集合
+    iframeのsrc先URLの集合
+    をまとめて保存する
+    また、リンク、リクエストURLの既知サーバを示すホワイトリストのフィルタを作成する
+    """
+    worker_configurer(queue_log, logger)
+    df_dict: Dict[str, Dict[str, Any]] = dict()   # {file名(server.json) : {単語:df値, 単語:df値, ...}, server : {df辞書}, ... , server : {df辞書} }
     if not os.path.exists(org_path + '/ROD/idf_dict'):
         os.mkdir(org_path + '/ROD/idf_dict')
 
@@ -50,8 +58,8 @@ def make_idf_dict_frequent_word_dict(org_path):
 
     # 頻出単語辞書の作成
     for file_name, dic in df_dict.items():
-        frequent_words = list()
-        for word, df in sorted(dic.items(), key=lambda x: x[1], reverse=True):
+        frequent_words: list[str] = list()
+        for word, _ in sorted(dic.items(), key=lambda x: x[1], reverse=True):
             if word != 'NumOfPages':
                 frequent_words.append(word)
             if len(frequent_words) == n:
@@ -65,7 +73,7 @@ def make_idf_dict_frequent_word_dict(org_path):
     c = 0
     for pickle_file in pickle_files:
 
-        idf_dict = dict()
+        idf_dict: Dict[str, float] = dict()
         with open(org_path + '/RAD/df_dict/' + pickle_file, 'rb') as f:
             dic = pickle.load(f)
         if len(dic) == 0:
@@ -89,15 +97,16 @@ def make_idf_dict_frequent_word_dict(org_path):
         c += 1
 
 
-# alertdirの link_to_new_server.csv と new_request_url.csv から フィルタを作る
-# フィルタは　alertに記録されたURLのホスト名から作る (パスの途中まで設定できるようになっているが、その調整は手動でする)
-# 作ったフィルタは org_path/ に保存
-def make_filter(org_path):
+def make_filter(org_path: str):
+    """
+    alertdirの link_to_new_server.csv と new_request_url.csv から フィルタを作る
+    フィルタは alert に記録されたURLのホスト名から作る (パスの途中まで設定できるようになっているが、その調整は手動でする)
+    作ったフィルタは org_path/ に保存
+    """
     obj_list = ["link", "request"]
-
     for obj in obj_list:
         new_url_set = set()
-        new_url_filter = dict()
+        new_url_filter: Dict[str, list[str]] = dict()
 
         # ファイルロード
         if os.path.exists("{}/alert/{}_to_new_server.csv".format(org_path, obj)):
@@ -117,9 +126,9 @@ def make_filter(org_path):
             json.dump(new_url_filter, f)
 
 
-def merge_filter(org_path):
+def merge_filter(org_path: str):
     obj_list = ["link", "request"]
-    temp_dict = dict()
+    temp_dict: Dict[str, Dict[str, Any]] = dict()
 
     # link と request の文字部分以外は処理が同じなので、 for文でまとめる
     for obj in obj_list:
@@ -154,12 +163,15 @@ def merge_filter(org_path):
             json.dump(temp_dict["old_{}_filter".format(obj)], f)
 
 
-# 1. lis = RAD/tempの中のpickleファイルを順番に開いていく(ファイルの中身は辞書)
-# 2. url_set = 過去のデータ(ROD/[object]_url/ホスト名.json)のファイルを開く
-# 3. 辞書から特定のkey(object_list)のデータを取得
-# 4. それぞれのデータ(pick[obj])を過去(ROD)のデータ(url_set)とマージする
-# 5. マージしたデータ(url_set)を ROD/[object]_url/ホスト名.json に保存
-def make_request_url_iframeSrc_link_host_set(org_path):
+def make_request_url_iframeSrc_link_host_set(queue_log: Queue[Any], org_path: str):
+    """
+    1. lis = RAD/tempの中のpickleファイルを順番に開いていく(ファイルの中身は辞書)
+    2. url_set = 過去のデータ(ROD/[object]_url/ホスト名.json)のファイルを開く
+    3. 辞書から特定のkey(object_list)のデータを取得
+    4. それぞれのデータ(pick[obj])を過去(ROD)のデータ(url_set)とマージする
+    5. マージしたデータ(url_set)を ROD/[object]_url/ホスト名.json に保存
+    """
+    worker_configurer(queue_log, logger)
     object_list = ['request', 'iframe', 'link', 'script']
 
     # RODに保存dirがなければ作る
@@ -210,10 +222,17 @@ def make_request_url_iframeSrc_link_host_set(org_path):
             if 'matome.json' in file_name:
                 continue
             # matome.json以外で、過去に見つけていたが今回見つからなかったサーバの情報を追加
+            # TODO: 未完成のところ
             if file_name not in file_name_set:
                 with open(org_path + '/ROD/' + obj + '_url/' + file_name, 'r') as f:
-                    tmp = json.load(f)
-                exec(obj + "_url.update(set(tmp))")
+                    tmp = json.load(f) # type: ignore
+                    try:
+                        exec(obj + "_url.update(set(tmp))")
+                    except Exception as err:
+                        logger.exception(f'{err}')
         # 全サーバの情報をまとめた集合を保存、クローリング時にはこれを使う
         with open(org_path + '/ROD/' + obj + '_url/matome.json', 'w') as f:
-            exec("json.dump(list(" + obj + "_url), f)")
+            try:
+                exec("json.dump(list(" + obj + "_url), f)")
+            except Exception as err:
+                logger.exception(f'{err}')

@@ -1,4 +1,3 @@
-
 var running = false;
 var currentTab = null;
 var request_num = 0;
@@ -6,14 +5,17 @@ var download_num = 0;
 var request_list = [];
 var download_list = [];
 var history_list = [];
+var js_list = [];
 
 function onCreated(tab){
     currentTab = tab;
     console.log(currentTab);
 }
+
 function onError(error){
     console.log("Error : ${error}");
 }
+
 // create new tab to communicate with python
 var creating = browser.tabs.create({url: "Watcher.html"});
 creating.then(onCreated, onError);
@@ -32,13 +34,14 @@ browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     else if (message.description == "stop_watching"){
         if (running == true){
             running = false;
-            var message = new Object({description: "dataList", request: request_list, download: download_list, history: history_list});
+            var message = new Object({description: "dataList", request: request_list, download: download_list, history: history_list, js: js_list});
             send_message(message);
             request_num = 0;
             download_num = 0;
             request_list = [];
             download_list = [];
             history_list = [];
+            js_list = [];
         }
     }
 });
@@ -47,29 +50,33 @@ browser.runtime.onMessage.addListener(function (message, sender, sendResponse) {
 browser.webRequest.onBeforeRequest.addListener(
     function (details) {
         if (running){
-            // console.log(details.url);
             request_num++;
             if (details.url.indexOf("data:") != 0){
                 var message = new Object({no: request_num, data: details});
                 request_list.push(message);
-    //            console.log("details");
-    //            console.log(details);
-    //            let filter = browser.webRequest.filterResponseData(details.requestId);
-    //            filter.ondata = event => {
-    //                console.log("data");
-    //                console.log(event.data);
-    //                console.log("event")
-    //                console.log(event)
-    //                filter.write(event.data);
-    //                filter.disconnect();
-    //            }
             }
         }
     },
     {urls: ['<all_urls>']},
     []
-    //["blocking"]
 );
+
+// Get url's response type
+// If the response type is js, print it
+// https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/webRequest/ResourceType
+browser.webRequest.onHeadersReceived.addListener(
+    function (e) {
+        if (running) {
+            if (e.type == "script") {
+                var message = new Object({url: e.url});
+                js_list.push(message);
+            }
+        }
+    },
+    {urls: ['<all_urls>']},
+    []
+);
+
 // Watching File-Download
 browser.downloads.onCreated.addListener(
     function (item) {
@@ -81,6 +88,7 @@ browser.downloads.onCreated.addListener(
         }
     }
 );
+
 // Watching Visited-WebPage
 browser.history.onVisited.addListener(
     function (historyItem) {

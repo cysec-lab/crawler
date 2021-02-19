@@ -1,0 +1,19 @@
+- DOMAIN.json
+  - allow
+    - 検索を許可するドメイン名(リスト)。ドメイン名がこの文字列で終わるURLは組織内とする
+  - deny
+    - 検索しないドメイン名(リスト)。ドメイン名が以下の文字列で終わるURLは検索しない
+- WHITE.json
+  - ホスト名: [パス]
+    - `{"deaa5a66-a-07fcfe3b-s-sites.googlegroups.com": ["/a/pep-rg.jp/"], "sites.google.com": ["/site/ritsubi/", "/site/cidllaboratory/", "/a/cysec.cs.ritsumei.ac.jp/www/", "/a/nsl.ics.ritsumei.ac.jp/nsl/"]}`
+  - ホスト名のURLで、リストの文字列を含む場合はクローリングする。
+- IPAddress.json
+  - allow: [IPアドレス]
+    - 検索を許可するIPアドレス
+- REDIRECT.json
+  - allow
+    - リダイレクト後として安全なホスト名の辞書。keyはホスト名(の後半部分)。valueはパス(の途中)のリスト
+  - deny
+    - リダイレクト後として危険なホスト名の辞書。(処理は未実装)
+- BLACK.json
+  - 文字のリスト。この文字を含むURLは検索しない。
